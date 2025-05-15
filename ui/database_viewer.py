@@ -4,6 +4,7 @@ from data.db_manager import get_db_session, get_db_engine, StockDataCache, Watch
 import json
 import io
 from sqlalchemy import text
+from datetime import datetime
 
 def display_database_viewer():
     """
@@ -26,18 +27,18 @@ def display_database_viewer():
             
             if watchlist_data:
                 # Convert to list of dictionaries
-                watchlist_df = pd.DataFrame([
-                    {
+                watchlist_records = []
+                for item in watchlist_data:
+                    watchlist_records.append({
                         'ID': item.id,
                         'Ticker': item.ticker,
                         'Name': item.name,
                         'Exchange': item.exchange,
                         'Sector': item.sector,
                         'Added Date': item.added_date
-                    }
-                    for item in watchlist_data
-                ])
+                    })
                 
+                watchlist_df = pd.DataFrame(watchlist_records)
                 st.dataframe(watchlist_df)
                 st.info(f"Total records: {len(watchlist_data)}")
             else:
@@ -57,29 +58,36 @@ def display_database_viewer():
             
             if cache_data:
                 # Convert to list of dictionaries
-                cache_df = pd.DataFrame([
-                    {
-                        'ID': item.id,
-                        'Ticker': item.ticker,
-                        'Timeframe': item.timeframe,
-                        'Period': item.period,
-                        'Source': item.source,
-                        'Timestamp': pd.to_datetime(int(item.timestamp), unit='s'),
-                        'Data Size (bytes)': len(str(item.data)) if item.data else 0
-                    }
-                    for item in cache_data
-                ])
+                cache_records = []
+                for item in cache_data:
+                    try:
+                        timestamp_dt = datetime.fromtimestamp(item.timestamp)
+                        data_size = len(str(item.data)) if item.data else 0
+                        
+                        cache_records.append({
+                            'ID': item.id,
+                            'Ticker': item.ticker,
+                            'Timeframe': item.timeframe,
+                            'Period': item.period,
+                            'Source': item.source,
+                            'Timestamp': timestamp_dt,
+                            'Data Size (bytes)': data_size
+                        })
+                    except Exception as e:
+                        st.warning(f"Skipped record due to: {str(e)}")
                 
+                cache_df = pd.DataFrame(cache_records)
                 st.dataframe(cache_df)
-                st.info(f"Total cached stock records: {len(cache_data)}")
+                st.info(f"Total cached stock records: {len(cache_records)}")
                 
                 # Option to view data for a specific ticker
-                if cache_data:
+                if cache_records:
                     # Extract ticker strings for display
                     ticker_strings = []
-                    for item in cache_data:
-                        if item.ticker not in ticker_strings:
-                            ticker_strings.append(str(item.ticker))
+                    for record in cache_records:
+                        ticker = record['Ticker']
+                        if ticker not in ticker_strings:
+                            ticker_strings.append(ticker)
                     ticker_strings.sort()
                     
                     selected_ticker = st.selectbox("Select ticker to view cached data:", ticker_strings)
@@ -99,7 +107,7 @@ def display_database_viewer():
                                 
                                 if data_str:
                                     # Parse the JSON data
-                                    df = pd.read_json(io.StringIO(data_str))
+                                    df = pd.read_json(data_str)
                                     st.subheader(f"Preview of {selected_ticker} data:")
                                     st.dataframe(df.head(10))
                                     
@@ -127,23 +135,28 @@ def display_database_viewer():
             
             if fundamentals_data:
                 # Convert to list of dictionaries
-                fund_df = pd.DataFrame([
-                    {
-                        'Ticker': item.ticker,
-                        'P/E Ratio': item.pe_ratio,
-                        'Profit Margin': item.profit_margin,
-                        'Revenue Growth': item.revenue_growth,
-                        'Earnings Growth': item.earnings_growth,
-                        'Book Value': item.book_value,
-                        'Market Cap': item.market_cap,
-                        'Dividend Yield': item.dividend_yield,
-                        'Last Updated': pd.to_datetime(int(item.last_updated), unit='s')
-                    }
-                    for item in fundamentals_data
-                ])
+                fund_records = []
+                for item in fundamentals_data:
+                    try:
+                        last_updated_dt = datetime.fromtimestamp(item.last_updated)
+                        
+                        fund_records.append({
+                            'Ticker': item.ticker,
+                            'P/E Ratio': item.pe_ratio,
+                            'Profit Margin': item.profit_margin,
+                            'Revenue Growth': item.revenue_growth,
+                            'Earnings Growth': item.earnings_growth,
+                            'Book Value': item.book_value,
+                            'Market Cap': item.market_cap,
+                            'Dividend Yield': item.dividend_yield,
+                            'Last Updated': last_updated_dt
+                        })
+                    except Exception as e:
+                        st.warning(f"Skipped fundamental record due to: {str(e)}")
                 
+                fund_df = pd.DataFrame(fund_records)
                 st.dataframe(fund_df)
-                st.info(f"Total fundamental records: {len(fundamentals_data)}")
+                st.info(f"Total fundamental records: {len(fund_records)}")
             else:
                 st.info("No fundamentals cache records found.")
             
@@ -165,7 +178,8 @@ def display_database_viewer():
         example_queries = {
             "Count records by table": "SELECT 'Watchlist' as table_name, COUNT(*) as count FROM watchlist UNION ALL SELECT 'Stock Cache', COUNT(*) FROM stock_data_cache UNION ALL SELECT 'Fundamentals', COUNT(*) FROM fundamentals_cache",
             "Recent watchlist additions": "SELECT * FROM watchlist ORDER BY added_date DESC LIMIT 5",
-            "Stock data by timeframe": "SELECT ticker, timeframe, period, source, datetime(timestamp, 'unixepoch') as updated_at FROM stock_data_cache ORDER BY timestamp DESC LIMIT 10"
+            "Stock data by timeframe": "SELECT ticker, timeframe, period, source, datetime(timestamp, 'unixepoch') as updated_at FROM stock_data_cache ORDER BY timestamp DESC LIMIT 10",
+            "Stocks by exchange": "SELECT exchange, COUNT(*) as count FROM watchlist GROUP BY exchange ORDER BY count DESC"
         }
         
         selected_example = st.selectbox("Load example query:", ["--Select--"] + list(example_queries.keys()))
@@ -192,8 +206,9 @@ def display_database_viewer():
                         rows = result.fetchall()
                         
                         if rows:
-                            # Convert to DataFrame
-                            df = pd.DataFrame(rows, columns=columns)
+                            # Convert to DataFrame with list comprehension to avoid column issues
+                            df_data = [{columns[i]: value for i, value in enumerate(row)} for row in rows]
+                            df = pd.DataFrame(df_data)
                             st.dataframe(df)
                             st.success(f"Query executed successfully. {len(rows)} rows returned.")
                         else:
