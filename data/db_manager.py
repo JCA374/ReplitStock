@@ -66,29 +66,9 @@ def get_db_engine():
     if engine is not None:
         return engine
     
-    if DATABASE_URL:
-        # Use PostgreSQL if DATABASE_URL is provided
-        try:
-            # Fix common URL format issues
-            db_url = DATABASE_URL
-            
-            # If URL starts with https:// or http://, convert to postgresql://
-            if db_url.startswith(('https://', 'http://')):
-                db_url = 'postgresql://' + db_url.split('://', 1)[1]
-            
-            # Make sure URL starts with postgresql://
-            if not db_url.startswith('postgresql://'):
-                db_url = 'postgresql://' + db_url
-                
-            print(f"Connecting to database using URL starting with: {db_url[:15]}...")
-            engine = create_engine(db_url)
-        except Exception as e:
-            print(f"Error connecting to PostgreSQL: {str(e)}")
-            print("Falling back to SQLite database")
-            engine = create_engine(f"sqlite:///{DB_PATH}")
-    else:
-        # Fall back to SQLite
-        engine = create_engine(f"sqlite:///{DB_PATH}")
+    # Always use SQLite for now due to connection issues with PostgreSQL on Replit
+    print("Using SQLite database for local storage")
+    engine = create_engine(f"sqlite:///{DB_PATH}")
     
     return engine
 
@@ -110,59 +90,13 @@ def get_db_connection():
 
 def initialize_database():
     """Initialize the database tables if they don't exist."""
-    if DATABASE_URL:
-        # Use SQLAlchemy for PostgreSQL
-        engine = get_db_engine()
-        Base.metadata.create_all(engine)
-    else:
-        # Fallback to SQLite
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Create watchlist table
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS watchlist (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ticker TEXT UNIQUE,
-            name TEXT,
-            exchange TEXT,
-            sector TEXT,
-            added_date TEXT
-        )
-        ''')
-        
-        # Create stock data cache table
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS stock_data_cache (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ticker TEXT,
-            timeframe TEXT,
-            period TEXT,
-            data TEXT,
-            timestamp INTEGER,
-            source TEXT,
-            UNIQUE(ticker, timeframe, period, source)
-        )
-        ''')
-        
-        # Create fundamentals cache table
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS fundamentals_cache (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ticker TEXT UNIQUE,
-            pe_ratio REAL,
-            profit_margin REAL,
-            revenue_growth REAL,
-            earnings_growth REAL,
-            book_value REAL,
-            market_cap REAL,
-            dividend_yield REAL,
-            last_updated INTEGER
-        )
-        ''')
-        
-        conn.commit()
-        conn.close()
+    # Always use SQLite for now due to connection issues with PostgreSQL on Replit
+    print("Initializing SQLite database...")
+    
+    # Create tables using SQLAlchemy
+    engine = get_db_engine()
+    Base.metadata.create_all(engine)
+    print("Database initialized successfully!")
 
 def add_to_watchlist(ticker, name, exchange="", sector=""):
     """Add a ticker to the watchlist."""
