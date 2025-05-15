@@ -187,8 +187,7 @@ def display_single_stock_analysis():
                 yaxis_title="Price",
                 xaxis_title="Date",
                 yaxis2=dict(
-                    title="Volume",
-                    titlefont=dict(color="blue"),
+                    title=dict(text="Volume", font=dict(color="blue")),
                     tickfont=dict(color="blue"),
                     anchor="x",
                     overlaying="y",
