@@ -7,6 +7,7 @@ from ui.watchlist import display_watchlist
 from ui.single_stock import display_single_stock_analysis
 from ui.batch_analysis import display_batch_analysis
 from ui.scanner_ui import display_scanner
+from ui.database_viewer import display_database_viewer
 
 # Import database initialization
 from data.db_manager import initialize_database
@@ -36,7 +37,7 @@ def main():
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
         "Select a page:",
-        ["Watchlist", "Single Stock Analysis", "Batch Analysis", "Stock Scanner"]
+        ["Watchlist", "Single Stock Analysis", "Batch Analysis", "Stock Scanner", "Database Viewer"]
     )
     
     # Display the selected page
@@ -48,6 +49,8 @@ def main():
         display_batch_analysis()
     elif page == "Stock Scanner":
         display_scanner()
+    elif page == "Database Viewer":
+        display_database_viewer()
 
 if __name__ == "__main__":
     main()
