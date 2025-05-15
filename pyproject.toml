@@ -1,0 +1,11 @@
+[project]
+name = "repl-nix-workspace"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.11"
+dependencies = [
+    "alpha-vantage>=3.0.0",
+    "plotly>=6.1.0",
+    "streamlit>=1.45.1",
+    "yfinance>=0.2.61",
+]
