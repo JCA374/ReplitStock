@@ -5,7 +5,12 @@ ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "")
 YAHOO_FINANCE_ENABLED = True  # No API key needed for yfinance
 
 # Database configuration
-DB_PATH = "stock_data.db"
+import os
+DB_PATH = "stock_data.db"  # Fallback local database
+DATABASE_URL = os.getenv("DATABASE_URL", "")  # Cloud database URL
+
+# Data refresh settings (in seconds)
+DATA_REFRESH_INTERVAL = 14400  # 4 hours
 
 # Technical analysis parameters
 DEFAULT_SHORT_WINDOW = 20
