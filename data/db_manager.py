@@ -68,7 +68,24 @@ def get_db_engine():
     
     if DATABASE_URL:
         # Use PostgreSQL if DATABASE_URL is provided
-        engine = create_engine(DATABASE_URL)
+        try:
+            # Fix common URL format issues
+            db_url = DATABASE_URL
+            
+            # If URL starts with https:// or http://, convert to postgresql://
+            if db_url.startswith(('https://', 'http://')):
+                db_url = 'postgresql://' + db_url.split('://', 1)[1]
+            
+            # Make sure URL starts with postgresql://
+            if not db_url.startswith('postgresql://'):
+                db_url = 'postgresql://' + db_url
+                
+            print(f"Connecting to database using URL starting with: {db_url[:15]}...")
+            engine = create_engine(db_url)
+        except Exception as e:
+            print(f"Error connecting to PostgreSQL: {str(e)}")
+            print("Falling back to SQLite database")
+            engine = create_engine(f"sqlite:///{DB_PATH}")
     else:
         # Fall back to SQLite
         engine = create_engine(f"sqlite:///{DB_PATH}")
