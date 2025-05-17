@@ -58,43 +58,18 @@ class FundamentalsCache(Base):
 # Database connection
 engine = None
 Session = None
-current_db_type = "sqlite"  # Default to SQLite
-
-def get_current_database_type():
-    """
-    Get the current database type being used.
-    
-    Returns:
-        str: 'sqlite' or 'postgresql'
-    """
-    global current_db_type
-    return current_db_type
 
 def get_db_engine():
     """Get a database engine - SQLAlchemy connection."""
-    global engine, current_db_type
+    global engine
     
     if engine is not None:
         return engine
     
-    # Try PostgreSQL connection if credentials are available
-    if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
-        try:
-            engine = create_engine(DATABASE_URL)
-            # Test connection
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-            print("Using PostgreSQL database via Supabase")
-            current_db_type = "postgresql"
-            return engine
-        except Exception as e:
-            print(f"PostgreSQL connection error: {e}")
-            print("Falling back to SQLite")
-    
-    # Use SQLite as fallback
+    # Due to Replit's network limitations with external PostgreSQL connections,
+    # we'll use SQLite for local storage which works reliably
     print("Using SQLite database for local storage")
     engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"timeout": 30})
-    current_db_type = "sqlite"
     
     return engine
 

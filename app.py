@@ -31,31 +31,12 @@ def main():
         if not db_init_success:
             st.warning(
                 "Database initialization had issues. Some features may not work correctly.")
-        else:
-            # Check which database is being used
-            from data.db_manager import get_current_database_type
-            db_type = get_current_database_type()
-            
-            if db_type == "sqlite":
-                st.info("📊 Using SQLite for local data storage. Data will be stored on this device only.")
-                # Add small link/button to expand with more info
-                with st.expander("Why am I using local storage?"):
-                    st.markdown("""
-                    The app tried to connect to the Supabase cloud database but couldn't establish a connection.
-                    This is common in cloud environments with network restrictions.
-                    
-                    Your data is being stored locally in SQLite format, which works reliably but won't sync across devices.
-                    """)
-            elif db_type == "postgresql":
-                st.success("🌐 Connected to Supabase cloud database. Your data will be synced across devices.")
 
         try:
             create_supabase_tables()
         except Exception as e:
-            # No need to show this warning if we're already showing the SQLite info message
-            if get_current_database_type() == "postgresql":
-                st.warning(
-                    f"Supabase tables setup had issues: {e}. Some features may not work correctly.")
+            st.warning(
+                f"Supabase tables setup had issues: {e}. Some features may not work correctly.")
 
         # Set page title and configuration
         st.set_page_config(
