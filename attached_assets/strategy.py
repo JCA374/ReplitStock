@@ -183,7 +183,7 @@ class ValueMomentumStrategy:
                 window=self.ma_long).mean()
             # Add RSI
             processed_hist['RSI'] = self.calculate_rsi(
-                processed_hist['Close'].values, window=self.rsi_period)
+                processed_hist['close'].values, window=self.rsi_period)
             # Add other indicators as needed for charting
 
             # Create results dictionary
