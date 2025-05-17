@@ -85,106 +85,108 @@ def display_scanner():
             else:
                 selected_criteria["price_below_sma"] = sma_period
     
-    # RSI Conditions
-    rsi_option = st.sidebar.selectbox(
-        "RSI Condition:",
-        ["None", "Overbought (RSI > 70)", "Oversold (RSI < 30)"],
-        key="scanner_rsi"
-    )
-    
-    if rsi_option == "Overbought (RSI > 70)":
-        selected_criteria["rsi_overbought"] = True
-    elif rsi_option == "Oversold (RSI < 30)":
-        selected_criteria["rsi_oversold"] = True
-    
-    # MACD Signals
-    macd_option = st.sidebar.selectbox(
-        "MACD Signal:",
-        ["None", "Bullish Cross", "Bearish Cross"],
-        key="scanner_macd"
-    )
-    
-    if macd_option == "Bullish Cross":
-        selected_criteria["macd_bullish"] = True
-    elif macd_option == "Bearish Cross":
-        selected_criteria["macd_bearish"] = True
-    
-    # Price near 52-week high/low
-    price_level_option = st.sidebar.selectbox(
-        "Price Level:",
-        ["None", "Near 52-Week High", "Near 52-Week Low"],
-        key="scanner_price_level"
-    )
-    
-    if price_level_option == "Near 52-Week High":
-        selected_criteria["price_near_52w_high"] = True
-    elif price_level_option == "Near 52-Week Low":
-        selected_criteria["price_near_52w_low"] = True
-    
-    # Fundamental Criteria
-    st.sidebar.markdown("**Fundamental Criteria**")
-    
-    # P/E Ratio
-    pe_option = st.sidebar.selectbox(
-        "P/E Ratio:",
-        ["None", "Below Value", "Above Value"],
-        key="scanner_pe"
-    )
-    
-    if pe_option == "Below Value":
-        pe_value = st.sidebar.slider(
-            "P/E Below:",
-            min_value=1.0,
-            max_value=30.0,
-            value=15.0,
-            step=0.5,
-            key="scanner_pe_below"
+    # Only show custom criteria if not using Value & Momentum Strategy
+    if strategy_option != "Value & Momentum Strategy":
+        # RSI Conditions
+        rsi_option = st.sidebar.selectbox(
+            "RSI Condition:",
+            ["None", "Overbought (RSI > 70)", "Oversold (RSI < 30)"],
+            key="scanner_rsi"
         )
-        selected_criteria["pe_below"] = pe_value
-    elif pe_option == "Above Value":
-        pe_value = st.sidebar.slider(
-            "P/E Above:",
-            min_value=1.0,
-            max_value=50.0,
-            value=20.0,
-            step=0.5,
-            key="scanner_pe_above"
+        
+        if rsi_option == "Overbought (RSI > 70)":
+            selected_criteria["rsi_overbought"] = True
+        elif rsi_option == "Oversold (RSI < 30)":
+            selected_criteria["rsi_oversold"] = True
+        
+        # MACD Signals
+        macd_option = st.sidebar.selectbox(
+            "MACD Signal:",
+            ["None", "Bullish Cross", "Bearish Cross"],
+            key="scanner_macd"
         )
-        selected_criteria["pe_above"] = pe_value
-    
-    # Profit Margin
-    profit_margin_option = st.sidebar.checkbox(
-        "Minimum Profit Margin",
-        key="scanner_profit_margin_check"
-    )
-    
-    if profit_margin_option:
-        profit_margin_value = st.sidebar.slider(
-            "Profit Margin Above (%):",
-            min_value=0.0,
-            max_value=30.0,
-            value=10.0,
-            step=0.5,
-            key="scanner_profit_margin"
+        
+        if macd_option == "Bullish Cross":
+            selected_criteria["macd_bullish"] = True
+        elif macd_option == "Bearish Cross":
+            selected_criteria["macd_bearish"] = True
+        
+        # Price near 52-week high/low
+        price_level_option = st.sidebar.selectbox(
+            "Price Level:",
+            ["None", "Near 52-Week High", "Near 52-Week Low"],
+            key="scanner_price_level"
         )
-        selected_criteria["profit_margin_above"] = profit_margin_value / 100
-    
-    # Revenue Growth
-    revenue_growth_option = st.sidebar.checkbox(
-        "Minimum Revenue Growth",
-        key="scanner_revenue_growth_check"
-    )
-    
-    if revenue_growth_option:
-        revenue_growth_value = st.sidebar.slider(
-            "Revenue Growth Above (%):",
-            min_value=0.0,
-            max_value=50.0,
-            value=5.0,
-            step=0.5,
-            key="scanner_revenue_growth"
+        
+        if price_level_option == "Near 52-Week High":
+            selected_criteria["price_near_52w_high"] = True
+        elif price_level_option == "Near 52-Week Low":
+            selected_criteria["price_near_52w_low"] = True
+        
+        # Fundamental Criteria
+        st.sidebar.markdown("**Fundamental Criteria**")
+        
+        # P/E Ratio
+        pe_option = st.sidebar.selectbox(
+            "P/E Ratio:",
+            ["None", "Below Value", "Above Value"],
+            key="scanner_pe"
         )
-        selected_criteria["revenue_growth_above"] = revenue_growth_value / 100
+        
+        if pe_option == "Below Value":
+            pe_value = st.sidebar.slider(
+                "P/E Below:",
+                min_value=1.0,
+                max_value=30.0,
+                value=15.0,
+                step=0.5,
+                key="scanner_pe_below"
+            )
+            selected_criteria["pe_below"] = pe_value
+        elif pe_option == "Above Value":
+            pe_value = st.sidebar.slider(
+                "P/E Above:",
+                min_value=1.0,
+                max_value=50.0,
+                value=20.0,
+                step=0.5,
+                key="scanner_pe_above"
+            )
+            selected_criteria["pe_above"] = pe_value
+        
+        # Profit Margin
+        profit_margin_option = st.sidebar.checkbox(
+            "Minimum Profit Margin",
+            key="scanner_profit_margin_check"
+        )
+        
+        if profit_margin_option:
+            profit_margin_value = st.sidebar.slider(
+                "Profit Margin Above (%):",
+                min_value=0.0,
+                max_value=30.0,
+                value=10.0,
+                step=0.5,
+                key="scanner_profit_margin"
+            )
+            selected_criteria["profit_margin_above"] = profit_margin_value / 100
+        
+        # Revenue Growth
+        revenue_growth_option = st.sidebar.checkbox(
+            "Minimum Revenue Growth",
+            key="scanner_revenue_growth_check"
+        )
+        
+        if revenue_growth_option:
+            revenue_growth_value = st.sidebar.slider(
+                "Revenue Growth Above (%):",
+                min_value=0.0,
+                max_value=50.0,
+                value=5.0,
+                step=0.5,
+                key="scanner_revenue_growth"
+            )
+            selected_criteria["revenue_growth_above"] = revenue_growth_value / 100
     
     # Run Scanner button
     if st.sidebar.button("Run Scanner"):
@@ -222,7 +224,7 @@ def display_scanner():
                 # Format columns for display
                 display_df = results_df.copy()
                 
-                # Format numeric columns
+                # Format numeric and boolean columns
                 if 'pe_ratio' in display_df:
                     display_df['pe_ratio'] = display_df['pe_ratio'].apply(
                         lambda x: f"{x:.2f}" if pd.notna(x) else "N/A"
@@ -248,25 +250,74 @@ def display_scanner():
                         lambda x: f"{x*100:.1f}%" if pd.notna(x) else "N/A"
                     )
                 
+                # Value & Momentum Strategy specific formatting
+                if strategy_option == "Value & Momentum Strategy":
+                    # Format Tech Score as percentage
+                    if 'Tech Score' in display_df:
+                        display_df['Tech Score'] = display_df['Tech Score'].apply(
+                            lambda x: f"{x:.0f}/100" if pd.notna(x) else "N/A"
+                        )
+                    
+                    # Format boolean columns with symbols for better readability
+                    boolean_columns = ['Above MA40', 'Above MA4', 'RSI > 50', 'Near 52w High', 'Profitable', 'Good P/E', 'Fund. Pass']
+                    for col in boolean_columns:
+                        if col in display_df:
+                            display_df[col] = display_df[col].apply(
+                                lambda x: "✓" if x is True else "✗" if x is False else "—"
+                            )
+                    
+                    # Format the Value & Momentum Signal with color highlighting
+                    if 'Signal' in display_df:
+                        display_df['Signal'] = display_df['Signal'].apply(
+                            lambda x: x.upper() if pd.notna(x) else "N/A"
+                        )
+                
                 # Rename columns for display
-                column_mapping = {
-                    'ticker': 'Ticker',
-                    'last_price': 'Price',
-                    'pe_ratio': 'P/E Ratio',
-                    'profit_margin': 'Profit Margin',
-                    'revenue_growth': 'Revenue Growth',
-                    'technical_signal': 'Technical',
-                    'signal_strength': 'Signal Strength',
-                    'fundamental_status': 'Fundamentals'
-                }
+                if strategy_option == "Value & Momentum Strategy":
+                    # Special column mapping for Value & Momentum Strategy
+                    column_mapping = {
+                        'ticker': 'Ticker',
+                        'last_price': 'Price',
+                        'tech_score': 'Tech Score',
+                        'pe_ratio': 'P/E Ratio',
+                        'profit_margin': 'Profit Margin',
+                        'revenue_growth': 'Revenue Growth',
+                        'above_ma40': 'Above MA40',
+                        'above_ma4': 'Above MA4',
+                        'rsi_above_50': 'RSI > 50',
+                        'near_52w_high': 'Near 52w High',
+                        'is_profitable': 'Profitable',
+                        'reasonable_pe': 'Good P/E',
+                        'fundamental_pass': 'Fund. Pass',
+                        'value_momentum_signal': 'Signal'
+                    }
+                    
+                    # Select columns for Value & Momentum Strategy display
+                    columns_to_display = [
+                        'Ticker', 'Price', 'Signal', 'Tech Score', 
+                        'Above MA40', 'RSI > 50', 'Near 52w High', 'Profitable',
+                        'P/E Ratio', 'Profit Margin', 'Revenue Growth'
+                    ]
+                else:
+                    # Regular column mapping for custom criteria
+                    column_mapping = {
+                        'ticker': 'Ticker',
+                        'last_price': 'Price',
+                        'pe_ratio': 'P/E Ratio',
+                        'profit_margin': 'Profit Margin',
+                        'revenue_growth': 'Revenue Growth',
+                        'technical_signal': 'Technical',
+                        'signal_strength': 'Signal Strength',
+                        'fundamental_status': 'Fundamentals'
+                    }
+                    
+                    # Select columns for regular display
+                    columns_to_display = [
+                        'Ticker', 'Price', 'Technical', 'Signal Strength', 
+                        'Fundamentals', 'P/E Ratio', 'Profit Margin', 'Revenue Growth'
+                    ]
                 
                 display_df = display_df.rename(columns=column_mapping)
-                
-                # Select columns to display
-                columns_to_display = [
-                    'Ticker', 'Price', 'Technical', 'Signal Strength', 
-                    'Fundamentals', 'P/E Ratio', 'Profit Margin', 'Revenue Growth'
-                ]
                 
                 display_df = display_df[[col for col in columns_to_display if col in display_df.columns]]
                 
@@ -298,8 +349,31 @@ def display_scanner():
         st.image("https://pixabay.com/get/g17b2df581a46700f967a126ece31122f04b28850686d0bf1f1722432c1a2acc7bfc9f5ab3f539f95192aee39c2ea2e6927b3da8f62ddfc5b5b5f91c2d05d46fc_1280.jpg", 
                 caption="Stock Scanner helps you find stocks matching your criteria")
         
-        # Explanation of criteria
-        st.subheader("Available Criteria")
+        # Explanation of scanner modes
+        st.subheader("Scanner Modes")
+        
+        # Value & Momentum Strategy
+        st.markdown("**Value & Momentum Strategy**")
+        st.markdown("""
+        This strategy combines technical momentum with fundamental quality to find stocks that are both trending up 
+        and fundamentally sound. The approach avoids both "value traps" (cheap stocks getting cheaper) 
+        and momentum chasing without fundamental backing.
+        
+        **Key components:**
+        1. **Primary Trend**: Uses the 40-week moving average (MA40) as the primary trend indicator
+        2. **Short-Term Momentum**: Uses the 4-week moving average (MA4) for recent price action
+        3. **RSI Momentum**: Measures the strength of the price movement (RSI > 50 is bullish)
+        4. **Price Patterns**: Checks for higher lows and proximity to 52-week high
+        5. **Fundamental Quality**: Verifies the company is profitable with reasonable valuation
+        
+        **Signal Generation:**
+        - **BUY**: Tech Score ≥ 70 AND passes fundamental check
+        - **SELL**: Tech Score < 40 OR below MA40 (primary trend negative)
+        - **HOLD**: Everything in between
+        """)
+        
+        # Custom Criteria mode
+        st.subheader("Custom Criteria Mode")
         
         # Technical criteria
         st.markdown("**Technical Criteria**")
