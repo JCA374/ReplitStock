@@ -21,6 +21,18 @@ def render_analysis_tab():
     else:
         # No analysis in progress, show instructions
         st.info("Använd sidofältet till vänster för att analysera en aktie.")
+        
+        # Add manual ticker input
+        st.subheader("Manuell analys av aktie")
+        manual_ticker = st.text_input("Ange aktiesymbol (t.ex. AAPL, VOLV-B.ST):", placeholder="Ticker")
+        if st.button("Analysera", key="analyze_manual_ticker"):
+            if manual_ticker:
+                with st.spinner(f"Analyserar {manual_ticker}..."):
+                    analyze_and_display_stock(manual_ticker, strategy, watchlist_manager)
+            else:
+                st.warning("Ange en aktiesymbol för att analysera.")
+        
+        st.divider()
 
         # Option to select from watchlist
         col1, col2 = st.columns([3, 1])
