@@ -158,7 +158,7 @@ class ValueMomentumStrategy:
                 }
 
             # Calculate current price
-            price = hist['Close'].iloc[-1]
+            price = hist['close'].iloc[-1]
 
             # Calculate technical indicators
             tech_analysis = self._calculate_technical_indicators(hist)
@@ -177,9 +177,9 @@ class ValueMomentumStrategy:
             # Process historical data to add indicators
             processed_hist = hist.copy()
             # Add moving averages
-            processed_hist['MA4'] = processed_hist['Close'].rolling(
+            processed_hist['MA4'] = processed_hist['close'].rolling(
                 window=self.ma_short).mean()
-            processed_hist['MA40'] = processed_hist['Close'].rolling(
+            processed_hist['MA40'] = processed_hist['close'].rolling(
                 window=self.ma_long).mean()
             # Add RSI
             processed_hist['RSI'] = self.calculate_rsi(
