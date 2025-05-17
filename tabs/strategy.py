@@ -101,11 +101,11 @@ class ValueMomentumStrategy:
 
     def _calculate_higher_lows(self, data, lookback=10):
         """Helper function to identify higher lows"""
-        if 'Low' not in data.columns or data.empty:
+        if 'low' not in data.columns or data.empty:
             return pd.Series(np.zeros(len(data)))
 
         highs_lows = pd.DataFrame()
-        highs_lows['min'] = data['Low'].rolling(
+        highs_lows['min'] = data['low'].rolling(
             window=lookback, center=True).min()
 
         # Simple heuristic to identify higher lows
@@ -160,7 +160,7 @@ class ValueMomentumStrategy:
                 }
 
             # Calculate current price
-            price = hist['Close'].iloc[-1]
+            price = hist['close'].iloc[-1]
 
             # Calculate technical indicators
             tech_analysis = self._calculate_technical_indicators(hist)
@@ -179,13 +179,13 @@ class ValueMomentumStrategy:
             # Process historical data to add indicators
             processed_hist = hist.copy()
             # Add moving averages
-            processed_hist['MA4'] = processed_hist['Close'].rolling(
+            processed_hist['MA4'] = processed_hist['close'].rolling(
                 window=self.ma_short).mean()
-            processed_hist['MA40'] = processed_hist['Close'].rolling(
+            processed_hist['MA40'] = processed_hist['close'].rolling(
                 window=self.ma_long).mean()
             # Add RSI
             processed_hist['RSI'] = self.calculate_rsi(
-                processed_hist['Close'].values, window=self.rsi_period)
+                processed_hist['close'].values, window=self.rsi_period)
             # Add other indicators as needed for charting
 
             # Create results dictionary
@@ -250,34 +250,34 @@ class ValueMomentumStrategy:
             }
 
         # Calculate moving averages
-        data['MA4'] = data['Close'].rolling(window=self.ma_short).mean()
-        data['MA40'] = data['Close'].rolling(window=self.ma_long).mean()
+        data['MA4'] = data['close'].rolling(window=self.ma_short).mean()
+        data['MA40'] = data['close'].rolling(window=self.ma_long).mean()
 
         # Calculate RSI with our improved function
         data['RSI'] = self.calculate_rsi(
-            data['Close'].values, window=self.rsi_period)
+            data['close'].values, window=self.rsi_period)
 
         # Calculate higher lows (using new function)
         data['higher_lows'] = self._calculate_higher_lows(data)
 
         # 52-week highest level
-        data['52w_high'] = data['High'].rolling(window=52).max()
+        data['52w_high'] = data['high'].rolling(window=52).max()
         # Within 2% of highest level
         data['at_52w_high'] = (
-            data['Close'] >= data['52w_high'] * self.near_high_threshold)
+            data['close'] >= data['52w_high'] * self.near_high_threshold)
 
         # Consolidation phase breakout (simple implementation)
-        data['volatility'] = data['Close'].pct_change().rolling(window=12).std()
+        data['volatility'] = data['close'].pct_change().rolling(window=12).std()
         data['breakout'] = (data['volatility'].shift(4) < data['volatility']) & (
-            data['Close'] > data['Close'].shift(4))
+            data['close'] > data['close'].shift(4))
 
         # Get the latest data point
         latest = data.iloc[-1]
 
         # Return technical indicators as a dictionary
         return {
-            "above_ma40": latest['Close'] > latest['MA40'] if not np.isnan(latest['MA40']) else False,
-            "above_ma4": latest['Close'] > latest['MA4'] if not np.isnan(latest['MA4']) else False,
+            "above_ma40": latest['close'] > latest['MA40'] if not np.isnan(latest['MA40']) else False,
+            "above_ma4": latest['close'] > latest['MA4'] if not np.isnan(latest['MA4']) else False,
             "rsi_above_50": latest['RSI'] > self.rsi_threshold if not np.isnan(latest['RSI']) else False,
             # Add actual RSI value
             "rsi": float(latest['RSI']) if not np.isnan(latest['RSI']) else None,
