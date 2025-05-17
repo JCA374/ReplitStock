@@ -23,8 +23,125 @@ def render_analysis_tab():
         st.info("Använd sidofältet till vänster för att analysera en aktie.")
 
         # Option to select from watchlist
-        st.subheader("Eller välj en aktie från din watchlist")
-
+        col1, col2 = st.columns([3, 1])
+        
+        with col1:
+            st.subheader("Eller välj en aktie från din watchlist")
+        
+        with col2:
+            if st.button("✏️ Hantera Watchlists", key="manage_watchlists_button"):
+                st.session_state.show_watchlist_manager = True
+        
+        # Show watchlist manager if requested
+        if st.session_state.get('show_watchlist_manager', False):
+            with st.expander("Watchlist Manager", expanded=True):
+                # Create a new watchlist
+                new_watchlist_name = st.text_input("Skapa ny watchlist:", key="new_watchlist_name")
+                if st.button("Skapa Watchlist", key="create_watchlist_button"):
+                    if new_watchlist_name:
+                        if watchlist_manager.add_watchlist(new_watchlist_name):
+                            st.success(f"Watchlist '{new_watchlist_name}' skapad!")
+                            st.session_state.new_watchlist_name = ""  # Clear input
+                        else:
+                            st.error(f"Watchlist '{new_watchlist_name}' finns redan!")
+                    else:
+                        st.warning("Ange ett namn för watchlisten!")
+                
+                # Delete a watchlist
+                all_wl = watchlist_manager.get_all_watchlists()
+                wl_names = [w["name"] for w in all_wl]
+                
+                if len(wl_names) > 1:  # Don't allow deleting if only one watchlist
+                    st.divider()
+                    del_col1, del_col2 = st.columns([3, 1])
+                    
+                    with del_col1:
+                        delete_index = st.selectbox(
+                            "Välj watchlist att ta bort:",
+                            range(len(wl_names)),
+                            format_func=lambda i: wl_names[i],
+                            key="delete_watchlist_select"
+                        )
+                    
+                    with del_col2:
+                        if st.button("Ta bort", key="delete_watchlist_button"):
+                            if delete_index > 0:  # Don't delete the first (primary) watchlist
+                                if watchlist_manager.delete_watchlist(delete_index):
+                                    st.success(f"Watchlist '{wl_names[delete_index]}' borttagen!")
+                                else:
+                                    st.error("Kunde inte ta bort watchlisten!")
+                            else:
+                                st.error("Kan inte ta bort huvudwatchlisten!")
+                
+                # Add stocks to watchlists
+                st.divider()
+                st.subheader("Lägg till aktier i watchlist")
+                
+                # Select target watchlist
+                target_wl_index = st.selectbox(
+                    "Välj målwatchlist:",
+                    range(len(wl_names)),
+                    format_func=lambda i: wl_names[i],
+                    key="target_watchlist_select"
+                )
+                
+                # Add stock form
+                add_col1, add_col2 = st.columns([3, 1])
+                
+                with add_col1:
+                    add_ticker = st.text_input("Lägg till aktie (ticker):", 
+                                         placeholder="ex. AAPL, VOLV-B.ST", 
+                                         key="add_ticker_input")
+                
+                with add_col2:
+                    if st.button("Lägg till", key="add_stock_button"):
+                        if add_ticker:
+                            if watchlist_manager.add_stock_to_watchlist(target_wl_index, add_ticker):
+                                st.success(f"Lade till {add_ticker} i {wl_names[target_wl_index]}!")
+                            else:
+                                st.error(f"Kunde inte lägga till {add_ticker} (finns den redan?)")
+                        else:
+                            st.warning("Ange en ticker att lägga till!")
+                
+                # Remove stock from watchlist
+                st.divider()
+                st.subheader("Ta bort aktier från watchlist")
+                
+                # Select watchlist to remove from
+                remove_wl_index = st.selectbox(
+                    "Välj watchlist:",
+                    range(len(wl_names)),
+                    format_func=lambda i: wl_names[i],
+                    key="remove_wl_select"
+                )
+                
+                # Get stocks in the selected watchlist
+                remove_wl = watchlist_manager.get_all_watchlists()[remove_wl_index]
+                stocks_in_wl = remove_wl["stocks"]
+                
+                if stocks_in_wl:
+                    # Show dropdown of stocks to remove
+                    remove_ticker_index = st.selectbox(
+                        "Välj aktie att ta bort:",
+                        range(len(stocks_in_wl)),
+                        format_func=lambda i: stocks_in_wl[i],
+                        key="remove_ticker_select"
+                    )
+                    
+                    if st.button("Ta bort aktie", key="remove_stock_button"):
+                        ticker_to_remove = stocks_in_wl[remove_ticker_index]
+                        if watchlist_manager.remove_stock_from_watchlist(remove_wl_index, ticker_to_remove):
+                            st.success(f"Tog bort {ticker_to_remove} från {wl_names[remove_wl_index]}!")
+                        else:
+                            st.error(f"Kunde inte ta bort {ticker_to_remove}!")
+                else:
+                    st.info(f"Ingen aktie i watchlisten {wl_names[remove_wl_index]}.")
+                
+                # Close watchlist manager
+                if st.button("Stäng", key="close_watchlist_manager"):
+                    st.session_state.show_watchlist_manager = False
+                    st.rerun()
+        
         # Get all stocks from all watchlists
         all_watchlists = watchlist_manager.get_all_watchlists()
         
