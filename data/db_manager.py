@@ -89,7 +89,6 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-
 def initialize_database():
     """Initialize the database tables if they don't exist."""
     print("Starting database initialization...")
@@ -127,6 +126,7 @@ def initialize_database():
         print(traceback.format_exc())
         # Return True anyway to allow the app to continue
         return True
+    
 def add_to_watchlist(ticker, name, exchange="", sector=""):
     """Add a ticker to the watchlist."""
     current_date = datetime.now().strftime("%Y-%m-%d")
