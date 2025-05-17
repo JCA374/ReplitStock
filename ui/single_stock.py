@@ -99,8 +99,8 @@ def display_single_stock_analysis():
                     st.info(f"{ticker} is already in your watchlist")
 
         # Get current price and change
-        current_price = stock_data['Close'].iloc[-1] if 'Close' in stock_data else stock_data['close'].iloc[-1]
-        prev_close = (stock_data['Close'].iloc[-2] if 'Close' in stock_data else stock_data['close'].iloc[-2]) if len(stock_data) > 1 else None
+        current_price = stock_data['close'].iloc[-1]
+        prev_close = stock_data['close'].iloc[-2] if len(stock_data) > 1 else None
 
         if prev_close:
             price_change = current_price - prev_close
