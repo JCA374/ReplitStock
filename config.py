@@ -8,6 +8,7 @@ YAHOO_FINANCE_ENABLED = True  # No API key needed for yfinance
 import os
 DB_PATH = "stock_data.db"  # Fallback local database
 DATABASE_URL = os.getenv("DATABASE_URL", "")  # Cloud database URL
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")  # Supabase API key
 
 # Data refresh settings (in seconds)
 DATA_REFRESH_INTERVAL = 14400  # 4 hours

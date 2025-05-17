@@ -10,7 +10,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 
-from config import DB_PATH, DATABASE_URL, CACHE_EXPIRATION, DATA_REFRESH_INTERVAL
+from config import DB_PATH, DATABASE_URL, CACHE_EXPIRATION, DATA_REFRESH_INTERVAL, SUPABASE_KEY
 
 # Create SQLAlchemy Base
 Base = declarative_base()

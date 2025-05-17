@@ -3,7 +3,7 @@ import psycopg2
 import pandas as pd
 from sqlalchemy import create_engine
 
-def create_postgres_connection_sts.getenv("SUPABASE_PASSWORD", "postgres")ring():
+def create_postgres_connection_string():
     """
     Convert the Supabase URL to a proper PostgreSQL connection string
     """
