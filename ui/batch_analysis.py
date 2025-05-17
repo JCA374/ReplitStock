@@ -541,5 +541,5 @@ def display_batch_analysis():
         # Display instructions if no stocks selected or analysis not yet run
         if not selected_tickers and analysis_mode == "Selected Stocks":
             st.info("Select stocks to analyze and click 'Run Batch Analysis'")
-            st.image("https://pixabay.com/get/ga24cbf3b19c72cc00ac094bb8451c213f9f584cb07b51ab73be52ec9479fba91e8e8b993cf18d66670ca559e2450dd376bea205101c9f8603ede44ab1861bdb4_1280.jpg", 
+            st.image("https://images.pexels.com/photos/6802042/pexels-photo-6802042.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1", 
                     caption="Batch analysis allows you to compare multiple stocks at once")

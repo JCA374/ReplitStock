@@ -7,13 +7,18 @@ from data.db_manager import (
     cache_fundamentals as cache_fundamentals_sqlite,
     get_cached_fundamentals as get_cached_fundamentals_sqlite,
     get_all_cached_stocks as get_all_cached_stocks_sqlite,
-    get_all_fundamentals as get_all_fundamentals_sqlite
+    get_all_fundamentals as get_all_fundamentals_sqlite,
+    initialize_database
 )
 from data.supabase_client import get_supabase_db
+import os
 
-# Check if we can use Supabase
+# Make sure SQLite database is initialized properly
+initialize_database()
+
+# Only use Supabase if the connection is properly set up and tables are accessible
 supabase_db = get_supabase_db()
-USE_SUPABASE = supabase_db.is_connected()
+USE_SUPABASE = False  # Temporarily disable Supabase until tables are properly set up
 
 def add_to_watchlist(ticker, name, exchange="", sector=""):
     """Add a ticker to the watchlist."""
