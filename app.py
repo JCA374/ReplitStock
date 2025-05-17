@@ -9,15 +9,17 @@ from ui.batch_analysis import display_batch_analysis
 from ui.scanner_ui import display_scanner
 from ui.database_viewer import display_database_viewer
 
-# Import database initialization
+# Import database initializations
 from data.db_manager import initialize_database
+from data.db_integration import create_supabase_tables
 
 # Setup logging
 logger = get_logger(__name__)
 
 def main():
-    # Initialize the database
+    # Initialize databases
     initialize_database()
+    create_supabase_tables()
     
     # Set page title and configuration
     st.set_page_config(

@@ -15,7 +15,8 @@ from config import (
     STOCKHOLM_EXCHANGE_SUFFIX
 )
 
-from data.db_manager import (
+# Use the database integration layer to get data from both SQLite and Supabase
+from data.db_integration import (
     cache_stock_data, 
     get_cached_stock_data,
     cache_fundamentals,
