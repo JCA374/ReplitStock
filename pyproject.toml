@@ -5,8 +5,10 @@ description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
     "alpha-vantage>=3.0.0",
+    "pandas>=2.2.3",
     "plotly>=6.1.0",
     "psycopg2-binary>=2.9.10",
+    "requests>=2.32.3",
     "sqlalchemy>=2.0.41",
     "streamlit>=1.45.1",
     "supabase>=2.15.1",
