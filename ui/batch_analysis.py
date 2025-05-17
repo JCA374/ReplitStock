@@ -103,6 +103,13 @@ def display_batch_analysis():
                 # Calculate technical indicators
                 indicators = calculate_all_indicators(stock_data)
                 
+                # Add current price to the indicators for proper signal generation
+                if not stock_data.empty and 'close' in stock_data.columns:
+                    if 'price_pattern' not in indicators or not indicators['price_pattern']:
+                        indicators['price_pattern'] = {'current_price': stock_data['close'].iloc[-1]}
+                    else:
+                        indicators['price_pattern']['current_price'] = stock_data['close'].iloc[-1]
+                
                 # Generate signals
                 signals = generate_technical_signals(indicators)
                 

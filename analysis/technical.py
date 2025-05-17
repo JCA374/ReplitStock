@@ -162,7 +162,8 @@ def calculate_all_indicators(data):
         return {}
     
     try:
-        result = {}
+        # Store original data for reference
+        result = {'original_data': data}
         
         # Calculate SMAs
         result['sma_short'] = calculate_sma(data, DEFAULT_SHORT_WINDOW)
@@ -208,13 +209,20 @@ def generate_technical_signals(indicators):
     
     # Get latest values
     try:
-        latest_price = indicators['price_pattern'].get('current_price', 0)
-        latest_sma_short = indicators['sma_short'].iloc[-1] if 'sma_short' in indicators else 0
-        latest_sma_medium = indicators['sma_medium'].iloc[-1] if 'sma_medium' in indicators else 0
-        latest_sma_long = indicators['sma_long'].iloc[-1] if 'sma_long' in indicators else 0
-        latest_rsi = indicators['rsi'].iloc[-1] if 'rsi' in indicators else 0
-        latest_macd = indicators['macd'].iloc[-1] if 'macd' in indicators else 0
-        latest_macd_signal = indicators['macd_signal'].iloc[-1] if 'macd_signal' in indicators else 0
+        # Use the price_pattern if available, otherwise try to get from original data
+        if 'price_pattern' in indicators and indicators['price_pattern'] and 'current_price' in indicators['price_pattern']:
+            latest_price = indicators['price_pattern'].get('current_price', 0)
+        elif 'original_data' in indicators and not indicators['original_data'].empty:
+            latest_price = indicators['original_data']['close'].iloc[-1]
+        else:
+            latest_price = 0
+            
+        latest_sma_short = indicators['sma_short'].iloc[-1] if ('sma_short' in indicators and not indicators['sma_short'].empty) else 0
+        latest_sma_medium = indicators['sma_medium'].iloc[-1] if ('sma_medium' in indicators and not indicators['sma_medium'].empty) else 0
+        latest_sma_long = indicators['sma_long'].iloc[-1] if ('sma_long' in indicators and not indicators['sma_long'].empty) else 0
+        latest_rsi = indicators['rsi'].iloc[-1] if ('rsi' in indicators and not indicators['rsi'].empty) else 0
+        latest_macd = indicators['macd'].iloc[-1] if ('macd' in indicators and not indicators['macd'].empty) else 0
+        latest_macd_signal = indicators['macd_signal'].iloc[-1] if ('macd_signal' in indicators and not indicators['macd_signal'].empty) else 0
         
         # Price vs. Moving Averages
         signals['price_above_sma_short'] = latest_price > latest_sma_short if latest_sma_short > 0 else None
