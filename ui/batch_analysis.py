@@ -523,13 +523,14 @@ def display_batch_analysis():
                     - **Below 40** (Red line): Weak technical strength - potential sell/avoid
                     """)
             
-            with tab2:
-                # Fundamental metrics table
-                fund_cols = [
-                    'ticker', 'fundamental_status', 'pe_ratio',
-                    'profit_margin', 'revenue_growth'
-                ]
-                
+            # Fundamental metrics table
+            st.subheader("Fundamental Metrics")
+            fund_cols = [
+                'ticker', 'fundamental_status', 'pe_ratio',
+                'profit_margin', 'revenue_growth'
+            ]
+            
+            if all(col in results_df.columns for col in fund_cols):
                 fund_df = results_df[fund_cols].copy()
                 
                 # Format columns
