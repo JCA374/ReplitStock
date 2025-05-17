@@ -15,7 +15,7 @@ class SupabaseDB:
     def __init__(self):
         # Get Supabase credentials from environment variables
         self.supabase_url = os.getenv("DATABASE_URL", "")
-        self.supabase_key = os.getenv("DATABASE_PASSWORD", "")
+        self.supabase_key = os.getenv("SUPABASE_KEY", "")
         
         # Ensure URL starts with https://
         if self.supabase_url and not self.supabase_url.startswith("https://"):

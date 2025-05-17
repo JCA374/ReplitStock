@@ -13,10 +13,10 @@ def test_supabase_rest_api():
     
     # Get the Supabase database URL and key from environment variables
     db_url = os.getenv("DATABASE_URL", "")
-    db_key = os.getenv("DATABASE_PASSWORD", "")
+    db_key = os.getenv("SUPABASE_KEY", "")
     
     if not db_url or not db_key:
-        print("ERROR: DATABASE_URL or DATABASE_PASSWORD not set in environment variables")
+        print("ERROR: DATABASE_URL or SUPABASE_KEY not set in environment variables")
         return False
     
     print(f"Using Supabase URL: {db_url[:30]}...")
