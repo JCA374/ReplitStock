@@ -1,0 +1,277 @@
+# Comprehensive Company Search System: A Bigger Change
+
+For a more transformative improvement, I'd recommend implementing a comprehensive company search system that would be integrated throughout the application. This is a bigger architectural change but would significantly enhance the user experience.
+
+## Option: Global Company Explorer with Rich Data
+
+### Overview
+Create a dedicated tab or overlay system for company discovery with rich information displays, powerful search capabilities, and seamless integration with all app functions.
+
+### Key Components
+
+1. **Rich Company Database**
+   - Enhance the current ticker mapping with more comprehensive company data
+   - Store logos, sector/industry info, brief descriptions, and performance metrics
+   - Pre-cache this information for faster searches
+
+2. **Global Search Bar Component**
+   - Add a persistent search bar in the app header that's always accessible
+   - Implement fuzzy matching for typo tolerance
+   - Support searching by partial names, ticker fragments, industry, or country
+
+3. **Search Results Dashboard**
+   - Display results with company logos, key metrics, and recent performance
+   - Allow filtering by country, exchange, sector, and performance metrics
+   - Include quick action buttons (analyze, add to watchlist, compare)
+
+4. **Company Profile Cards**
+   - Create standardized company cards showing essential information
+   - Include interactive mini-charts showing recent performance
+   - Display key financial ratios and indicators from your strategy
+
+## Implementation Example
+
+```python
+# services/company_explorer.py
+import streamlit as st
+import pandas as pd
+from typing import Dict, List, Optional
+
+class CompanyExplorer:
+    """
+    Enhanced company search and exploration service with rich data display.
+    """
+    def __init__(self, db_storage=None):
+        """Initialize the explorer with database access."""
+        self.db_storage = db_storage
+        self._load_company_data()
+        self._initialize_search_index()
+        
+    def _load_company_data(self):
+        """Load and cache company data with extended information."""
+        # Fetch company data from Supabase
+        if self.db_storage and self.db_storage.supabase:
+            try:
+                # Query an enhanced company_profiles table that would need to be created
+                response = self.db_storage.supabase.table("company_profiles").select("*").execute()
+                
+                if response.data:
+                    self.companies_df = pd.DataFrame(response.data)
+                    return
+            except Exception as e:
+                st.error(f"Error loading company data: {e}")
+        
+        # Fallback to CSV files if database fetch fails
+        try:
+            # Load and merge data from various CSVs
+            dfs = []
+            for file in ["csv/updated_small.csv", "csv/updated_mid.csv", "csv/updated_large.csv"]:
+                try:
+                    df = pd.read_csv(file)
+                    dfs.append(df)
+                except:
+                    pass
+            
+            if dfs:
+                self.companies_df = pd.concat(dfs, ignore_index=True)
+            else:
+                self.companies_df = pd.DataFrame(columns=["CompanyName", "YahooTicker", "Sector", "Industry"])
+        except Exception as e:
+            st.error(f"Failed to load company data: {e}")
+            self.companies_df = pd.DataFrame(columns=["CompanyName", "YahooTicker", "Sector", "Industry"])
+    
+    def _initialize_search_index(self):
+        """Create a search index for efficient fuzzy matching."""
+        # This would involve creating indexable text from company names and other fields
+        # A simple approach would use lowercase text and remove special characters
+        if not self.companies_df.empty and "CompanyName" in self.companies_df.columns:
+            self.companies_df["search_text"] = self.companies_df["CompanyName"].str.lower()
+        
+        # In a more advanced implementation, you might use something like:
+        # from rapidfuzz import fuzz, process
+        # or implement Levenshtein distance for fuzzy matching
+    
+    def search(self, query: str, filters: Optional[Dict] = None, limit: int = 20) -> pd.DataFrame:
+        """
+        Search for companies using fuzzy matching and filters.
+        
+        Args:
+            query: The search string
+            filters: Optional dictionary of filters (sector, country, etc.)
+            limit: Maximum number of results to return
+            
+        Returns:
+            DataFrame with matching companies
+        """
+        if not query or self.companies_df.empty:
+            return pd.DataFrame()
+        
+        # Normalize query
+        query = query.lower().strip()
+        
+        # Basic search using pandas str.contains
+        # For a more sophisticated implementation, use a proper text search library
+        mask = (
+            self.companies_df["CompanyName"].str.lower().str.contains(query, na=False) |
+            self.companies_df["YahooTicker"].str.lower().str.contains(query, na=False)
+        )
+        
+        # Apply any additional filters
+        if filters:
+            if "sector" in filters and "Sector" in self.companies_df.columns:
+                mask &= self.companies_df["Sector"] == filters["sector"]
+                
+            if "country" in filters and "Country" in self.companies_df.columns:
+                mask &= self.companies_df["Country"] == filters["country"]
+        
+        results = self.companies_df[mask].head(limit)
+        return results
+    
+    def render_company_card(self, company_data: Dict):
+        """Render a rich company information card."""
+        with st.container():
+            col1, col2, col3 = st.columns([1, 2, 1])
+            
+            with col1:
+                # Company logo would go here if available
+                st.subheader(company_data.get("CompanyName", "Unknown Company"))
+                st.caption(company_data.get("YahooTicker", ""))
+            
+            with col2:
+                # Company description and basic info
+                st.write(f"**Sector:** {company_data.get('Sector', 'N/A')}")
+                st.write(f"**Industry:** {company_data.get('Industry', 'N/A')}")
+                if "Description" in company_data:
+                    st.write(company_data["Description"])
+            
+            with col3:
+                # Quick action buttons
+                if st.button("📊 Analyze", key=f"analyze_{company_data.get('YahooTicker', 'unknown')}"):
+                    st.session_state["analyze_ticker"] = company_data.get("YahooTicker")
+                    st.rerun()
+                
+                if st.button("➕ Add to Watchlist", key=f"add_{company_data.get('YahooTicker', 'unknown')}"):
+                    # Add to the active watchlist
+                    if "watchlist_manager" in st.session_state:
+                        st.session_state.watchlist_manager.add_stock(company_data.get("YahooTicker"))
+                        st.success(f"Added {company_data.get('YahooTicker')} to watchlist")
+
+def render_explorer_tab():
+    """Render the main company explorer tab."""
+    st.header("Company Explorer")
+    
+    # Initialize explorer if not already in session state
+    if "company_explorer" not in st.session_state:
+        db_storage = st.session_state.get("supabase_db")
+        st.session_state.company_explorer = CompanyExplorer(db_storage)
+    
+    explorer = st.session_state.company_explorer
+    
+    # Search bar and filters
+    col1, col2, col3 = st.columns([3, 1, 1])
+    
+    with col1:
+        search_query = st.text_input(
+            "Search Companies:", 
+            placeholder="Enter company name, ticker, or industry...",
+            key="global_company_search"
+        )
+    
+    with col2:
+        # This assumes you have sector data available
+        sectors = ["All Sectors"] + sorted(explorer.companies_df["Sector"].dropna().unique().tolist()) if "Sector" in explorer.companies_df.columns else ["All Sectors"]
+        selected_sector = st.selectbox("Sector:", sectors)
+    
+    with col3:
+        # This assumes you have country data available
+        countries = ["All Countries"] + sorted(explorer.companies_df["Country"].dropna().unique().tolist()) if "Country" in explorer.companies_df.columns else ["All Countries"]
+        selected_country = st.selectbox("Country:", countries)
+    
+    # Apply filters
+    filters = {}
+    if selected_sector != "All Sectors":
+        filters["sector"] = selected_sector
+    if selected_country != "All Countries":
+        filters["country"] = selected_country
+    
+    # Search and display results
+    if search_query:
+        results = explorer.search(search_query, filters=filters)
+        
+        if not results.empty:
+            st.subheader(f"Search Results ({len(results)} companies)")
+            
+            # Display results as rich cards
+            for _, company in results.iterrows():
+                explorer.render_company_card(company)
+                st.divider()
+        else:
+            st.info("No companies found matching your search criteria.")
+```
+
+## Global Header Search Integration
+
+To make the search available throughout the app:
+
+```python
+# In app.py, add this before the tabs
+def render_global_search():
+    """Render the global search in the header."""
+    with st.container():
+        col1, col2 = st.columns([3, 1])
+        
+        with col1:
+            search_query = st.text_input(
+                "", 
+                placeholder="🔍 Search companies...",
+                key="header_search"
+            )
+        
+        with col2:
+            if search_query and st.button("Search", key="header_search_button"):
+                # Store search query in session state and switch to explorer tab
+                st.session_state["global_search_query"] = search_query
+                st.session_state["current_tab_index"] = tab_names.index("Company Explorer")
+                st.rerun()
+
+# Add this call before rendering tabs
+render_global_search()
+```
+
+## Database Schema Updates
+
+To support this feature, you'd need to enhance your database schema:
+
+```sql
+-- Company profiles table with extended information
+CREATE TABLE IF NOT EXISTS company_profiles (
+    ticker TEXT PRIMARY KEY,
+    company_name TEXT NOT NULL,
+    yahoo_ticker TEXT,
+    alpha_ticker TEXT,
+    exchange TEXT,
+    sector TEXT,
+    industry TEXT,
+    country TEXT,
+    description TEXT,
+    logo_url TEXT,
+    website TEXT,
+    founded INTEGER,
+    employees INTEGER,
+    last_updated TIMESTAMP
+);
+
+-- Create search index
+CREATE INDEX IF NOT EXISTS idx_company_search 
+ON company_profiles(company_name, ticker, sector, industry, country);
+```
+
+## Benefits of This Approach
+
+1. **Comprehensive Solution**: Addresses the root issue with a holistic approach
+2. **Enhanced User Experience**: Makes company discovery intuitive and informative
+3. **Centralized Data Model**: Creates a single source of truth for company information
+4. **Scalable Architecture**: Supports growing to thousands of companies efficiently
+5. **Integration Point**: Provides a foundation for connecting all features in your app
+
+This is a substantial change, but it would transform your application into a much more user-friendly and powerful tool for stock analysis.
