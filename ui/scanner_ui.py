@@ -9,13 +9,17 @@ def display_scanner():
     st.header("Stock Scanner")
     st.write("Scan stocks based on technical and fundamental criteria")
     
+    # Use session state to track if the scanner has been run automatically
+    if 'scanner_auto_run' not in st.session_state:
+        st.session_state.scanner_auto_run = False
+    
     # Sidebar for scanner configuration
     st.sidebar.header("Scanner Settings")
     
     # Select scan scope
     scan_scope = st.sidebar.radio(
         "Scan Scope:",
-        ["Watchlist Only", "All Available Stocks"],
+        ["All Available Stocks", "Watchlist Only"],
         key="scanner_scope"
     )
     
@@ -40,7 +44,7 @@ def display_scanner():
     
     strategy_option = st.sidebar.radio(
         "Scanner Mode:",
-        ["Custom Criteria", "Value & Momentum Strategy"],
+        ["Value & Momentum Strategy", "Custom Criteria"],
         key="scanner_strategy"
     )
     
@@ -345,8 +349,8 @@ def display_scanner():
         # Show instructions and example image
         st.info("Configure your scan criteria using the sidebar, then click 'Run Scanner'")
         
-        # Example image
-        st.image("https://pixabay.com/get/g17b2df581a46700f967a126ece31122f04b28850686d0bf1f1722432c1a2acc7bfc9f5ab3f539f95192aee39c2ea2e6927b3da8f62ddfc5b5b5f91c2d05d46fc_1280.jpg", 
+        # Use a more reliable image source
+        st.image("https://images.pexels.com/photos/6770610/pexels-photo-6770610.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750", 
                 caption="Stock Scanner helps you find stocks matching your criteria")
         
         # Explanation of scanner modes
