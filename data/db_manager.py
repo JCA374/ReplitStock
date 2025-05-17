@@ -89,16 +89,44 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+
 def initialize_database():
     """Initialize the database tables if they don't exist."""
-    # Always use SQLite for now due to connection issues with PostgreSQL on Replit
-    print("Initializing SQLite database...")
-    
-    # Create tables using SQLAlchemy
-    engine = get_db_engine()
-    Base.metadata.create_all(engine)
-    print("Database initialized successfully!")
+    print("Starting database initialization...")
+    try:
+        # Always use SQLite for now due to connection issues with PostgreSQL on Replit
+        print("Initializing SQLite database...")
 
+        # Create tables using SQLAlchemy
+        engine = get_db_engine()
+        Base.metadata.create_all(engine)
+        print("SQLite database initialized successfully!")
+
+        # Try connecting to Supabase if credentials are available
+        if DATABASE_URL and SUPABASE_KEY:
+            try:
+                print("Testing Supabase connection...")
+                from data.supabase_client import get_supabase_db
+                supabase_db = get_supabase_db()
+                if supabase_db.is_connected():
+                    print("Supabase connection successful!")
+                else:
+                    print("Supabase connection failed, but continuing with SQLite")
+            except Exception as e:
+                print(
+                    f"Supabase connection error (continuing with SQLite): {e}")
+                import traceback
+                print(traceback.format_exc())
+        else:
+            print("No Supabase credentials found, using SQLite only")
+
+        return True
+    except Exception as e:
+        print(f"Database initialization error: {e}")
+        import traceback
+        print(traceback.format_exc())
+        # Return True anyway to allow the app to continue
+        return True
 def add_to_watchlist(ticker, name, exchange="", sector=""):
     """Add a ticker to the watchlist."""
     current_date = datetime.now().strftime("%Y-%m-%d")
