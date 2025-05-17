@@ -7,6 +7,7 @@ import json
 import io
 from sqlalchemy import text
 from datetime import datetime
+import traceback
 
 def display_database_viewer():
     """
@@ -85,56 +86,63 @@ def display_database_viewer():
                 supabase_client = get_supabase_db()
                 
                 # Query the stock_data_cache table
-                response = supabase_client.client.table("stock_data_cache").select("*").execute()
-                cache_data = response.data
-                
-                if cache_data:
-                    # Convert to list of dictionaries
-                    cache_records = []
-                    for item in cache_data:
-                        try:
-                            # Convert timestamp to datetime (if it exists)
-                            timestamp = item.get('timestamp')
-                            if timestamp:
-                                timestamp_dt = datetime.fromtimestamp(timestamp)
-                            else:
-                                timestamp_dt = None
-                                
-                            # Get data size if data exists
-                            data = item.get('data')
-                            data_size = len(str(data)) if data else 0
-                            
-                            cache_records.append({
-                                'ID': item.get('id'),
-                                'Ticker': item.get('ticker'),
-                                'Timeframe': item.get('timeframe'),
-                                'Period': item.get('period'),
-                                'Source': item.get('source'),
-                                'Timestamp': timestamp_dt,
-                                'Data Size (bytes)': data_size
-                            })
-                        except Exception as e:
-                            st.warning(f"Skipped Supabase record due to: {str(e)}")
+                if supabase_client and supabase_client.client:
+                    response = supabase_client.client.table("stock_data_cache").select("*").execute()
+                    cache_data = response.data if hasattr(response, 'data') else []
                     
-                    cache_df = pd.DataFrame(cache_records)
-                    st.dataframe(cache_df)
-                    st.info(f"Total cached stock records in Supabase: {len(cache_records)}")
+                    if cache_data:
+                        # Convert to list of dictionaries
+                        cache_records = []
+                        for item in cache_data:
+                            try:
+                                # Convert timestamp to datetime (if it exists)
+                                timestamp = item.get('timestamp')
+                                if timestamp:
+                                    timestamp_dt = datetime.fromtimestamp(float(timestamp))
+                                else:
+                                    timestamp_dt = None
+                                    
+                                # Get data size if data exists
+                                data = item.get('data')
+                                data_size = len(str(data)) if data else 0
+                                
+                                cache_records.append({
+                                    'ID': item.get('id'),
+                                    'Ticker': item.get('ticker'),
+                                    'Timeframe': item.get('timeframe'),
+                                    'Period': item.get('period'),
+                                    'Source': item.get('source'),
+                                    'Timestamp': timestamp_dt,
+                                    'Data Size (bytes)': data_size
+                                })
+                            except Exception as e:
+                                st.warning(f"Skipped Supabase record due to: {str(e)}")
+                        
+                        if cache_records:
+                            cache_df = pd.DataFrame(cache_records)
+                            st.dataframe(cache_df)
+                            st.info(f"Total cached stock records in Supabase: {len(cache_records)}")
+                        else:
+                            st.info("No valid stock data cache records found in Supabase.")
+                    else:
+                        st.info("No stock data cache records found in Supabase.")
                 else:
-                    st.info("No stock data cache records found in Supabase.")
+                    st.error("Supabase client is not properly initialized")
             except Exception as e:
                 st.error(f"Error querying Supabase stock data cache: {str(e)}")
+                st.error(traceback.format_exc())
         else:
             # Get data from SQLite
             try:
                 session = get_db_session()
                 cache_data = session.query(StockDataCache).all()
+                cache_records = []
                 
                 if cache_data:
                     # Convert to list of dictionaries
-                    cache_records = []
                     for item in cache_data:
                         try:
-                            timestamp_dt = datetime.fromtimestamp(item.timestamp) if item.timestamp else None
+                            timestamp_dt = datetime.fromtimestamp(float(item.timestamp)) if item.timestamp else None
                             data_size = len(str(item.data)) if item.data else 0
                             
                             cache_records.append({
@@ -149,54 +157,51 @@ def display_database_viewer():
                         except Exception as e:
                             st.warning(f"Skipped SQLite record due to: {str(e)}")
                     
-                    cache_df = pd.DataFrame(cache_records)
-                    st.dataframe(cache_df)
-                    st.info(f"Total cached stock records in SQLite: {len(cache_records)}")
-                
-                # Option to view data for a specific ticker
-                if cache_records:
-                    # Extract ticker strings for display
-                    ticker_strings = []
-                    for record in cache_records:
-                        ticker = record['Ticker']
-                        if ticker not in ticker_strings:
-                            ticker_strings.append(ticker)
-                    ticker_strings.sort()
+                    if cache_records:
+                        cache_df = pd.DataFrame(cache_records)
+                        st.dataframe(cache_df)
+                        st.info(f"Total cached stock records in SQLite: {len(cache_records)}")
                     
-                    selected_ticker = st.selectbox("Select ticker to view cached data:", ticker_strings)
-                    
-                    if selected_ticker:
-                        # Find the first matching record
-                        selected_item = None
-                        for item in cache_data:
-                            if str(item.ticker) == selected_ticker:
-                                selected_item = item
-                                break
+                        # Option to view data for a specific ticker
+                        ticker_strings = sorted(list(set([record['Ticker'] for record in cache_records])))
                         
-                        if selected_item:
-                            try:
-                                # Get the data as a string and ensure it's valid
-                                data_str = str(selected_item.data) if selected_item.data else ""
+                        if ticker_strings:
+                            selected_ticker = st.selectbox("Select ticker to view cached data:", ticker_strings)
+                            
+                            if selected_ticker:
+                                # Find the first matching record
+                                selected_item = None
+                                for item in cache_data:
+                                    if str(item.ticker) == selected_ticker:
+                                        selected_item = item
+                                        break
                                 
-                                if data_str:
-                                    # Parse the JSON data
-                                    df = pd.read_json(data_str)
-                                    st.subheader(f"Preview of {selected_ticker} data:")
-                                    st.dataframe(df.head(10))
-                                    
-                                    # Show chart
-                                    st.subheader(f"Chart for {selected_ticker}:")
-                                    st.line_chart(df['Close'])
+                                if selected_item and selected_item.data:
+                                    try:
+                                        # Get the data as a string and ensure it's valid
+                                        data_str = str(selected_item.data)
+                                        
+                                        # Parse the JSON data
+                                        df = pd.read_json(io.StringIO(data_str))
+                                        st.subheader(f"Preview of {selected_ticker} data:")
+                                        st.dataframe(df.head(10))
+                                        
+                                        # Show chart
+                                        if 'Close' in df.columns:
+                                            st.subheader(f"Chart for {selected_ticker}:")
+                                            st.line_chart(df['Close'])
+                                        else:
+                                            st.warning("No 'Close' column found in the data.")
+                                    except Exception as e:
+                                        st.error(f"Error parsing data: {str(e)}")
                                 else:
                                     st.warning("No data available for this ticker.")
-                            except Exception as e:
-                                st.error(f"Error parsing data: {str(e)}")
-            else:
-                st.info("No stock data cache records found.")
-            
-            session.close()
-        except Exception as e:
-            st.error(f"Error querying stock data cache: {str(e)}")
+                else:
+                    st.info("No stock data cache records found in SQLite.")
+                
+                session.close()
+            except Exception as e:
+                st.error(f"Error querying SQLite stock data cache: {str(e)}")
     
     # Fundamentals tab
     with tab_fundamentals:
@@ -208,40 +213,46 @@ def display_database_viewer():
                 supabase_client = get_supabase_db()
                 
                 # Query the fundamentals_cache table
-                response = supabase_client.client.table("fundamentals_cache").select("*").execute()
-                fundamentals_data = response.data
-                
-                if fundamentals_data:
-                    # Convert to list of dictionaries
-                    fund_records = []
-                    for item in fundamentals_data:
-                        try:
-                            # Convert timestamp to datetime (if it exists)
-                            last_updated = item.get('last_updated')
-                            if last_updated:
-                                last_updated_dt = datetime.fromtimestamp(last_updated)
-                            else:
-                                last_updated_dt = None
-                                
-                            fund_records.append({
-                                'Ticker': item.get('ticker'),
-                                'P/E Ratio': item.get('pe_ratio'),
-                                'Profit Margin': item.get('profit_margin'),
-                                'Revenue Growth': item.get('revenue_growth'),
-                                'Earnings Growth': item.get('earnings_growth'),
-                                'Book Value': item.get('book_value'),
-                                'Market Cap': item.get('market_cap'),
-                                'Dividend Yield': item.get('dividend_yield'),
-                                'Last Updated': last_updated_dt
-                            })
-                        except Exception as e:
-                            st.warning(f"Skipped Supabase fundamental record due to: {str(e)}")
+                if supabase_client and supabase_client.client:
+                    response = supabase_client.client.table("fundamentals_cache").select("*").execute()
+                    fundamentals_data = response.data if hasattr(response, 'data') else []
                     
-                    fund_df = pd.DataFrame(fund_records)
-                    st.dataframe(fund_df)
-                    st.info(f"Total fundamental records in Supabase: {len(fund_records)}")
+                    if fundamentals_data:
+                        # Convert to list of dictionaries
+                        fund_records = []
+                        for item in fundamentals_data:
+                            try:
+                                # Convert timestamp to datetime (if it exists)
+                                last_updated = item.get('last_updated')
+                                if last_updated:
+                                    last_updated_dt = datetime.fromtimestamp(float(last_updated))
+                                else:
+                                    last_updated_dt = None
+                                    
+                                fund_records.append({
+                                    'Ticker': item.get('ticker'),
+                                    'P/E Ratio': item.get('pe_ratio'),
+                                    'Profit Margin': item.get('profit_margin'),
+                                    'Revenue Growth': item.get('revenue_growth'),
+                                    'Earnings Growth': item.get('earnings_growth'),
+                                    'Book Value': item.get('book_value'),
+                                    'Market Cap': item.get('market_cap'),
+                                    'Dividend Yield': item.get('dividend_yield'),
+                                    'Last Updated': last_updated_dt
+                                })
+                            except Exception as e:
+                                st.warning(f"Skipped Supabase fundamental record due to: {str(e)}")
+                        
+                        if fund_records:
+                            fund_df = pd.DataFrame(fund_records)
+                            st.dataframe(fund_df)
+                            st.info(f"Total fundamental records in Supabase: {len(fund_records)}")
+                        else:
+                            st.info("No valid fundamentals cache records found in Supabase.")
+                    else:
+                        st.info("No fundamentals cache records found in Supabase.")
                 else:
-                    st.info("No fundamentals cache records found in Supabase.")
+                    st.error("Supabase client is not properly initialized")
             except Exception as e:
                 st.error(f"Error querying Supabase fundamentals: {str(e)}")
         else:
@@ -255,7 +266,7 @@ def display_database_viewer():
                     fund_records = []
                     for item in fundamentals_data:
                         try:
-                            last_updated_dt = datetime.fromtimestamp(item.last_updated) if item.last_updated else None
+                            last_updated_dt = datetime.fromtimestamp(float(item.last_updated)) if item.last_updated else None
                             
                             fund_records.append({
                                 'Ticker': item.ticker,
@@ -271,9 +282,12 @@ def display_database_viewer():
                         except Exception as e:
                             st.warning(f"Skipped SQLite fundamental record due to: {str(e)}")
                     
-                    fund_df = pd.DataFrame(fund_records)
-                    st.dataframe(fund_df)
-                    st.info(f"Total fundamental records in SQLite: {len(fund_records)}")
+                    if fund_records:
+                        fund_df = pd.DataFrame(fund_records)
+                        st.dataframe(fund_df)
+                        st.info(f"Total fundamental records in SQLite: {len(fund_records)}")
+                    else:
+                        st.info("No valid fundamentals cache records found in SQLite.")
                 else:
                     st.info("No fundamentals cache records found in SQLite.")
                 
@@ -324,7 +338,7 @@ def display_database_viewer():
                         
                         if rows:
                             # Convert to DataFrame with list comprehension to avoid column issues
-                            df_data = [{columns[i]: value for i, value in enumerate(row)} for row in rows]
+                            df_data = [{col: row[i] for i, col in enumerate(columns)} for row in rows]
                             df = pd.DataFrame(df_data)
                             st.dataframe(df)
                             st.success(f"Query executed successfully. {len(rows)} rows returned.")
