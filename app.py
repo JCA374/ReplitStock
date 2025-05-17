@@ -18,7 +18,7 @@ from services.watchlist_manager import WatchlistManager
 from data.db_integration import create_supabase_tables, get_cached_stock_data
 
 # Import database initializations
-from data.db_manager import initialize_database
+from data.db_manager import initialize_database, get_current_database_type
 
 # Setup logging
 logger = get_logger(__name__)
@@ -49,11 +49,12 @@ def main():
             elif db_type == "postgresql":
                 st.success("🌐 Connected to Supabase cloud database. Your data will be synced across devices.")
 
-        try:
-            create_supabase_tables()
-        except Exception as e:
-            # No need to show this warning if we're already showing the SQLite info message
-            if get_current_database_type() == "postgresql":
+        # Only try to create Supabase tables if we're using PostgreSQL
+        db_type = get_current_database_type()
+        if db_type == "postgresql":
+            try:
+                create_supabase_tables()
+            except Exception as e:
                 st.warning(
                     f"Supabase tables setup had issues: {e}. Some features may not work correctly.")
 
