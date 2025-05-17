@@ -66,6 +66,12 @@ def main():
     elif page == "Batch Analysis":
         display_batch_analysis()
     elif page == "Stock Scanner":
+        # Add a fix button for technical indicators
+        if st.session_state.get('scan_results') is not None and not st.session_state.get('scan_results').empty:
+            if st.button("🔧 Fix Technical Indicators", help="Recalculate technical indicators to fix blank values"):
+                from scanner_fix import fix_technical_indicators
+                fix_technical_indicators()
+        
         display_scanner()
     elif page == "Database Viewer":
         display_database_viewer()
