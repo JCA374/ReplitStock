@@ -31,22 +31,34 @@ class SupabaseDB:
             except Exception as e:
                 print(f"Error connecting to Supabase: {str(e)}")
                 self.client = None
-    
+
     def is_connected(self):
         """Check if connected to Supabase."""
-        return self.client is not None
-    
+        if not self.client:
+            return False
+
+        try:
+            # Perform a simple test query to verify connection
+            self.client.table("watchlist").select("id").limit(1).execute()
+            return True
+        except Exception as e:
+            # If connection test fails, log it but don't repeatedly try
+            if not hasattr(self, '_connection_error_logged'):
+                print(f"Supabase connection test failed: {e}")
+                self._connection_error_logged = True
+            return False
+
     def _create_tables_if_not_exist(self):
         """
         Check if necessary tables exist.
         """
         if not self.is_connected():
             return
-        
+
         # Verify tables exist by trying to fetch a row
         tables = ["watchlist", "stock_data_cache", "fundamentals_cache"]
         working_tables = 0
-        
+
         for table in tables:
             try:
                 # Try fetching a single row
@@ -55,12 +67,12 @@ class SupabaseDB:
                 working_tables += 1
             except Exception as e:
                 print(f"Table {table} might not exist: {str(e)}")
-        
+
         if working_tables == len(tables):
             print("All tables are accessible! Database is ready.")
         else:
             print(f"{working_tables}/{len(tables)} tables are accessible. Some features may not work correctly.")
-    
+
     # Watchlist methods
     def add_to_watchlist(self, ticker, name, exchange="", sector=""):
         """Add a ticker to the watchlist."""
