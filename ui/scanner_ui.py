@@ -343,6 +343,17 @@ def display_scanner():
         if 'Fundamentals' in display_df:
             display_df['Fundamentals'] = display_df['Fundamentals'].str.capitalize()
         
+        # Add a button to fix technical indicators if they're blank
+        fix_indicators = st.button("🔧 Fix Technical Indicators", 
+                                help="Recalculate technical indicators for scan results")
+        
+        if fix_indicators:
+            with st.spinner("Fixing technical indicators..."):
+                from ui.fix_indicators import fix_technical_indicators
+                fix_technical_indicators()
+                # Refresh the display after fixing
+                st.experimental_rerun()
+        
         # Display the results
         st.dataframe(display_df, hide_index=True, use_container_width=True)
         
