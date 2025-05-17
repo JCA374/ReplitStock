@@ -115,7 +115,8 @@ def display_company_search():
 
 def search_companies(query, market_filter="All Markets"):
     """
-    Search for companies using multiple data sources.
+    Search for companies using multiple data sources including database and APIs.
+    First checks the local database for matches, then tries external APIs.
     
     Args:
         query (str): Search term (company name or partial ticker)
@@ -127,44 +128,139 @@ def search_companies(query, market_filter="All Markets"):
     results = []
     stock_data = StockDataFetcher()
     
-    # Try Yahoo Finance search first
+    # Step 1: Check for matches in our database first
     try:
-        yahoo_results = stock_data.search_stock(query)
+        from data.db_integration import get_watchlist
+        watchlist = get_watchlist()
         
-        # Filter by market if specified
-        if market_filter == "US Markets":
-            yahoo_results = [r for r in yahoo_results if 'US' in r.get('exchDisp', '')]
-        elif market_filter == "Swedish Markets (Stockholm)":
-            yahoo_results = [r for r in yahoo_results if 'Stockholm' in r.get('exchDisp', '')]
-        
-        # Add Yahoo results
-        for item in yahoo_results:
-            # Convert Yahoo result structure to our standard format
-            result = {
-                'symbol': item.get('symbol'),
-                'name': item.get('shortname', item.get('longname', '')),
-                'exchange': item.get('exchDisp', ''),
-                'type': item.get('typeDisp', ''),
-                'country': '',  # Yahoo doesn't always provide this
-                'currency': ''  # Yahoo doesn't always provide this
-            }
-            results.append(result)
+        # Search in watchlist (case-insensitive)
+        query_lower = query.lower()
+        for item in watchlist:
+            # Check if query appears in ticker or name
+            if (query_lower in item['ticker'].lower() or 
+                (item['name'] and query_lower in item['name'].lower())):
+                
+                # Apply market filter if needed
+                if market_filter == "US Markets" and "Stockholm" in item.get('exchange', ''):
+                    continue
+                elif market_filter == "Swedish Markets (Stockholm)" and "Stockholm" not in item.get('exchange', ''):
+                    continue
+                
+                # Add to results
+                result = {
+                    'symbol': item['ticker'],
+                    'name': item['name'] or 'Unknown',
+                    'exchange': item.get('exchange', ''),
+                    'type': 'Stock',
+                    'country': '',
+                    'currency': ''
+                }
+                results.append(result)
     except Exception as e:
-        st.error(f"Error searching Yahoo Finance: {str(e)}")
+        st.warning(f"Note: Unable to search local database: {str(e)}")
     
-    # If we have few/no results, try a more direct approach with yfinance
+    # Step 2: Try more Swedish stock variations if searching for Swedish stocks
+    swedish_variations = []
+    if market_filter in ["All Markets", "Swedish Markets (Stockholm)"]:
+        # Common formats for Swedish stocks
+        swedish_variations = [
+            f"{query}-B.ST",  # Format for B-shares (e.g., VOLVO-B.ST)
+            f"{query}.ST",    # Basic Stockholm format
+            f"{query}-A.ST",  # Format for A-shares
+            f"{query}-PREF.ST"  # Preferred shares
+        ]
+        
+        # Special case for Volvo
+        if query.lower() == "volvo":
+            swedish_variations = ["VOLV-B.ST", "VOLV-A.ST", "VOLVO-B.ST", "VOLVO.ST"]
+    
+    # Try direct lookups for Swedish stocks first
+    if swedish_variations:
+        for ticker in swedish_variations:
+            try:
+                info = yf.Ticker(ticker).info
+                # Check if we got valid data
+                if 'symbol' in info and ('shortName' in info or 'longName' in info):
+                    result = {
+                        'symbol': info.get('symbol'),
+                        'name': info.get('shortName', info.get('longName', '')),
+                        'exchange': info.get('exchange', ''),
+                        'type': 'Stock',
+                        'country': info.get('country', ''),
+                        'currency': info.get('currency', '')
+                    }
+                    
+                    # Add to database for future searches
+                    try:
+                        from data.db_integration import add_to_watchlist
+                        add_to_watchlist(
+                            ticker=result['symbol'],
+                            name=result['name'],
+                            exchange=result['exchange'],
+                            sector=""
+                        )
+                    except Exception:
+                        pass  # Ignore errors adding to database
+                        
+                    # Check for duplicates before adding
+                    if not any(item['symbol'] == result['symbol'] for item in results):
+                        results.append(result)
+            except Exception:
+                # Skip tickers that don't work
+                continue
+    
+    # Step 3: Try Yahoo Finance search if we don't have enough results yet
+    if len(results) < 5:
+        try:
+            yahoo_results = stock_data.search_stock(query)
+            
+            # Filter by market if specified
+            if market_filter == "US Markets":
+                yahoo_results = [r for r in yahoo_results if 'US' in r.get('exchDisp', '')]
+            elif market_filter == "Swedish Markets (Stockholm)":
+                yahoo_results = [r for r in yahoo_results if 'Stockholm' in r.get('exchDisp', '')]
+            
+            # Add Yahoo results
+            for item in yahoo_results:
+                # Convert Yahoo result structure to our standard format
+                result = {
+                    'symbol': item.get('symbol'),
+                    'name': item.get('shortname', item.get('longname', '')),
+                    'exchange': item.get('exchDisp', ''),
+                    'type': item.get('typeDisp', ''),
+                    'country': '',  # Yahoo doesn't always provide this
+                    'currency': ''  # Yahoo doesn't always provide this
+                }
+                
+                # Check for duplicates before adding
+                if not any(item['symbol'] == result['symbol'] for item in results):
+                    results.append(result)
+                    
+                    # Add to database for future searches
+                    try:
+                        from data.db_integration import add_to_watchlist
+                        add_to_watchlist(
+                            ticker=result['symbol'],
+                            name=result['name'],
+                            exchange=result['exchange'],
+                            sector=""
+                        )
+                    except Exception:
+                        pass  # Ignore errors adding to database
+        except Exception as e:
+            st.warning(f"Note: Search engine returned limited results: {str(e)}")
+    
+    # Step 4: Try direct ticker lookup if we still need more results
     if len(results) < 3:
         try:
-            # For direct lookups of tickers, also try with common extensions
+            # For direct lookups of tickers, also try without extensions
             possible_tickers = [query]
-            if market_filter in ["All Markets", "Swedish Markets (Stockholm)"]:
-                possible_tickers.append(f"{query}.ST")  # Stockholm
             
             for ticker in possible_tickers:
                 try:
                     info = yf.Ticker(ticker).info
-                    if 'symbol' in info and 'shortName' in info:
-                        # Check if we got valid data (Yahoo returns empty dicts for invalid tickers)
+                    if 'symbol' in info and ('shortName' in info or 'longName' in info):
+                        # Check if we got valid data
                         result = {
                             'symbol': info.get('symbol'),
                             'name': info.get('shortName', info.get('longName', '')),
@@ -179,6 +275,18 @@ def search_companies(query, market_filter="All Markets"):
                            (market_filter == "Swedish Markets (Stockholm)" and 'Stockholm' not in result['exchange']):
                             continue
                             
+                        # Add to database for future searches
+                        try:
+                            from data.db_integration import add_to_watchlist
+                            add_to_watchlist(
+                                ticker=result['symbol'],
+                                name=result['name'],
+                                exchange=result['exchange'],
+                                sector=""
+                            )
+                        except Exception:
+                            pass  # Ignore errors adding to database
+                            
                         # Check for duplicates before adding
                         if not any(item['symbol'] == result['symbol'] for item in results):
                             results.append(result)
@@ -186,6 +294,6 @@ def search_companies(query, market_filter="All Markets"):
                     # Skip tickers that don't work
                     continue
         except Exception as e:
-            st.error(f"Error in direct ticker lookup: {str(e)}")
+            st.warning(f"Note: Direct ticker lookup had limited results: {str(e)}")
     
     return results
