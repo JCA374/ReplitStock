@@ -436,7 +436,7 @@ class ValueMomentumStrategy:
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), height_ratios=[3, 1], sharex=True, gridspec_kw={'hspace': 0.05})
         
         # Plot main price chart with moving averages
-        ax1.plot(data.index, data['Close'], label='Price', color='black', linewidth=1.5)
+        ax1.plot(data.index, data['close'], label='Price', color='black', linewidth=1.5)
         
         if 'MA4' in data.columns:
             ax1.plot(data.index, data['MA4'], label=f'MA{self.ma_short} (Short)', color='blue', linewidth=1)
@@ -446,7 +446,7 @@ class ValueMomentumStrategy:
         
         # Add key technical markers
         last_date = data.index[-1]
-        last_price = data['Close'].iloc[-1]
+        last_price = data['close'].iloc[-1]
         
         # Add buy/sell annotation
         signal_color = 'green' if analysis['buy_signal'] else 'red' if analysis['sell_signal'] else 'orange'

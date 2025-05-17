@@ -248,12 +248,12 @@ class ValueMomentumStrategy:
             }
 
         # Calculate moving averages
-        data['MA4'] = data['Close'].rolling(window=self.ma_short).mean()
-        data['MA40'] = data['Close'].rolling(window=self.ma_long).mean()
+        data['MA4'] = data['close'].rolling(window=self.ma_short).mean()
+        data['MA40'] = data['close'].rolling(window=self.ma_long).mean()
 
         # Calculate RSI with our improved function
         data['RSI'] = self.calculate_rsi(
-            data['Close'].values, window=self.rsi_period)
+            data['close'].values, window=self.rsi_period)
 
         # Calculate higher lows (using new function)
         data['higher_lows'] = self._calculate_higher_lows(data)
