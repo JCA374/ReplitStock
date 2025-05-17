@@ -29,11 +29,13 @@ def create_postgres_connection_string():
         # Extract the project reference
         project_ref = db_url.split('//')[1].split('.')[0]
         
-        # Construct a PostgreSQL connection string
-        # Default username for Supabase is 'postgres'
-        # Password might need to be provided separately
-        password = os.getenv("SUPABASE_PASSWORD", "postgres")
+        # Get password from the dedicated environment variable
+        password = os.getenv("DATABASE_PASSWORD", "")
         
+        if not password:
+            print("ERROR: DATABASE_PASSWORD not set in environment variables")
+            return None
+            
         # Standard port for PostgreSQL
         port = 5432
         
