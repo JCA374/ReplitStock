@@ -66,7 +66,7 @@ def main():
         st.sidebar.title("Navigation")
         page = st.sidebar.radio(
             "Select a page:",
-            ["Watchlist", "Company Explorer", "Company Search", "Single Stock Analysis",
+            ["Watchlist", "Company Explorer", "Single Stock Analysis",
                 "Batch Analysis", "Stock Scanner", "Database Viewer"]
         )
 
@@ -75,8 +75,6 @@ def main():
             display_watchlist()
         elif page == "Company Explorer":
             display_company_explorer()
-        elif page == "Company Search":
-            display_company_search()
         elif page == "Single Stock Analysis":
             render_analysis_tab()  # Use the new implementation
         elif page == "Batch Analysis":
