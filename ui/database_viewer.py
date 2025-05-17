@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from data.db_manager import get_db_session, get_db_engine, StockDataCache, Watchlist, FundamentalsCache
+from data.supabase_client import get_supabase_db
+from data.db_integration import USE_SUPABASE
 import json
 import io
 from sqlalchemy import text
@@ -8,10 +10,17 @@ from datetime import datetime
 
 def display_database_viewer():
     """
-    Display a view of the SQLite database content.
+    Display a view of the database content (Supabase or SQLite).
     """
     st.title("Database Viewer")
-    st.write("View the content of the local SQLite database")
+    
+    # Show which database is being used
+    if USE_SUPABASE:
+        st.write("Connected to Supabase database (with SQLite fallback)")
+        db_source = st.radio("View data from:", ["Supabase", "Local SQLite"])
+    else:
+        st.write("Using local SQLite database only")
+        db_source = "Local SQLite"
     
     # Create tabs for different tables
     tab_watchlist, tab_stock_cache, tab_fundamentals, tab_custom = st.tabs([
@@ -21,64 +30,128 @@ def display_database_viewer():
     # Watchlist tab
     with tab_watchlist:
         st.subheader("Watchlist Table")
-        try:
-            session = get_db_session()
-            watchlist_data = session.query(Watchlist).all()
-            
-            if watchlist_data:
-                # Convert to list of dictionaries
-                watchlist_records = []
-                for item in watchlist_data:
-                    watchlist_records.append({
-                        'ID': item.id,
-                        'Ticker': item.ticker,
-                        'Name': item.name,
-                        'Exchange': item.exchange,
-                        'Sector': item.sector,
-                        'Added Date': item.added_date
-                    })
+        
+        if db_source == "Supabase" and USE_SUPABASE:
+            # Get data from Supabase
+            try:
+                supabase_client = get_supabase_db()
+                response = supabase_client.get_watchlist()
                 
-                watchlist_df = pd.DataFrame(watchlist_records)
-                st.dataframe(watchlist_df)
-                st.info(f"Total records: {len(watchlist_data)}")
-            else:
-                st.info("No watchlist records found.")
-            
-            session.close()
-        except Exception as e:
-            st.error(f"Error querying watchlist: {str(e)}")
+                if response:
+                    # Create dataframe directly from response
+                    watchlist_df = pd.DataFrame(response)
+                    st.dataframe(watchlist_df)
+                    st.info(f"Total records in Supabase: {len(response)}")
+                else:
+                    st.info("No watchlist records found in Supabase.")
+            except Exception as e:
+                st.error(f"Error querying Supabase watchlist: {str(e)}")
+        else:
+            # Get data from SQLite
+            try:
+                session = get_db_session()
+                watchlist_data = session.query(Watchlist).all()
+                
+                if watchlist_data:
+                    # Convert to list of dictionaries
+                    watchlist_records = []
+                    for item in watchlist_data:
+                        watchlist_records.append({
+                            'ID': item.id,
+                            'Ticker': item.ticker,
+                            'Name': item.name,
+                            'Exchange': item.exchange,
+                            'Sector': item.sector,
+                            'Added Date': item.added_date
+                        })
+                    
+                    watchlist_df = pd.DataFrame(watchlist_records)
+                    st.dataframe(watchlist_df)
+                    st.info(f"Total records in SQLite: {len(watchlist_data)}")
+                else:
+                    st.info("No watchlist records found in SQLite.")
+                
+                session.close()
+            except Exception as e:
+                st.error(f"Error querying SQLite watchlist: {str(e)}")
     
     # Stock Data Cache tab
     with tab_stock_cache:
         st.subheader("Stock Data Cache")
         
-        try:
-            session = get_db_session()
-            cache_data = session.query(StockDataCache).all()
-            
-            if cache_data:
-                # Convert to list of dictionaries
-                cache_records = []
-                for item in cache_data:
-                    try:
-                        timestamp_dt = datetime.fromtimestamp(item.timestamp)
-                        data_size = len(str(item.data)) if item.data else 0
-                        
-                        cache_records.append({
-                            'ID': item.id,
-                            'Ticker': item.ticker,
-                            'Timeframe': item.timeframe,
-                            'Period': item.period,
-                            'Source': item.source,
-                            'Timestamp': timestamp_dt,
-                            'Data Size (bytes)': data_size
-                        })
-                    except Exception as e:
-                        st.warning(f"Skipped record due to: {str(e)}")
+        if db_source == "Supabase" and USE_SUPABASE:
+            # Get data from Supabase
+            try:
+                supabase_client = get_supabase_db()
                 
-                cache_df = pd.DataFrame(cache_records)
-                st.dataframe(cache_df)
-                st.info(f"Total cached stock records: {len(cache_records)}")
+                # Query the stock_data_cache table
+                response = supabase_client.client.table("stock_data_cache").select("*").execute()
+                cache_data = response.data
+                
+                if cache_data:
+                    # Convert to list of dictionaries
+                    cache_records = []
+                    for item in cache_data:
+                        try:
+                            # Convert timestamp to datetime (if it exists)
+                            timestamp = item.get('timestamp')
+                            if timestamp:
+                                timestamp_dt = datetime.fromtimestamp(timestamp)
+                            else:
+                                timestamp_dt = None
+                                
+                            # Get data size if data exists
+                            data = item.get('data')
+                            data_size = len(str(data)) if data else 0
+                            
+                            cache_records.append({
+                                'ID': item.get('id'),
+                                'Ticker': item.get('ticker'),
+                                'Timeframe': item.get('timeframe'),
+                                'Period': item.get('period'),
+                                'Source': item.get('source'),
+                                'Timestamp': timestamp_dt,
+                                'Data Size (bytes)': data_size
+                            })
+                        except Exception as e:
+                            st.warning(f"Skipped Supabase record due to: {str(e)}")
+                    
+                    cache_df = pd.DataFrame(cache_records)
+                    st.dataframe(cache_df)
+                    st.info(f"Total cached stock records in Supabase: {len(cache_records)}")
+                else:
+                    st.info("No stock data cache records found in Supabase.")
+            except Exception as e:
+                st.error(f"Error querying Supabase stock data cache: {str(e)}")
+        else:
+            # Get data from SQLite
+            try:
+                session = get_db_session()
+                cache_data = session.query(StockDataCache).all()
+                
+                if cache_data:
+                    # Convert to list of dictionaries
+                    cache_records = []
+                    for item in cache_data:
+                        try:
+                            timestamp_dt = datetime.fromtimestamp(item.timestamp) if item.timestamp else None
+                            data_size = len(str(item.data)) if item.data else 0
+                            
+                            cache_records.append({
+                                'ID': item.id,
+                                'Ticker': item.ticker,
+                                'Timeframe': item.timeframe,
+                                'Period': item.period,
+                                'Source': item.source,
+                                'Timestamp': timestamp_dt,
+                                'Data Size (bytes)': data_size
+                            })
+                        except Exception as e:
+                            st.warning(f"Skipped SQLite record due to: {str(e)}")
+                    
+                    cache_df = pd.DataFrame(cache_records)
+                    st.dataframe(cache_df)
+                    st.info(f"Total cached stock records in SQLite: {len(cache_records)}")
                 
                 # Option to view data for a specific ticker
                 if cache_records:
@@ -129,40 +202,84 @@ def display_database_viewer():
     with tab_fundamentals:
         st.subheader("Fundamentals Cache")
         
-        try:
-            session = get_db_session()
-            fundamentals_data = session.query(FundamentalsCache).all()
-            
-            if fundamentals_data:
-                # Convert to list of dictionaries
-                fund_records = []
-                for item in fundamentals_data:
-                    try:
-                        last_updated_dt = datetime.fromtimestamp(item.last_updated)
-                        
-                        fund_records.append({
-                            'Ticker': item.ticker,
-                            'P/E Ratio': item.pe_ratio,
-                            'Profit Margin': item.profit_margin,
-                            'Revenue Growth': item.revenue_growth,
-                            'Earnings Growth': item.earnings_growth,
-                            'Book Value': item.book_value,
-                            'Market Cap': item.market_cap,
-                            'Dividend Yield': item.dividend_yield,
-                            'Last Updated': last_updated_dt
-                        })
-                    except Exception as e:
-                        st.warning(f"Skipped fundamental record due to: {str(e)}")
+        if db_source == "Supabase" and USE_SUPABASE:
+            # Get data from Supabase
+            try:
+                supabase_client = get_supabase_db()
                 
-                fund_df = pd.DataFrame(fund_records)
-                st.dataframe(fund_df)
-                st.info(f"Total fundamental records: {len(fund_records)}")
-            else:
-                st.info("No fundamentals cache records found.")
-            
-            session.close()
-        except Exception as e:
-            st.error(f"Error querying fundamentals: {str(e)}")
+                # Query the fundamentals_cache table
+                response = supabase_client.client.table("fundamentals_cache").select("*").execute()
+                fundamentals_data = response.data
+                
+                if fundamentals_data:
+                    # Convert to list of dictionaries
+                    fund_records = []
+                    for item in fundamentals_data:
+                        try:
+                            # Convert timestamp to datetime (if it exists)
+                            last_updated = item.get('last_updated')
+                            if last_updated:
+                                last_updated_dt = datetime.fromtimestamp(last_updated)
+                            else:
+                                last_updated_dt = None
+                                
+                            fund_records.append({
+                                'Ticker': item.get('ticker'),
+                                'P/E Ratio': item.get('pe_ratio'),
+                                'Profit Margin': item.get('profit_margin'),
+                                'Revenue Growth': item.get('revenue_growth'),
+                                'Earnings Growth': item.get('earnings_growth'),
+                                'Book Value': item.get('book_value'),
+                                'Market Cap': item.get('market_cap'),
+                                'Dividend Yield': item.get('dividend_yield'),
+                                'Last Updated': last_updated_dt
+                            })
+                        except Exception as e:
+                            st.warning(f"Skipped Supabase fundamental record due to: {str(e)}")
+                    
+                    fund_df = pd.DataFrame(fund_records)
+                    st.dataframe(fund_df)
+                    st.info(f"Total fundamental records in Supabase: {len(fund_records)}")
+                else:
+                    st.info("No fundamentals cache records found in Supabase.")
+            except Exception as e:
+                st.error(f"Error querying Supabase fundamentals: {str(e)}")
+        else:
+            # Get data from SQLite
+            try:
+                session = get_db_session()
+                fundamentals_data = session.query(FundamentalsCache).all()
+                
+                if fundamentals_data:
+                    # Convert to list of dictionaries
+                    fund_records = []
+                    for item in fundamentals_data:
+                        try:
+                            last_updated_dt = datetime.fromtimestamp(item.last_updated) if item.last_updated else None
+                            
+                            fund_records.append({
+                                'Ticker': item.ticker,
+                                'P/E Ratio': item.pe_ratio,
+                                'Profit Margin': item.profit_margin,
+                                'Revenue Growth': item.revenue_growth,
+                                'Earnings Growth': item.earnings_growth,
+                                'Book Value': item.book_value,
+                                'Market Cap': item.market_cap,
+                                'Dividend Yield': item.dividend_yield,
+                                'Last Updated': last_updated_dt
+                            })
+                        except Exception as e:
+                            st.warning(f"Skipped SQLite fundamental record due to: {str(e)}")
+                    
+                    fund_df = pd.DataFrame(fund_records)
+                    st.dataframe(fund_df)
+                    st.info(f"Total fundamental records in SQLite: {len(fund_records)}")
+                else:
+                    st.info("No fundamentals cache records found in SQLite.")
+                
+                session.close()
+            except Exception as e:
+                st.error(f"Error querying SQLite fundamentals: {str(e)}")
     
     # Custom SQL Query tab
     with tab_custom:
