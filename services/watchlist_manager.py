@@ -47,6 +47,10 @@ class WatchlistManager:
             
         # Ensure all default watchlists exist
         self._ensure_default_watchlists()
+        
+        # Initialize active watchlist index if not set
+        if 'active_watchlist_index' not in st.session_state:
+            st.session_state.active_watchlist_index = 0
     
     def get_all_watchlists(self):
         """
@@ -189,3 +193,17 @@ class WatchlistManager:
                 self.logger.error(f"Error removing stock from database: {e}")
         
         return True
+    def get_active_watchlist_index(self):
+        """Get the index of the currently active watchlist."""
+        return st.session_state.active_watchlist_index
+        
+    def get_active_watchlist(self):
+        """Get the currently active watchlist."""
+        return st.session_state.watchlists[self.get_active_watchlist_index()]
+        
+    def set_active_watchlist(self, index):
+        """Set the active watchlist by index."""
+        if 0 <= index < len(st.session_state.watchlists):
+            st.session_state.active_watchlist_index = index
+            return True
+        return False
