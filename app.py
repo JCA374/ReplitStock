@@ -25,6 +25,14 @@ logger = get_logger(__name__)
 
 
 def main():
+    # Set page title and configuration - MUST be the first Streamlit command
+    st.set_page_config(
+        page_title="Stock Analysis Tool",
+        page_icon="📈",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+    
     try:
         # Initialize databases
         db_init_success = initialize_database()
@@ -57,14 +65,6 @@ def main():
             except Exception as e:
                 st.warning(
                     f"Supabase tables setup had issues: {e}. Some features may not work correctly.")
-
-        # Set page title and configuration
-        st.set_page_config(
-            page_title="Stock Analysis Tool",
-            page_icon="📈",
-            layout="wide",
-            initial_sidebar_state="expanded",
-        )
 
         # Header section
         st.title("Stock Analysis Tool")
