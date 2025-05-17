@@ -191,7 +191,7 @@ def display_database_viewer():
                                             st.subheader(f"Chart for {selected_ticker}:")
                                             st.line_chart(df['close'])
                                         else:
-                                            st.warning("No 'Close' column found in the data.")
+                                            st.warning("No 'close' column found in the data.")
                                     except Exception as e:
                                         st.error(f"Error parsing data: {str(e)}")
                                 else:
