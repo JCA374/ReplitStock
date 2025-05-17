@@ -28,12 +28,18 @@ def render_analysis_tab():
         # Get all stocks from all watchlists
         all_watchlists = watchlist_manager.get_all_watchlists()
         
+        # Handle the case where there might be no watchlists
+        if not all_watchlists:
+            st.warning("Inga watchlists hittades. Skapa en watchlist för att fortsätta.")
+            return
+            
         # First select which watchlist to use
         watchlist_names = [w["name"] for w in all_watchlists]
         selected_watchlist_index = st.selectbox(
             "Välj watchlist:",
             range(len(watchlist_names)), 
-            format_func=lambda i: watchlist_names[i]
+            format_func=lambda i: watchlist_names[i],
+            key="analysis_watchlist_select"
         )
         
         # Get stocks from selected watchlist

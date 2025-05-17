@@ -44,6 +44,9 @@ class WatchlistManager:
                 self.default_watchlists[0]["stocks"] = all_stocks
                 
             st.session_state.watchlists = self.default_watchlists
+            
+        # Ensure all default watchlists exist
+        self._ensure_default_watchlists()
     
     def get_all_watchlists(self):
         """
@@ -72,6 +75,19 @@ class WatchlistManager:
         # Add new watchlist
         st.session_state.watchlists.append({"name": name, "stocks": []})
         return True
+    
+    def _ensure_default_watchlists(self):
+        """
+        Ensure all default watchlists exist in the session state.
+        """
+        default_names = set(wl["name"] for wl in self.default_watchlists)
+        existing_names = set(wl["name"] for wl in st.session_state.watchlists)
+        
+        # Add missing watchlists
+        for name in default_names - existing_names:
+            for wl in self.default_watchlists:
+                if wl["name"] == name:
+                    st.session_state.watchlists.append({"name": name, "stocks": []})
     
     def delete_watchlist(self, index):
         """
