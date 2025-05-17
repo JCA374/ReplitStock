@@ -152,6 +152,37 @@ def detect_breakout(data, window=20):
         'strength': strength
     }
 
+def calculate_52week_high_proximity(data):
+    """
+    Calculate the 52-week high and proximity of current price to it.
+    
+    Args:
+        data (pd.DataFrame): DataFrame with OHLC price data
+        
+    Returns:
+        tuple: (52-week high value, proximity ratio [0-1])
+    """
+    if data.empty or len(data) < 20:  # Need some reasonable amount of data
+        return 0, 1.0
+    
+    try:
+        # Use up to 252 trading days (approximately one year)
+        lookback = min(252, len(data))
+        year_data = data[-lookback:].copy()
+        
+        # Find 52-week high and current price
+        high_52w = year_data['high'].max()
+        current_price = data['close'].iloc[-1]
+        
+        # Calculate proximity (0 = at high, 1 = far below)
+        proximity = (high_52w - current_price) / high_52w if high_52w > 0 else 1.0
+        
+        return high_52w, max(0, min(1, proximity))  # Ensure value is between 0-1
+        
+    except Exception as e:
+        print(f"Error calculating 52-week high: {e}")
+        return 0, 1.0
+
 def calculate_all_indicators(data):
     """Calculate all technical indicators for a dataset."""
     if data.empty:
@@ -165,7 +196,7 @@ def calculate_all_indicators(data):
         # Store original data for reference
         result = {'original_data': data}
         
-        # Calculate SMAs
+        # Standard technical indicators
         result['sma_short'] = calculate_sma(data, DEFAULT_SHORT_WINDOW)
         result['sma_medium'] = calculate_sma(data, DEFAULT_MEDIUM_WINDOW)
         result['sma_long'] = calculate_sma(data, DEFAULT_LONG_WINDOW)
@@ -174,6 +205,13 @@ def calculate_all_indicators(data):
         result['ema_short'] = calculate_ema(data, DEFAULT_SHORT_WINDOW)
         result['ema_medium'] = calculate_ema(data, DEFAULT_MEDIUM_WINDOW)
         result['ema_long'] = calculate_ema(data, DEFAULT_LONG_WINDOW)
+        
+        # Value & Momentum Strategy specific indicators
+        # MA4 (4-week moving average) for short-term momentum
+        result['ma4'] = calculate_sma(data, 20)  # Assuming 20 trading days = ~4 weeks
+        
+        # MA40 (40-week moving average) for primary trend
+        result['ma40'] = calculate_sma(data, 200)  # Assuming 200 trading days = ~40 weeks
         
         # Calculate RSI
         result['rsi'] = calculate_rsi(data)
@@ -193,6 +231,12 @@ def calculate_all_indicators(data):
         # Price patterns and breakouts
         result['price_pattern'] = detect_price_pattern(data)
         result['breakout'] = detect_breakout(data)
+        
+        # Calculate 52-week high proximity
+        high_52w, proximity = calculate_52week_high_proximity(data)
+        result['52w_high'] = high_52w
+        result['52w_high_proximity'] = proximity
+        result['near_52w_high'] = proximity < 0.10  # Within 10% of 52-week high
         
         return result
     

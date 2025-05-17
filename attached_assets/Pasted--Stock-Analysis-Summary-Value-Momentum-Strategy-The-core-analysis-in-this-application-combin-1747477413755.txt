@@ -1,0 +1,60 @@
+## Stock Analysis Summary: Value & Momentum Strategy
+
+The core analysis in this application combines two investment approaches:
+
+### Technical Analysis (Momentum)
+
+1. **Trend Analysis**:
+   - **Primary Trend**: Uses the 40-week moving average (MA40) as the key trend indicator
+     - Price above MA40 = bullish primary trend
+     - Price below MA40 = bearish primary trend
+   
+   - **Short-Term Momentum**: 4-week moving average (MA4) for recent price action
+     - Price above MA4 = positive short-term momentum
+     - Crossing above MA4 can be an early entry signal
+
+2. **Momentum Indicators**:
+   - **RSI (Relative Strength Index)**: Measures the speed and magnitude of price movements
+     - RSI > 50 indicates bullish momentum
+     - RSI < 50 indicates bearish momentum
+     - Extreme readings (>70 or <30) can indicate overbought/oversold conditions
+
+3. **Pattern Recognition**:
+   - **Higher Lows**: Identifies strengthening uptrends through price structure
+   - **Near 52-Week High**: Indicates strong performance relative to recent history
+   - **Breakouts**: Detects price breaking out of consolidation patterns
+
+### Fundamental Analysis (Value)
+
+1. **Profitability Check**:
+   - Is the company profitable? (Basic quality filter)
+
+2. **Valuation Metrics**:
+   - **P/E Ratio**: Price relative to earnings
+     - Lower P/E generally suggests better value (with caveats)
+     - The app checks against a maximum threshold (e.g., P/E < 30)
+
+3. **Growth Metrics**:
+   - **Revenue Growth**: Is the company growing its top line?
+   - **Profit Margin**: How efficiently is revenue converted to profit?
+
+### Combined Analysis & Signals
+
+The strategy generates a "Tech Score" (0-100) based on technical indicators and performs a binary "fundamental check" (pass/fail) on the value metrics.
+
+Final signals are determined by combining both approaches:
+
+- **BUY Signal**: 
+  - Tech Score ≥ 70 AND
+  - Passes fundamental check
+
+- **SELL Signal**:
+  - Tech Score < 40 OR
+  - Below MA40 (primary trend turned negative)
+
+- **HOLD Signal**:
+  - Everything in between
+
+This balanced approach looks for stocks that are fundamentally sound (value) but also have positive price momentum (trend) - attempting to avoid both "value traps" (cheap stocks that keep getting cheaper) and momentum chasing without fundamental backing.
+
+The strategy is particularly useful for medium to long-term investors who want technical timing for fundamentally sound companies.
