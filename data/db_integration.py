@@ -16,9 +16,9 @@ import os
 # Make sure SQLite database is initialized properly
 initialize_database()
 
-# Only use Supabase if the connection is properly set up and tables are accessible
+# Use Supabase if it's properly connected
 supabase_db = get_supabase_db()
-USE_SUPABASE = False  # Temporarily disable Supabase until tables are properly set up
+USE_SUPABASE = supabase_db.is_connected()  # Enable Supabase if connected
 
 def add_to_watchlist(ticker, name, exchange="", sector=""):
     """Add a ticker to the watchlist."""
