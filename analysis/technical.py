@@ -245,7 +245,20 @@ def calculate_all_indicators(data):
         return {}
 
 def generate_technical_signals(indicators):
-    """Generate trading signals based on technical indicators."""
+    """
+    Generate trading signals based on the Value & Momentum Strategy.
+    
+    This strategy focuses on:
+    1. Primary trend (40-week MA)
+    2. Short-term momentum (4-week MA)
+    3. RSI momentum (above/below 50)
+    4. Higher lows pattern for uptrends
+    5. 52-week high proximity
+    6. Breakouts
+    
+    Returns:
+        dict: Dictionary with technical signals and a tech_score (0-100)
+    """
     if not indicators:
         return {}
     
@@ -261,6 +274,7 @@ def generate_technical_signals(indicators):
         else:
             latest_price = 0
             
+        # Get standard technical indicators
         latest_sma_short = indicators['sma_short'].iloc[-1] if ('sma_short' in indicators and not indicators['sma_short'].empty) else 0
         latest_sma_medium = indicators['sma_medium'].iloc[-1] if ('sma_medium' in indicators and not indicators['sma_medium'].empty) else 0
         latest_sma_long = indicators['sma_long'].iloc[-1] if ('sma_long' in indicators and not indicators['sma_long'].empty) else 0
@@ -268,24 +282,49 @@ def generate_technical_signals(indicators):
         latest_macd = indicators['macd'].iloc[-1] if ('macd' in indicators and not indicators['macd'].empty) else 0
         latest_macd_signal = indicators['macd_signal'].iloc[-1] if ('macd_signal' in indicators and not indicators['macd_signal'].empty) else 0
         
-        # Price vs. Moving Averages
-        signals['price_above_sma_short'] = latest_price > latest_sma_short if latest_sma_short > 0 else None
-        signals['price_above_sma_medium'] = latest_price > latest_sma_medium if latest_sma_medium > 0 else None
-        signals['price_above_sma_long'] = latest_price > latest_sma_long if latest_sma_long > 0 else None
+        # Value & Momentum Strategy specific indicators
+        latest_ma4 = indicators['ma4'].iloc[-1] if ('ma4' in indicators and not indicators['ma4'].empty) else 0
+        latest_ma40 = indicators['ma40'].iloc[-1] if ('ma40' in indicators and not indicators['ma40'].empty) else 0
         
-        # Moving Average Cross
-        signals['sma_short_above_medium'] = latest_sma_short > latest_sma_medium if (latest_sma_short > 0 and latest_sma_medium > 0) else None
-        signals['sma_short_above_long'] = latest_sma_short > latest_sma_long if (latest_sma_short > 0 and latest_sma_long > 0) else None
+        # ------- Primary Value & Momentum Strategy Signals -------
         
-        # RSI Signals
+        # 1. Primary Trend: Using MA40 (40-week moving average)
+        signals['above_ma40'] = latest_price > latest_ma40 if latest_ma40 > 0 else None
+        
+        # 2. Short-Term Momentum: Using MA4 (4-week moving average)
+        signals['above_ma4'] = latest_price > latest_ma4 if latest_ma4 > 0 else None
+        
+        # 3. RSI Momentum
         if latest_rsi is not None and not pd.isna(latest_rsi):
+            signals['rsi_above_50'] = latest_rsi > 50
             signals['rsi_overbought'] = latest_rsi > 70
             signals['rsi_oversold'] = latest_rsi < 30
             signals['rsi_value'] = latest_rsi
         else:
+            signals['rsi_above_50'] = None
             signals['rsi_overbought'] = None
             signals['rsi_oversold'] = None
             signals['rsi_value'] = None
+        
+        # 4. Higher Lows Pattern (uptrend structure)
+        if 'price_pattern' in indicators:
+            pattern = indicators['price_pattern']
+            signals['higher_lows'] = pattern.get('higher_lows', None)
+        
+        # 5. Near 52-Week High
+        signals['near_52w_high'] = indicators.get('near_52w_high', None)
+        
+        # 6. Breakouts
+        if 'breakout' in indicators:
+            breakout = indicators['breakout']
+            signals['breakout_up'] = breakout.get('breakout_up', None)
+        
+        # ------- Standard Technical Signals (for compatibility) -------
+        
+        # Price vs. Moving Averages
+        signals['price_above_sma_short'] = latest_price > latest_sma_short if latest_sma_short > 0 else None
+        signals['price_above_sma_medium'] = latest_price > latest_sma_medium if latest_sma_medium > 0 else None
+        signals['price_above_sma_long'] = latest_price > latest_sma_long if latest_sma_long > 0 else None
         
         # MACD Signals
         if latest_macd is not None and latest_macd_signal is not None and not pd.isna(latest_macd) and not pd.isna(latest_macd_signal):
@@ -295,56 +334,43 @@ def generate_technical_signals(indicators):
             signals['macd_bullish_cross'] = None
             signals['macd_bearish_cross'] = None
         
-        # Price Patterns
-        if 'price_pattern' in indicators:
-            pattern = indicators['price_pattern']
-            signals['higher_lows'] = pattern.get('higher_lows', None)
-            signals['lower_highs'] = pattern.get('lower_highs', None)
-            signals['near_52w_high'] = pattern.get('near_52w_high', None)
-            signals['near_52w_low'] = pattern.get('near_52w_low', None)
+        # ------- Calculate Tech Score (0-100) -------
         
-        # Breakouts
-        if 'breakout' in indicators:
-            breakout = indicators['breakout']
-            signals['breakout_up'] = breakout.get('breakout_up', None)
-            signals['breakout_down'] = breakout.get('breakout_down', None)
-            signals['volume_surge'] = breakout.get('volume_surge', None)
+        # Key technical factors for Value & Momentum Strategy
+        tech_factors = [
+            signals.get('above_ma40', False),          # Primary trend positive
+            signals.get('above_ma4', False),           # Short-term momentum positive
+            signals.get('rsi_above_50', False),        # RSI momentum positive
+            signals.get('higher_lows', False),         # Price structure strengthening
+            signals.get('near_52w_high', False),       # Near 52-week high
+            signals.get('breakout_up', False),         # Recent breakout
+            signals.get('price_above_sma_medium', False) # Above 50-day SMA (additional confirmation)
+        ]
         
-        # Overall signal
-        bullish_signals = sum([1 for signal in [
-            signals.get('price_above_sma_short', False),
-            signals.get('price_above_sma_medium', False),
-            signals.get('price_above_sma_long', False),
-            signals.get('sma_short_above_medium', False),
-            signals.get('sma_short_above_long', False),
-            signals.get('rsi_oversold', False),
-            signals.get('macd_bullish_cross', False),
-            signals.get('higher_lows', False),
-            signals.get('near_52w_high', False),
-            signals.get('breakout_up', False),
-            signals.get('volume_surge', False)
-        ] if signal])
+        # Calculate tech score (0-100)
+        valid_factors = [factor for factor in tech_factors if factor is not None]
+        total_factors = len(valid_factors) if valid_factors else 1
+        positive_factors = sum(1 for factor in valid_factors if factor)
+        tech_score = int((positive_factors / total_factors) * 100)
         
-        bearish_signals = sum([1 for signal in [
-            not signals.get('price_above_sma_short', True),
-            not signals.get('price_above_sma_medium', True),
-            not signals.get('price_above_sma_long', True),
-            not signals.get('sma_short_above_medium', True),
-            not signals.get('sma_short_above_long', True),
-            signals.get('rsi_overbought', False),
-            signals.get('macd_bearish_cross', False),
-            signals.get('lower_highs', False),
-            signals.get('near_52w_low', False),
-            signals.get('breakout_down', False)
-        ] if signal])
-        
-        # Calculate overall strength
-        total_signals = 11  # Total number of signals we're checking
-        bullish_strength = bullish_signals / total_signals if total_signals > 0 else 0
-        bearish_strength = bearish_signals / total_signals if total_signals > 0 else 0
-        
-        signals['overall_signal'] = 'bullish' if bullish_strength > bearish_strength else 'bearish'
-        signals['signal_strength'] = max(bullish_strength, bearish_strength)
+        # Signal Classification based on Tech Score and Primary Trend
+        if tech_score >= 70:
+            if signals.get('above_ma40', False):
+                overall_signal = "BUY"  # Strong technical score and above primary trend
+            else:
+                overall_signal = "HOLD"  # Strong technical score but below primary trend
+        elif tech_score >= 40:
+            overall_signal = "HOLD"  # Average technical score
+        else:
+            overall_signal = "SELL"  # Weak technical score
+            
+        # If below primary trend (MA40) and score is borderline, lean towards Sell
+        if signals.get('above_ma40') is False and tech_score < 50:
+            overall_signal = "SELL"
+            
+        signals['tech_score'] = tech_score
+        signals['overall_signal'] = overall_signal
+        signals['signal_strength'] = tech_score  # For compatibility with existing code
         
         return signals
     

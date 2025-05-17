@@ -163,12 +163,33 @@ def analyze_fundamentals(fundamentals):
             overall_status = 'neutral'
             overall_description = 'Mixed or neutral fundamental indicators'
     
+    # Value & Momentum Strategy Fundamental Checks
+    # 1. Profitability Check
+    is_profitable = fundamentals.get('profit_margin', 0) > 0
+    
+    # 2. Valuation Check - P/E ratio below threshold
+    pe_ratio = fundamentals.get('pe_ratio', 0)
+    reasonable_pe = pe_ratio > 0 and pe_ratio < 30  # P/E < 30 as per strategy
+    
+    # 3. Growth Check
+    revenue_growth_positive = fundamentals.get('revenue_growth', 0) > 0
+    
+    # Value & Momentum Strategy pass/fail for fundamental criteria
+    value_momentum_pass = is_profitable
+    if pe_ratio > 0:  # Only check PE if it exists
+        value_momentum_pass = value_momentum_pass and reasonable_pe
+    
     analysis['overall'] = {
         'status': overall_status,
         'description': overall_description,
         'positive_factors': positive_factors,
         'negative_factors': negative_factors,
-        'total_factors': total_factors
+        'total_factors': total_factors,
+        # Value & Momentum Strategy additions
+        'is_profitable': is_profitable,
+        'reasonable_pe': reasonable_pe,
+        'revenue_growth_positive': revenue_growth_positive,
+        'value_momentum_pass': value_momentum_pass
     }
     
     return analysis

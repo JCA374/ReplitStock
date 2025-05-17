@@ -35,27 +35,55 @@ def display_scanner():
     # Dictionary to store selected criteria
     selected_criteria = {}
     
-    # Technical Criteria
-    st.sidebar.markdown("**Technical Criteria**")
+    # Strategy Selection
+    st.sidebar.markdown("**Strategy Selection**")
     
-    # Price vs. SMA
-    price_sma_option = st.sidebar.selectbox(
-        "Price vs. SMA:",
-        ["None", "Price Above SMA", "Price Below SMA"],
-        key="scanner_price_sma"
+    strategy_option = st.sidebar.radio(
+        "Scanner Mode:",
+        ["Custom Criteria", "Value & Momentum Strategy"],
+        key="scanner_strategy"
     )
     
-    if price_sma_option != "None":
-        sma_period = st.sidebar.selectbox(
-            "SMA Period:",
-            [20, 50, 200],
-            key="scanner_sma_period"
-        )
+    if strategy_option == "Value & Momentum Strategy":
+        # Use the Value & Momentum Strategy
+        selected_criteria["strategy"] = "value_momentum"
         
-        if price_sma_option == "Price Above SMA":
-            selected_criteria["price_above_sma"] = sma_period
-        else:
-            selected_criteria["price_below_sma"] = sma_period
+        # Show strategy description
+        st.sidebar.info("""
+        **Value & Momentum Strategy combines:**
+        - Technical momentum (40-week MA, 4-week MA, RSI)
+        - Higher lows pattern
+        - Proximity to 52-week high
+        - Fundamental quality (profitability & valuation)
+        """)
+        
+        # Jump to run scanner button since we don't need custom criteria
+        st.sidebar.markdown("---")
+        
+    else:
+        # Technical Criteria
+        st.sidebar.markdown("**Technical Criteria**")
+        
+        # Price vs. SMA
+        price_sma_option = st.sidebar.selectbox(
+            "Price vs. SMA:",
+            ["None", "Price Above SMA", "Price Below SMA"],
+            key="scanner_price_sma"
+        )
+    
+    # Only show these options for custom criteria mode
+    if strategy_option != "Value & Momentum Strategy":
+        if price_sma_option != "None":
+            sma_period = st.sidebar.selectbox(
+                "SMA Period:",
+                [20, 50, 200],
+                key="scanner_sma_period"
+            )
+            
+            if price_sma_option == "Price Above SMA":
+                selected_criteria["price_above_sma"] = sma_period
+            else:
+                selected_criteria["price_below_sma"] = sma_period
     
     # RSI Conditions
     rsi_option = st.sidebar.selectbox(
