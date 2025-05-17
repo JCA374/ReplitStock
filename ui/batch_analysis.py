@@ -111,13 +111,12 @@ def display_batch_analysis():
     # Analysis execution logic
     results = None
     
-    if analysis_mode == "All Watchlist Stocks" and watchlist:
-        # Auto-run analysis for all watchlist stocks
-        with st.spinner("Analyzing all watchlist stocks..."):
+    # Always require a button press before running
+    run_button = st.button("Run Batch Analysis", type="primary")
+    
+    if run_button and selected_tickers:
+        with st.spinner("Analyzing selected stocks..."):
             results = run_analysis(selected_tickers)
-    elif selected_tickers and st.button("Run Batch Analysis"):
-        # Run analysis when button is clicked (for Selected Stocks mode)
-        results = run_analysis(selected_tickers)
     
     # Display results
     if results:
@@ -460,21 +459,26 @@ def display_batch_analysis():
                 st.subheader("Technical Score Comparison")
                 
                 # Prepare data for visualization
-                if 'tech_score' in results_df.columns:
-                    chart_data = results_df[['ticker', 'tech_score']].copy()
-                    chart_data['signal_color'] = results_df['technical_signal'].apply(
-                        lambda x: 'green' if x == 'bullish' else 'red' if x == 'bearish' else 'orange'
+                if 'Tech Score' in filtered_df.columns:
+                    chart_data = filtered_df[['Ticker', 'Tech Score']].copy()
+                    chart_data['signal_color'] = filtered_df['Signal'].apply(
+                        lambda x: 'green' if x == 'KÖP' else 'red' if x == 'SÄLJ' else 'orange'
+                    )
+                    
+                    # Convert tech score to numeric (assuming format like "80/100")
+                    chart_data['tech_score_value'] = chart_data['Tech Score'].apply(
+                        lambda x: float(x.split('/')[0]) if isinstance(x, str) and '/' in x else 0
                     )
                     
                     # Create horizontal bar chart
                     fig = go.Figure()
                     
                     fig.add_trace(go.Bar(
-                        y=chart_data['ticker'],
-                        x=chart_data['tech_score'],
+                        y=chart_data['Ticker'],
+                        x=chart_data['tech_score_value'],
                         orientation='h',
                         marker_color=chart_data['signal_color'],
-                        text=chart_data['tech_score'].apply(lambda x: f"{x:.0f}/100"),
+                        text=chart_data['Tech Score'],
                         textposition='auto'
                     ))
                     
