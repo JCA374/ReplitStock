@@ -66,33 +66,10 @@ def get_db_engine():
     if engine is not None:
         return engine
     
-    if DATABASE_URL:
-        try:
-            # Format the connection URL properly for Supabase
-            # Expecting format like: https://vqwignoujihxbkmjjftr.supabase.co
-            supabase_host = DATABASE_URL
-            if supabase_host.startswith('https://'):
-                supabase_host = supabase_host.replace('https://', '')
-            
-            # Add proper PostgreSQL connection parameters
-            # Note: User will need to provide actual credentials
-            db_url = f"postgresql://postgres:postgres@{supabase_host}:5432/postgres"
-            
-            print(f"Connecting to PostgreSQL database at {supabase_host}...")
-            engine = create_engine(db_url)
-            
-            # Test connection
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-            print("PostgreSQL connection successful!")
-        except Exception as e:
-            print(f"Error connecting to PostgreSQL: {str(e)}")
-            print("Falling back to SQLite database")
-            engine = create_engine(f"sqlite:///{DB_PATH}")
-    else:
-        # Fall back to SQLite
-        print("Using SQLite database for local storage")
-        engine = create_engine(f"sqlite:///{DB_PATH}")
+    # Due to Replit's network limitations with external PostgreSQL connections,
+    # we'll use SQLite for local storage which works reliably
+    print("Using SQLite database for local storage")
+    engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"timeout": 30})
     
     return engine
 
