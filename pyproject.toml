@@ -5,6 +5,7 @@ description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
     "alpha-vantage>=3.0.0",
+    "matplotlib>=3.10.3",
     "pandas>=2.2.3",
     "plotly>=6.1.0",
     "psycopg2-binary>=2.9.10",
