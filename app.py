@@ -2,6 +2,7 @@
 import streamlit as st
 from streamlit.logger import get_logger
 import os
+import sys
 
 # Import UI components
 from ui.watchlist import display_watchlist
@@ -19,6 +20,9 @@ from data.db_integration import create_supabase_tables, get_cached_stock_data
 
 # Import database initializations
 from data.db_manager import initialize_database
+
+# Import theme switcher
+from utils.theme_switcher import get_current_theme, toggle_theme
 
 # Setup logging
 logger = get_logger(__name__)
@@ -64,6 +68,19 @@ def main():
 
         # Sidebar for navigation
         st.sidebar.title("Navigation")
+        
+        # Theme selector
+        current_theme = get_current_theme()
+        theme_icon = "🌙" if current_theme == "light" else "☀️"
+        theme_text = f"{theme_icon} Switch to {'Dark' if current_theme == 'light' else 'Light'} Mode"
+        
+        if st.sidebar.button(theme_text):
+            new_theme = toggle_theme()
+            st.sidebar.success(f"Switched to {new_theme.capitalize()} Mode! Reloading app...")
+            st.rerun()
+        
+        st.sidebar.divider()
+        
         page = st.sidebar.radio(
             "Select a page:",
             ["Watchlist", "Company Explorer", "Single Stock Analysis",
