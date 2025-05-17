@@ -187,9 +187,9 @@ def display_database_viewer():
                                         st.dataframe(df.head(10))
                                         
                                         # Show chart
-                                        if 'Close' in df.columns:
+                                        if 'close' in df.columns:
                                             st.subheader(f"Chart for {selected_ticker}:")
-                                            st.line_chart(df['Close'])
+                                            st.line_chart(df['close'])
                                         else:
                                             st.warning("No 'Close' column found in the data.")
                                     except Exception as e:
