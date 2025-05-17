@@ -345,6 +345,7 @@ def display_scanner():
         
         # Add a button to fix technical indicators if they're blank
         fix_indicators = st.button("🔧 Fix Technical Indicators", 
+                                key="fix_tech_indicators_btn",
                                 help="Recalculate technical indicators for scan results")
         
         if fix_indicators:
@@ -352,7 +353,7 @@ def display_scanner():
                 from ui.fix_indicators import fix_technical_indicators
                 fix_technical_indicators()
                 # Refresh the display after fixing
-                st.experimental_rerun()
+                st.rerun()
         
         # Display the results
         st.dataframe(display_df, hide_index=True, use_container_width=True)

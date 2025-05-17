@@ -244,6 +244,57 @@ def calculate_all_indicators(data):
         print(f"Error calculating indicators: {e}")
         return {}
 
+def ensure_indicators_not_blank(indicators, data=None):
+    """
+    Ensure all common technical indicators are present and not blank.
+    This function helps fix the common issue of blank indicator displays.
+    
+    Args:
+        indicators (dict): Dictionary of technical indicators
+        data (DataFrame, optional): Price data if recalculation is needed
+    
+    Returns:
+        dict: Updated indicators with no blank values
+    """
+    if data is None or data.empty:
+        return indicators
+    
+    # Ensure RSI is present
+    if 'rsi' not in indicators or indicators['rsi'].empty:
+        try:
+            indicators['rsi'] = calculate_rsi(data)
+        except:
+            # Create empty series if calculation fails
+            indicators['rsi'] = pd.Series([None] * len(data))
+    
+    # Ensure SMAs are present
+    if 'sma_short' not in indicators or indicators['sma_short'].empty:
+        try:
+            indicators['sma_short'] = calculate_sma(data, DEFAULT_SHORT_WINDOW)
+        except:
+            indicators['sma_short'] = pd.Series([None] * len(data))
+    
+    if 'sma_medium' not in indicators or indicators['sma_medium'].empty:
+        try:
+            indicators['sma_medium'] = calculate_sma(data, DEFAULT_MEDIUM_WINDOW)
+        except:
+            indicators['sma_medium'] = pd.Series([None] * len(data))
+    
+    if 'sma_long' not in indicators or indicators['sma_long'].empty:
+        try:
+            indicators['sma_long'] = calculate_sma(data, DEFAULT_LONG_WINDOW)
+        except:
+            indicators['sma_long'] = pd.Series([None] * len(data))
+    
+    # Ensure EMAs are present
+    if 'ema_short' not in indicators or indicators['ema_short'].empty:
+        try:
+            indicators['ema_short'] = calculate_ema(data, DEFAULT_SHORT_WINDOW)
+        except:
+            indicators['ema_short'] = pd.Series([None] * len(data))
+    
+    return indicators
+
 def generate_technical_signals(indicators):
     """
     Generate trading signals based on the Value & Momentum Strategy.

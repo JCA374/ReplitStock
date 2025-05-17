@@ -90,6 +90,9 @@ def perform_scan(tickers, period="1y", interval="1wk", rsi_range=(30, 70),
                 # Calculate technical indicators
                 tech_indicators = calculate_all_indicators(stock_data)
                 
+                # Ensure indicators are not blank
+                tech_indicators = ensure_indicators_not_blank(tech_indicators, stock_data)
+                
                 # Generate technical signals
                 tech_signals = generate_technical_signals(tech_indicators)
                 
@@ -104,7 +107,8 @@ def perform_scan(tickers, period="1y", interval="1wk", rsi_range=(30, 70),
                 stock_name = stock_info.get('shortName', ticker) if stock_info else ticker
                 
                 # Extract actual values for key indicators (not just Boolean flags)
-                rsi_value = tech_signals.get('rsi_value', None)
+                # Get RSI value directly from the indicators - it's a more reliable source
+                rsi_value = tech_indicators.get('rsi', pd.Series()).iloc[-1] if 'rsi' in tech_indicators and not tech_indicators['rsi'].empty else None
                 tech_score = tech_signals.get('tech_score', 0)
                 signal = tech_signals.get('overall_signal', 'NEUTRAL')
                 
