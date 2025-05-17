@@ -51,10 +51,10 @@ class ValueMomentumStrategy:
         data_manager = self._ensure_data_manager()
         return data_manager.fetch_ticker_info(ticker)
 
-    def _fetch_history(self, stock, period="1y", interval="1wk"):
+    def _fetch_history(self, stock_fetcher, ticker, period="1y", interval="1wk"):
         """Fetches history using the data manager"""
         data_manager = self._ensure_data_manager()
-        return data_manager.fetch_history(stock, period=period, interval=interval)
+        return data_manager.fetch_history(stock_fetcher, ticker, period=period, interval=interval)
     
     # Improved RSI calculation from the new code
     def calculate_rsi(self, prices, window=14):
