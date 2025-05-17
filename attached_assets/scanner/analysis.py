@@ -142,7 +142,11 @@ def perform_scan(tickers, period="1y", interval="1wk", rsi_range=(30, 70),
                 breakout = "Yes" if tech_signals.get('breakout_up', False) else "No"
                 
                 # Determine signal strength (as percentage)
-                signal_strength = f"{tech_score}%" if tech_score is not None else "0%"
+                # If tech_score is None or 0, use a default neutral value of 50%
+                if tech_score is None or tech_score == 0:
+                    tech_score = 50  # Set a neutral default score
+                
+                signal_strength = f"{tech_score}%"
                 
                 # Prepare fundamentals data
                 pe_ratio = fundamentals.get('pe_ratio', None)
