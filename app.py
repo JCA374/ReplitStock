@@ -18,21 +18,13 @@ from services.watchlist_manager import WatchlistManager
 from data.db_integration import create_supabase_tables, get_cached_stock_data
 
 # Import database initializations
-from data.db_manager import initialize_database, get_current_database_type
+from data.db_manager import initialize_database
 
 # Setup logging
 logger = get_logger(__name__)
 
 
 def main():
-    # Set page title and configuration - MUST be the first Streamlit command
-    st.set_page_config(
-        page_title="Stock Analysis Tool",
-        page_icon="📈",
-        layout="wide",
-        initial_sidebar_state="expanded",
-    )
-    
     try:
         # Initialize databases
         db_init_success = initialize_database()
@@ -57,14 +49,21 @@ def main():
             elif db_type == "postgresql":
                 st.success("🌐 Connected to Supabase cloud database. Your data will be synced across devices.")
 
-        # Only try to create Supabase tables if we're using PostgreSQL
-        db_type = get_current_database_type()
-        if db_type == "postgresql":
-            try:
-                create_supabase_tables()
-            except Exception as e:
+        try:
+            create_supabase_tables()
+        except Exception as e:
+            # No need to show this warning if we're already showing the SQLite info message
+            if get_current_database_type() == "postgresql":
                 st.warning(
                     f"Supabase tables setup had issues: {e}. Some features may not work correctly.")
+
+        # Set page title and configuration
+        st.set_page_config(
+            page_title="Stock Analysis Tool",
+            page_icon="📈",
+            layout="wide",
+            initial_sidebar_state="expanded",
+        )
 
         # Header section
         st.title("Stock Analysis Tool")
