@@ -227,16 +227,32 @@ class StockDataFetcher:
             except Exception:
                 has_financials = False
             
-            # Calculate fundamental metrics
-            fundamentals = {
-                'pe_ratio': info.get('trailingPE', None),
-                'profit_margin': info.get('profitMargins', None),
-                'revenue_growth': None,  # Will calculate if data available
-                'earnings_growth': None,  # Will calculate if data available
-                'book_value': info.get('bookValue', None),
-                'market_cap': info.get('marketCap', None),
-                'dividend_yield': info.get('dividendYield', None),
-            }
+            # Calculate fundamental metrics with validation
+            fundamentals = {}
+            
+            # Valuation metrics
+            fundamentals['pe_ratio'] = info.get('trailingPE') if isinstance(info.get('trailingPE'), (int, float)) else None
+            fundamentals['forward_pe'] = info.get('forwardPE') if isinstance(info.get('forwardPE'), (int, float)) else None
+            fundamentals['peg_ratio'] = info.get('pegRatio') if isinstance(info.get('pegRatio'), (int, float)) else None
+            fundamentals['price_to_book'] = info.get('priceToBook') if isinstance(info.get('priceToBook'), (int, float)) else None
+            fundamentals['enterprise_value'] = info.get('enterpriseValue') if isinstance(info.get('enterpriseValue'), (int, float)) else None
+            
+            # Profitability metrics
+            fundamentals['profit_margin'] = info.get('profitMargins') if isinstance(info.get('profitMargins'), (int, float)) else None
+            fundamentals['operating_margin'] = info.get('operatingMargins') if isinstance(info.get('operatingMargins'), (int, float)) else None
+            fundamentals['roa'] = info.get('returnOnAssets') if isinstance(info.get('returnOnAssets'), (int, float)) else None
+            fundamentals['roe'] = info.get('returnOnEquity') if isinstance(info.get('returnOnEquity'), (int, float)) else None
+            
+            # Growth metrics (calculated from financial statements)
+            fundamentals['revenue_growth'] = None
+            fundamentals['earnings_growth'] = None
+            
+            # Financial health
+            fundamentals['book_value'] = info.get('bookValue') if isinstance(info.get('bookValue'), (int, float)) else None
+            fundamentals['market_cap'] = info.get('marketCap') if isinstance(info.get('marketCap'), (int, float)) else None
+            fundamentals['dividend_yield'] = info.get('dividendYield') if isinstance(info.get('dividendYield'), (int, float)) else None
+            fundamentals['debt_to_equity'] = info.get('debtToEquity') if isinstance(info.get('debtToEquity'), (int, float)) else None
+            fundamentals['current_ratio'] = info.get('currentRatio') if isinstance(info.get('currentRatio'), (int, float)) else None
             
             # Calculate growth metrics if financial data is available
             if has_financials:
