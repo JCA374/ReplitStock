@@ -9,10 +9,6 @@ def display_scanner():
     st.header("Stock Scanner")
     st.write("Scan stocks based on technical and fundamental criteria")
     
-    # Use session state to track if the scanner has been run automatically
-    if 'scanner_auto_run' not in st.session_state:
-        st.session_state.scanner_auto_run = False
-    
     # Sidebar for scanner configuration
     st.sidebar.header("Scanner Settings")
     
@@ -51,29 +47,16 @@ def display_scanner():
     if strategy_option == "Value & Momentum Strategy":
         # Use the Value & Momentum Strategy
         selected_criteria["strategy"] = "value_momentum"
-        
-        # Show strategy description
-        st.sidebar.info("""
-        **Value & Momentum Strategy combines:**
-        - Technical momentum (40-week MA, 4-week MA, RSI)
-        - Higher lows pattern
-        - Proximity to 52-week high
-        - Fundamental quality (profitability & valuation)
-        """)
-        
-        # Jump to run scanner button since we don't need custom criteria
-        st.sidebar.markdown("---")
-        
-    else:
-        # Technical Criteria
-        st.sidebar.markdown("**Technical Criteria**")
-        
-        # Price vs. SMA
-        price_sma_option = st.sidebar.selectbox(
-            "Price vs. SMA:",
-            ["None", "Price Above SMA", "Price Below SMA"],
-            key="scanner_price_sma"
-        )
+    
+    # Technical Criteria
+    st.sidebar.markdown("**Technical Criteria**")
+    
+    # SMA Conditions
+    price_sma_option = st.sidebar.selectbox(
+        "Price vs. SMA:",
+        ["None", "Price Above SMA", "Price Below SMA"],
+        key="scanner_price_sma"
+    )
     
     # Only show these options for custom criteria mode
     if strategy_option != "Value & Momentum Strategy":
@@ -192,8 +175,30 @@ def display_scanner():
             )
             selected_criteria["revenue_growth_above"] = revenue_growth_value / 100
     
+    # Auto-run on first load for Value & Momentum Strategy
+    if 'scanner_auto_run' not in st.session_state and strategy_option == "Value & Momentum Strategy":
+        # Set auto-run flag to avoid running again
+        st.session_state.scanner_auto_run = True
+        
+        # Execute scan with Value & Momentum Strategy
+        with st.spinner("Running Value & Momentum Strategy scan..."):
+            only_watchlist = scan_scope == "Watchlist Only" 
+            results = scan_stocks(selected_criteria, only_watchlist)
+            
+            if results:
+                # Store results in session state
+                st.session_state.scanner_results = results
+    
     # Run Scanner button
-    if st.sidebar.button("Run Scanner"):
+    run_scanner = st.sidebar.button("Run Scanner")
+    
+    # Checking if scanner results exist
+    has_results = False
+    if hasattr(st.session_state, 'scanner_results') and st.session_state.scanner_results:
+        has_results = True
+    
+    # Run scanner logic
+    if run_scanner:
         if not selected_criteria:
             st.warning("Please select at least one criterion")
         else:
@@ -217,135 +222,143 @@ def display_scanner():
             with st.spinner("Scanning stocks..."):
                 only_watchlist = scan_scope == "Watchlist Only"
                 results = scan_stocks(selected_criteria, only_watchlist)
-            
-            # Display results
-            if results:
-                st.subheader(f"Found {len(results)} matches")
                 
-                # Convert results to DataFrame
-                results_df = pd.DataFrame(results)
-                
-                # Format columns for display
-                display_df = results_df.copy()
-                
-                # Format numeric and boolean columns
-                if 'pe_ratio' in display_df:
-                    display_df['pe_ratio'] = display_df['pe_ratio'].apply(
-                        lambda x: f"{x:.2f}" if pd.notna(x) else "N/A"
-                    )
-                
-                if 'profit_margin' in display_df:
-                    display_df['profit_margin'] = display_df['profit_margin'].apply(
-                        lambda x: f"{x:.2%}" if pd.notna(x) else "N/A"
-                    )
-                
-                if 'revenue_growth' in display_df:
-                    display_df['revenue_growth'] = display_df['revenue_growth'].apply(
-                        lambda x: f"{x:.2%}" if pd.notna(x) else "N/A"
-                    )
-                
-                if 'last_price' in display_df:
-                    display_df['last_price'] = display_df['last_price'].apply(
-                        lambda x: f"{x:.2f}" if pd.notna(x) else "N/A"
-                    )
-                
-                if 'signal_strength' in display_df:
-                    display_df['signal_strength'] = display_df['signal_strength'].apply(
-                        lambda x: f"{x*100:.1f}%" if pd.notna(x) else "N/A"
-                    )
-                
-                # Value & Momentum Strategy specific formatting
-                if strategy_option == "Value & Momentum Strategy":
-                    # Format Tech Score as percentage
-                    if 'Tech Score' in display_df:
-                        display_df['Tech Score'] = display_df['Tech Score'].apply(
-                            lambda x: f"{x:.0f}/100" if pd.notna(x) else "N/A"
-                        )
-                    
-                    # Format boolean columns with symbols for better readability
-                    boolean_columns = ['Above MA40', 'Above MA4', 'RSI > 50', 'Near 52w High', 'Profitable', 'Good P/E', 'Fund. Pass']
-                    for col in boolean_columns:
-                        if col in display_df:
-                            display_df[col] = display_df[col].apply(
-                                lambda x: "✓" if x is True else "✗" if x is False else "—"
-                            )
-                    
-                    # Format the Value & Momentum Signal with color highlighting
-                    if 'Signal' in display_df:
-                        display_df['Signal'] = display_df['Signal'].apply(
-                            lambda x: x.upper() if pd.notna(x) else "N/A"
-                        )
-                
-                # Rename columns for display
-                if strategy_option == "Value & Momentum Strategy":
-                    # Special column mapping for Value & Momentum Strategy
-                    column_mapping = {
-                        'ticker': 'Ticker',
-                        'last_price': 'Price',
-                        'tech_score': 'Tech Score',
-                        'pe_ratio': 'P/E Ratio',
-                        'profit_margin': 'Profit Margin',
-                        'revenue_growth': 'Revenue Growth',
-                        'above_ma40': 'Above MA40',
-                        'above_ma4': 'Above MA4',
-                        'rsi_above_50': 'RSI > 50',
-                        'near_52w_high': 'Near 52w High',
-                        'is_profitable': 'Profitable',
-                        'reasonable_pe': 'Good P/E',
-                        'fundamental_pass': 'Fund. Pass',
-                        'value_momentum_signal': 'Signal'
-                    }
-                    
-                    # Select columns for Value & Momentum Strategy display
-                    columns_to_display = [
-                        'Ticker', 'Price', 'Signal', 'Tech Score', 
-                        'Above MA40', 'RSI > 50', 'Near 52w High', 'Profitable',
-                        'P/E Ratio', 'Profit Margin', 'Revenue Growth'
-                    ]
-                else:
-                    # Regular column mapping for custom criteria
-                    column_mapping = {
-                        'ticker': 'Ticker',
-                        'last_price': 'Price',
-                        'pe_ratio': 'P/E Ratio',
-                        'profit_margin': 'Profit Margin',
-                        'revenue_growth': 'Revenue Growth',
-                        'technical_signal': 'Technical',
-                        'signal_strength': 'Signal Strength',
-                        'fundamental_status': 'Fundamentals'
-                    }
-                    
-                    # Select columns for regular display
-                    columns_to_display = [
-                        'Ticker', 'Price', 'Technical', 'Signal Strength', 
-                        'Fundamentals', 'P/E Ratio', 'Profit Margin', 'Revenue Growth'
-                    ]
-                
-                display_df = display_df.rename(columns=column_mapping)
-                
-                display_df = display_df[[col for col in columns_to_display if col in display_df.columns]]
-                
-                # Capitalize status text
-                if 'Technical' in display_df:
-                    display_df['Technical'] = display_df['Technical'].str.capitalize()
-                
-                if 'Fundamentals' in display_df:
-                    display_df['Fundamentals'] = display_df['Fundamentals'].str.capitalize()
-                
-                # Display the results
-                st.dataframe(display_df, hide_index=True, use_container_width=True)
-                
-                # Download button for results
-                csv = display_df.to_csv(index=False)
-                st.download_button(
-                    label="Download Results as CSV",
-                    data=csv,
-                    file_name="stock_scanner_results.csv",
-                    mime="text/csv"
+                if results:
+                    st.session_state.scanner_results = results
+                    has_results = True
+    
+    # Display results
+    if has_results:
+        results = st.session_state.scanner_results
+        st.subheader(f"Found {len(results)} matches")
+        
+        # Convert results to DataFrame
+        results_df = pd.DataFrame(results)
+        
+        # Format columns for display
+        display_df = results_df.copy()
+        
+        # Format numeric columns
+        if 'pe_ratio' in display_df:
+            display_df['pe_ratio'] = display_df['pe_ratio'].apply(
+                lambda x: f"{x:.2f}" if pd.notna(x) else "N/A"
+            )
+        
+        if 'profit_margin' in display_df:
+            display_df['profit_margin'] = display_df['profit_margin'].apply(
+                lambda x: f"{x:.2%}" if pd.notna(x) else "N/A"
+            )
+        
+        if 'revenue_growth' in display_df:
+            display_df['revenue_growth'] = display_df['revenue_growth'].apply(
+                lambda x: f"{x:.2%}" if pd.notna(x) else "N/A"
+            )
+        
+        if 'last_price' in display_df:
+            display_df['last_price'] = display_df['last_price'].apply(
+                lambda x: f"{x:.2f}" if pd.notna(x) else "N/A"
+            )
+        
+        if 'signal_strength' in display_df:
+            display_df['signal_strength'] = display_df['signal_strength'].apply(
+                lambda x: f"{x*100:.1f}%" if pd.notna(x) else "N/A"
+            )
+        
+        # Value & Momentum Strategy specific formatting
+        if strategy_option == "Value & Momentum Strategy":
+            # Format Tech Score as percentage
+            if 'tech_score' in display_df:
+                display_df['tech_score'] = display_df['tech_score'].apply(
+                    lambda x: f"{x:.0f}/100" if pd.notna(x) else "N/A"
                 )
-            else:
-                st.info("No stocks match the selected criteria. Try adjusting your criteria.")
-    else:
+            
+            # Format boolean columns with symbols for better readability
+            boolean_columns = ['above_ma40', 'above_ma4', 'rsi_above_50', 'near_52w_high', 'is_profitable', 'reasonable_pe', 'fundamental_pass']
+            for col in boolean_columns:
+                if col in display_df:
+                    display_df[col] = display_df[col].apply(
+                        lambda x: "✓" if x is True else "✗" if x is False else "—"
+                    )
+            
+            # Format the Value & Momentum Signal with color highlighting
+            if 'value_momentum_signal' in display_df:
+                display_df['value_momentum_signal'] = display_df['value_momentum_signal'].apply(
+                    lambda x: x.upper() if pd.notna(x) else "N/A"
+                )
+                
+        # Rename columns for display
+        if strategy_option == "Value & Momentum Strategy":
+            # Special column mapping for Value & Momentum Strategy
+            column_mapping = {
+                'ticker': 'Ticker',
+                'last_price': 'Price',
+                'tech_score': 'Tech Score',
+                'pe_ratio': 'P/E Ratio',
+                'profit_margin': 'Profit Margin',
+                'revenue_growth': 'Revenue Growth',
+                'above_ma40': 'Above MA40',
+                'above_ma4': 'Above MA4',
+                'rsi_above_50': 'RSI > 50',
+                'near_52w_high': 'Near 52w High',
+                'is_profitable': 'Profitable',
+                'reasonable_pe': 'Good P/E',
+                'fundamental_pass': 'Fund. Pass',
+                'value_momentum_signal': 'Signal'
+            }
+            
+            # Select columns for Value & Momentum Strategy display
+            columns_to_display = [
+                'Ticker', 'Price', 'Signal', 'Tech Score', 
+                'Above MA40', 'RSI > 50', 'Near 52w High', 'Profitable',
+                'P/E Ratio', 'Profit Margin', 'Revenue Growth'
+            ]
+        else:
+            # Regular column mapping for custom criteria
+            column_mapping = {
+                'ticker': 'Ticker',
+                'last_price': 'Price',
+                'pe_ratio': 'P/E Ratio',
+                'profit_margin': 'Profit Margin',
+                'revenue_growth': 'Revenue Growth',
+                'technical_signal': 'Technical',
+                'signal_strength': 'Signal Strength',
+                'fundamental_status': 'Fundamentals'
+            }
+            
+            # Select columns for regular display
+            columns_to_display = [
+                'Ticker', 'Price', 'Technical', 'Signal Strength', 
+                'Fundamentals', 'P/E Ratio', 'Profit Margin', 'Revenue Growth'
+            ]
+        
+        display_df = display_df.rename(columns=column_mapping)
+        
+        # Filter to columns that actually exist in the dataframe
+        display_df = display_df[[col for col in columns_to_display if col in display_df.columns]]
+        
+        # Capitalize status text
+        if 'Technical' in display_df:
+            display_df['Technical'] = display_df['Technical'].str.capitalize()
+        
+        if 'Fundamentals' in display_df:
+            display_df['Fundamentals'] = display_df['Fundamentals'].str.capitalize()
+        
+        # Display the results
+        st.dataframe(display_df, hide_index=True, use_container_width=True)
+        
+        # Download button for results
+        csv = display_df.to_csv(index=False)
+        st.download_button(
+            label="Download Results as CSV",
+            data=csv,
+            file_name="stock_scanner_results.csv",
+            mime="text/csv"
+        )
+        
+    elif run_scanner and not has_results:
+        st.info("No stocks match the selected criteria. Try adjusting your criteria.")
+        
+    elif not has_results:
         # Show instructions and example image
         st.info("Configure your scan criteria using the sidebar, then click 'Run Scanner'")
         
