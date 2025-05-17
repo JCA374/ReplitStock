@@ -26,6 +26,8 @@ class SupabaseDB:
             try:
                 self.client = create_client(self.supabase_url, self.supabase_key)
                 print(f"Connected to Supabase at {self.supabase_url}")
+                # Initialize tables after successful connection
+                self._create_tables_if_not_exist()
             except Exception as e:
                 print(f"Error connecting to Supabase: {str(e)}")
                 self.client = None
@@ -36,21 +38,80 @@ class SupabaseDB:
     
     def _create_tables_if_not_exist(self):
         """
-        Create necessary tables if they don't exist.
-        This functionality is limited with REST API, but we'll attempt to work with
-        the tables we expect to exist.
+        Create necessary tables if they don't exist using SQL directly.
+        This is a more reliable approach than using RPC functions.
         """
         if not self.is_connected():
             return
         
+        try:
+            # Create watchlist table
+            watchlist_sql = """
+            CREATE TABLE IF NOT EXISTS watchlist (
+                id SERIAL PRIMARY KEY,
+                ticker VARCHAR(20) UNIQUE NOT NULL,
+                name VARCHAR(100),
+                exchange VARCHAR(50),
+                sector VARCHAR(50),
+                added_date VARCHAR(20)
+            );
+            """
+            
+            # Create stock_data_cache table
+            stock_data_cache_sql = """
+            CREATE TABLE IF NOT EXISTS stock_data_cache (
+                id SERIAL PRIMARY KEY,
+                ticker VARCHAR(20) NOT NULL,
+                timeframe VARCHAR(10) NOT NULL,
+                period VARCHAR(10) NOT NULL,
+                data TEXT NOT NULL,
+                timestamp BIGINT NOT NULL,
+                source VARCHAR(20) NOT NULL,
+                UNIQUE(ticker, timeframe, period, source)
+            );
+            """
+            
+            # Create fundamentals_cache table
+            fundamentals_cache_sql = """
+            CREATE TABLE IF NOT EXISTS fundamentals_cache (
+                id SERIAL PRIMARY KEY,
+                ticker VARCHAR(20) UNIQUE NOT NULL,
+                pe_ratio FLOAT,
+                profit_margin FLOAT,
+                revenue_growth FLOAT,
+                earnings_growth FLOAT,
+                book_value FLOAT,
+                market_cap FLOAT,
+                dividend_yield FLOAT,
+                last_updated BIGINT NOT NULL
+            );
+            """
+            
+            # Execute the SQL statements
+            self.client.table("_exec_sql").insert({"query": watchlist_sql}).execute()
+            self.client.table("_exec_sql").insert({"query": stock_data_cache_sql}).execute()
+            self.client.table("_exec_sql").insert({"query": fundamentals_cache_sql}).execute()
+            
+            print("Database tables have been initialized successfully!")
+        except Exception as e:
+            print(f"Error creating tables: {str(e)} - This may be expected if you don't have 'exec_sql' enabled")
+        
         # Verify tables exist by trying to fetch a row
         tables = ["watchlist", "stock_data_cache", "fundamentals_cache"]
+        working_tables = 0
+        
         for table in tables:
             try:
                 # Try fetching a single row
                 self.client.table(table).select("*").limit(1).execute()
+                working_tables += 1
             except Exception as e:
                 print(f"Table {table} might not exist: {str(e)}")
+        
+        if working_tables == len(tables):
+            print("All tables are accessible! Database is ready.")
+        else:
+            print(f"{working_tables}/{len(tables)} tables are accessible. Some features may not work correctly.")
     
     # Watchlist methods
     def add_to_watchlist(self, ticker, name, exchange="", sector=""):
