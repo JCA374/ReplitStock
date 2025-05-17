@@ -366,28 +366,7 @@ def render_explorer_tab():
     elif 'selected_country' in locals() and selected_country != "All Countries":
         filters["country"] = selected_country
     
-    # Popular Swedish Companies section
-    st.subheader("Popular Swedish Companies")
-    st.write("Click on a company to view details and analysis")
-    
-    # Display popular Swedish companies in a grid
-    popular_swedish = explorer.companies_df[
-        (explorer.companies_df["Country"] == "Sweden") & 
-        (explorer.companies_df["Ticker"].str.contains("-B.ST")) 
-    ].head(6)
-    
-    if not popular_swedish.empty:
-        cols = st.columns(3)
-        for i, (_, company) in enumerate(popular_swedish.iterrows()):
-            with cols[i % 3]:
-                with st.container():
-                    st.write(f"**{company['CompanyName']}**")
-                    st.caption(company['Ticker'])
-                    
-                    if st.button("View", key=f"popular_{company['Ticker']}"):
-                        # Set as search query and rerun
-                        st.session_state["company_explorer_search"] = company['CompanyName']
-                        st.rerun()
+
     
     # Search results
     if search_query:

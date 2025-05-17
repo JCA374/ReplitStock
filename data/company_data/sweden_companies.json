@@ -1,0 +1,242 @@
+[
+  {
+    "CompanyName": "ABB Ltd",
+    "Ticker": "ABB.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Industrials",
+    "Industry": "Industrial Goods",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Alfa Laval",
+    "Ticker": "ALFA.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Industrials",
+    "Industry": "Industrial Goods",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Assa Abloy",
+    "Ticker": "ASSA-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Industrials",
+    "Industry": "Building Products",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "AstraZeneca",
+    "Ticker": "AZN.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Healthcare",
+    "Industry": "Pharmaceuticals",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Atlas Copco",
+    "Ticker": "ATCO-A.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Industrials",
+    "Industry": "Industrial Goods",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Atlas Copco",
+    "Ticker": "ATCO-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Industrials",
+    "Industry": "Industrial Goods",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Boliden",
+    "Ticker": "BOL.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Basic Materials",
+    "Industry": "Mining",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Electrolux",
+    "Ticker": "ELUX-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Consumer Cyclical",
+    "Industry": "Household Appliances",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Ericsson",
+    "Ticker": "ERIC-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Technology",
+    "Industry": "Communication Equipment",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Essity",
+    "Ticker": "ESSITY-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Consumer Defensive",
+    "Industry": "Household Products",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Getinge",
+    "Ticker": "GETI-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Healthcare",
+    "Industry": "Medical Devices",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Hennes & Mauritz",
+    "Ticker": "HM-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Consumer Cyclical",
+    "Industry": "Retail",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Hexagon",
+    "Ticker": "HEXA-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Technology",
+    "Industry": "Software",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Investor",
+    "Ticker": "INVE-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Financial Services",
+    "Industry": "Investment Services",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Kinnevik",
+    "Ticker": "KINV-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Financial Services",
+    "Industry": "Investment Services",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Nordea Bank",
+    "Ticker": "NDA-SE.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Financial Services",
+    "Industry": "Banks",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Sandvik",
+    "Ticker": "SAND.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Industrials",
+    "Industry": "Industrial Goods",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "SCA",
+    "Ticker": "SCA-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Basic Materials",
+    "Industry": "Paper & Forestry Products",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "SEB",
+    "Ticker": "SEB-A.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Financial Services",
+    "Industry": "Banks",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Securitas",
+    "Ticker": "SECU-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Industrials",
+    "Industry": "Security & Protection",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Skanska",
+    "Ticker": "SKA-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Industrials",
+    "Industry": "Construction",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "SKF",
+    "Ticker": "SKF-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Industrials",
+    "Industry": "Industrial Goods",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "SSAB",
+    "Ticker": "SSAB-A.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Basic Materials",
+    "Industry": "Steel",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Swedbank",
+    "Ticker": "SWED-A.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Financial Services",
+    "Industry": "Banks",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Swedish Match",
+    "Ticker": "SWMA.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Consumer Defensive",
+    "Industry": "Tobacco",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Tele2",
+    "Ticker": "TEL2-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Communication Services",
+    "Industry": "Telecom",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Telia Company",
+    "Ticker": "TELIA.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Communication Services",
+    "Industry": "Telecom",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Volvo",
+    "Ticker": "VOLV-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Industrials",
+    "Industry": "Auto Manufacturers",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Volvo",
+    "Ticker": "VOLV-A.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Industrials",
+    "Industry": "Auto Manufacturers",
+    "Country": "Sweden"
+  },
+  {
+    "CompanyName": "Latour",
+    "Ticker": "LATO-B.ST",
+    "Exchange": "Stockholm",
+    "Sector": "Financial Services",
+    "Industry": "Investment Services",
+    "Country": "Sweden"
+  }
+]
