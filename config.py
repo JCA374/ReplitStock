@@ -6,6 +6,7 @@ YAHOO_FINANCE_ENABLED = True  # No API key needed for yfinance
 
 # Database configuration
 import os
+# Use SQLite as reliable fallback when Supabase is unavailable
 DB_PATH = "stock_data.db"  # Fallback local database
 DATABASE_URL = os.getenv("DATABASE_URL", "")  # Cloud database URL
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")  # Supabase API key
