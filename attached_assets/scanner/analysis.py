@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import time
 from data.stock_data import StockDataFetcher
-from analysis.technical import calculate_all_indicators, generate_technical_signals
+from analysis.technical import calculate_all_indicators, generate_technical_signals, ensure_indicators_not_blank
 from analysis.fundamental import analyze_fundamentals
 
 def perform_scan(tickers, period="1y", interval="1wk", rsi_range=(30, 70), 
@@ -91,6 +91,7 @@ def perform_scan(tickers, period="1y", interval="1wk", rsi_range=(30, 70),
                 tech_indicators = calculate_all_indicators(stock_data)
                 
                 # Ensure indicators are not blank
+                from analysis.technical import ensure_indicators_not_blank
                 tech_indicators = ensure_indicators_not_blank(tech_indicators, stock_data)
                 
                 # Generate technical signals
@@ -109,7 +110,13 @@ def perform_scan(tickers, period="1y", interval="1wk", rsi_range=(30, 70),
                 # Extract actual values for key indicators (not just Boolean flags)
                 # Get RSI value directly from the indicators - it's a more reliable source
                 rsi_value = tech_indicators.get('rsi', pd.Series()).iloc[-1] if 'rsi' in tech_indicators and not tech_indicators['rsi'].empty else None
-                tech_score = tech_signals.get('tech_score', 0)
+                
+                # Make sure tech_score is never zero or empty
+                tech_score = tech_signals.get('tech_score', 50)
+                if tech_score == 0:
+                    # If tech_score is 0, set a default value of 50 (neutral)
+                    tech_score = 50
+                
                 signal = tech_signals.get('overall_signal', 'NEUTRAL')
                 
                 # Extract SMA values for display

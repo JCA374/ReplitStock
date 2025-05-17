@@ -400,9 +400,18 @@ def generate_technical_signals(indicators):
         
         # Calculate tech score (0-100)
         valid_factors = [factor for factor in tech_factors if factor is not None]
-        total_factors = len(valid_factors) if valid_factors else 1
-        positive_factors = sum(1 for factor in valid_factors if factor)
-        tech_score = int((positive_factors / total_factors) * 100)
+        
+        # Make sure we have at least some valid factors, otherwise use a default score
+        if not valid_factors:
+            # Default to neutral score when no factors are available
+            tech_score = 50
+        else:
+            total_factors = len(valid_factors)
+            positive_factors = sum(1 for factor in valid_factors if factor)
+            tech_score = int((positive_factors / total_factors) * 100)
+            
+        # Make sure score is at least 1, never zero
+        tech_score = max(1, tech_score)
         
         # Signal Classification based on Tech Score and Primary Trend
         if tech_score >= 70:
