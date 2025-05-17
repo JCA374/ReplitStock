@@ -1,0 +1,90 @@
+# Fix for Database Initialization Error in Stock Analysis Tool
+
+I can see there's an issue with the Supabase database connection in your stock analysis application. The primary error is that `SUPABASE_KEY` is not defined in the database initialization code, which is causing connection problems.
+
+## The Problem
+
+The error occurs in the `initialize_database()` function in `data/db_manager.py`:
+```
+NameError: name 'SUPABASE_KEY' is not defined
+```
+
+This happens because:
+1. The code is trying to use `SUPABASE_KEY` but it's not imported or defined
+2. Following this error, the application fails to connect to the database tables
+
+## Solution
+
+Here's how to fix this issue:
+
+1. **Update the import statement** in `data/db_manager.py` to include `SUPABASE_KEY`:
+
+```python
+# Current import
+from config import DB_PATH, DATABASE_URL, CACHE_EXPIRATION, DATA_REFRESH_INTERVAL
+
+# Change to:
+from config import DB_PATH, DATABASE_URL, CACHE_EXPIRATION, DATA_REFRESH_INTERVAL, SUPABASE_KEY
+```
+
+2. **Make sure `SUPABASE_KEY` is defined in `config.py`**. Add this if it's not already there:
+
+```python
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+```
+
+3. **Improve error handling** in the database initialization function:
+
+```python
+def initialize_database():
+    """Initialize the database tables if they don't exist."""
+    print("Starting database initialization...")
+    try:
+        # Always use SQLite for now due to connection issues with PostgreSQL on Replit
+        print("Initializing SQLite database...")
+
+        # Create tables using SQLAlchemy
+        engine = get_db_engine()
+        Base.metadata.create_all(engine)
+        print("SQLite database initialized successfully!")
+
+        # Try connecting to Supabase if credentials are available
+        if DATABASE_URL and SUPABASE_KEY:
+            try:
+                print("Testing Supabase connection...")
+                from data.supabase_client import get_supabase_db
+                supabase_db = get_supabase_db()
+                if supabase_db.is_connected():
+                    print("Supabase connection successful!")
+                else:
+                    print("Supabase connection failed, but continuing with SQLite")
+            except ImportError:
+                print("Supabase client module not available, continuing with SQLite")
+            except Exception as e:
+                print(
+                    f"Supabase connection error (continuing with SQLite): {e}")
+                import traceback
+                print(traceback.format_exc())
+        else:
+            print("No Supabase credentials found, using SQLite only")
+
+        return True
+    except Exception as e:
+        print(f"Database initialization error: {e}")
+        import traceback
+        print(traceback.format_exc())
+        # Return True anyway to allow the app to continue with limited functionality
+        return True
+```
+
+4. **Add a fallback mechanism** for `get_watchlist()` and other database functions to ensure they don't crash the application if database access fails.
+
+## Implementation
+
+Would you like me to create an implementation that fixes these issues? I can provide:
+
+1. The corrected version of `db_manager.py`
+2. Any necessary updates to `config.py`
+3. A more robust version of the database access functions that handles connection failures gracefully
+
+Let me know if you'd like me to proceed with generating these fixes for you.
