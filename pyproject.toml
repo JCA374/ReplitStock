@@ -10,5 +10,6 @@ dependencies = [
     "sqlalchemy>=2.0.41",
     "streamlit>=1.45.1",
     "supabase>=2.15.1",
+    "trafilatura>=2.0.0",
     "yfinance>=0.2.61",
 ]
