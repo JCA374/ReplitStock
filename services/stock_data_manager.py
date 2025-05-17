@@ -41,12 +41,13 @@ class StockDataManager:
         # Return stock and info
         return fetcher, stock_info
         
-    def fetch_history(self, stock, period="1y", interval="1wk"):
+    def fetch_history(self, stock_fetcher, ticker, period="1y", interval="1wk"):
         """
         Fetch historical price data with caching.
         
         Args:
-            stock: Stock data fetcher
+            stock_fetcher: Stock data fetcher instance
+            ticker: Stock ticker symbol
             period: Time period to fetch
             interval: Time interval for data points
             
@@ -62,8 +63,8 @@ class StockDataManager:
         
         timeframe = interval_to_timeframe.get(interval, "1d")
         
-        # Fetch data
-        return stock.get_stock_data(stock.ticker, timeframe, period)
+        # Fetch data with the ticker directly
+        return stock_fetcher.get_stock_data(ticker, timeframe, period)
         
     def fetch_company_earnings(self, ticker):
         """

@@ -27,27 +27,29 @@ def render_analysis_tab():
 
         # Get all stocks from all watchlists
         all_watchlists = watchlist_manager.get_all_watchlists()
-        all_stocks = []
-
-        for watchlist in all_watchlists:
-            all_stocks.extend([(ticker, watchlist["name"])
-                              for ticker in watchlist["stocks"]])
-
-        if all_stocks:
+        
+        # First select which watchlist to use
+        watchlist_names = [w["name"] for w in all_watchlists]
+        selected_watchlist_index = st.selectbox(
+            "Välj watchlist:",
+            range(len(watchlist_names)), 
+            format_func=lambda i: watchlist_names[i]
+        )
+        
+        # Get stocks from selected watchlist
+        selected_watchlist = all_watchlists[selected_watchlist_index]
+        stocks_in_watchlist = selected_watchlist["stocks"]
+        
+        if stocks_in_watchlist:
             # Format selection options
-            options = [f"{ticker} ({wl_name})" for ticker,
-                       wl_name in all_stocks]
-            tickers = [ticker for ticker, _ in all_stocks]
-
             selected_option = st.selectbox(
                 "Välj aktie",
-                options=[""] + options
+                options=[""] + stocks_in_watchlist
             )
 
             if selected_option:
-                # Extract ticker from the selected option
-                selected_index = options.index(selected_option)
-                selected_ticker = tickers[selected_index]
+                # The selected option is directly the ticker
+                selected_ticker = selected_option
 
                 if st.button("Analysera vald aktie"):
                     with st.spinner(f"Analyserar {selected_ticker}..."):

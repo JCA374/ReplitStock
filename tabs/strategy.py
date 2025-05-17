@@ -133,7 +133,10 @@ class ValueMomentumStrategy:
         result = {"ticker": ticker, "error": None, "error_message": None}
         try:
             # Get stock data using our centralized service
-            stock, info = self._fetch_info(ticker)
+            stock_fetcher, info = self._fetch_info(ticker)
+
+            # Store the ticker in the fetcher instance for later use
+            stock_fetcher._ticker = ticker
 
             # Track data source
             data_source = "local"  # Default to local if it's coming from the database
@@ -147,7 +150,7 @@ class ValueMomentumStrategy:
                 name = ticker
 
             # Get historical data (weekly) using our centralized service
-            hist = self._fetch_history(stock, period="1y", interval="1wk")
+            hist = self._fetch_history(stock_fetcher, ticker, period="1y", interval="1wk")
 
             if hist is None or hist.empty:
                 return {
@@ -163,7 +166,7 @@ class ValueMomentumStrategy:
             tech_analysis = self._calculate_technical_indicators(hist)
 
             # Calculate fundamental indicators
-            fund_analysis = self._calculate_fundamental_indicators(stock, info)
+            fund_analysis = self._calculate_fundamental_indicators(stock_fetcher, info)
 
             # Calculate signal
             tech_score = self._calculate_tech_score(tech_analysis)
