@@ -84,3 +84,7 @@ backup/
 test_*.py
 !test_app.py
 temp/
+
+
+__pycache__/
+
