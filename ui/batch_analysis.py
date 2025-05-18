@@ -25,7 +25,7 @@ def display_batch_analysis():
     
     analysis_mode = st.sidebar.radio(
         "Analysis Mode:",
-        ["All Watchlist Stocks", "Selected Stocks"],
+        ["All Watchlist Stocks", "All Small Cap", "All Mid Cap", "All Large Cap", "Selected Stocks"],
         key="batch_analysis_mode"
     )
     
@@ -33,26 +33,89 @@ def display_batch_analysis():
     
     if analysis_mode == "All Watchlist Stocks":
         if not watchlist:
-            st.warning("Your watchlist is empty. Please add stocks to your watchlist or use the Selected Stocks mode.")
+            st.warning("Your watchlist is empty. Please add stocks to your watchlist or use another mode.")
         else:
             selected_tickers = watchlist_tickers
             st.success(f"Analyzing all {len(selected_tickers)} stocks in your watchlist")
+    elif analysis_mode == "All Small Cap":
+        try:
+            small_cap_df = pd.read_csv('csv/updated_small.csv')
+            small_cap_tickers = small_cap_df['YahooTicker'].tolist()
+            selected_tickers = small_cap_tickers
+            st.success(f"Analyzing all {len(selected_tickers)} stocks from Small Cap list")
+        except Exception as e:
+            st.error(f"Failed to load Small Cap CSV file: {str(e)}")
+    elif analysis_mode == "All Mid Cap":
+        try:
+            mid_cap_df = pd.read_csv('csv/updated_mid.csv')
+            mid_cap_tickers = mid_cap_df['YahooTicker'].tolist()
+            selected_tickers = mid_cap_tickers
+            st.success(f"Analyzing all {len(selected_tickers)} stocks from Mid Cap list")
+        except Exception as e:
+            st.error(f"Failed to load Mid Cap CSV file: {str(e)}")
+    elif analysis_mode == "All Large Cap":
+        try:
+            large_cap_df = pd.read_csv('csv/updated_large.csv')
+            large_cap_tickers = large_cap_df['YahooTicker'].tolist()
+            selected_tickers = large_cap_tickers
+            st.success(f"Analyzing all {len(selected_tickers)} stocks from Large Cap list")
+        except Exception as e:
+            st.error(f"Failed to load Large Cap CSV file: {str(e)}")
     else:  # Selected Stocks mode
         input_method = st.radio(
             "Select stocks from:",
-            ["Watchlist", "Manual Entry"],
+            ["Watchlist", "Small Cap CSV", "Mid Cap CSV", "Large Cap CSV", "Manual Entry"],
             key="batch_input_method"
         )
         
         if input_method == "Watchlist":
             if not watchlist:
-                st.warning("Your watchlist is empty. Please add stocks to your watchlist or use manual entry.")
+                st.warning("Your watchlist is empty. Please add stocks to your watchlist or use another option.")
             else:
                 selected_tickers = st.multiselect(
                     "Select stocks from your watchlist:",
                     options=watchlist_tickers,
                     key="batch_watchlist_select"
                 )
+        elif input_method == "Small Cap CSV":
+            # Load small cap tickers from CSV
+            try:
+                small_cap_df = pd.read_csv('csv/updated_small.csv')
+                small_cap_tickers = small_cap_df['YahooTicker'].tolist()
+                selected_tickers = st.multiselect(
+                    "Select stocks from Small Cap list:",
+                    options=small_cap_tickers,
+                    key="batch_small_cap_select"
+                )
+            except Exception as e:
+                st.error(f"Failed to load Small Cap CSV file: {str(e)}")
+                selected_tickers = []
+        elif input_method == "Mid Cap CSV":
+            # Load mid cap tickers from CSV
+            try:
+                mid_cap_df = pd.read_csv('csv/updated_mid.csv')
+                mid_cap_tickers = mid_cap_df['YahooTicker'].tolist()
+                selected_tickers = st.multiselect(
+                    "Select stocks from Mid Cap list:",
+                    options=mid_cap_tickers,
+                    key="batch_mid_cap_select"
+                )
+            except Exception as e:
+                st.error(f"Failed to load Mid Cap CSV file: {str(e)}")
+                selected_tickers = []
+        elif input_method == "Large Cap CSV":
+            # Load large cap tickers from CSV
+            try:
+                large_cap_df = pd.read_csv('csv/updated_large.csv')
+                large_cap_tickers = large_cap_df['YahooTicker'].tolist()
+                selected_tickers = st.multiselect(
+                    "Select stocks from Large Cap list:",
+                    options=large_cap_tickers,
+                    key="batch_large_cap_select"
+                )
+            except Exception as e:
+                st.error(f"Failed to load Large Cap CSV file: {str(e)}")
+                selected_tickers = []
         else:  # Manual Entry
             ticker_input = st.text_input(
                 "Enter ticker symbols (comma-separated):",
