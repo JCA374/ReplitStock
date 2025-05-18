@@ -83,3 +83,4 @@ stock_data.db
 backup/
 test_*.py
 !test_app.py
+temp/
