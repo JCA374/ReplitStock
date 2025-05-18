@@ -1,43 +1,60 @@
-# In app.py
 import streamlit as st
 from streamlit.logger import get_logger
 import os
+import traceback
+import pandas as pd
+
+# Import database connection
+from data.db_connection import get_db_connection, get_db_engine, get_db_session, test_connection
 
 # Import UI components
 from ui.watchlist import display_watchlist
 from ui.batch_analysis import display_batch_analysis
 from ui.scanner_ui import display_scanner
 from ui.database_viewer import display_database_viewer
-from ui.company_search import display_company_search
 from ui.company_explorer import display_company_explorer
 
-# Import the new analysis tab implementation
+# Import analysis components and services
 from tabs.analysis_tab import render_analysis_tab
 from tabs.strategy import ValueMomentumStrategy
 from services.watchlist_manager import WatchlistManager
-from data.db_integration import create_supabase_tables, get_cached_stock_data
+from services.company_explorer import CompanyExplorer
 
-# Import database initializations
-from data.db_manager import initialize_database
+# Import database models (needed for creating tables)
+from data.db_models import Base
 
 # Setup logging
 logger = get_logger(__name__)
 
 
+def initialize_tables(engine):
+    """Initialize database tables using SQLAlchemy models"""
+    try:
+        from data.db_models import Base
+        Base.metadata.create_all(engine)
+        return True
+    except Exception as e:
+        logger.error(f"Error creating database tables: {e}")
+        return False
+
+
+def create_db_storage():
+    """Create a database storage object for the watchlist manager and strategy"""
+    # This wrapper provides database operations to our classes
+    from data.db_integration import add_to_watchlist, remove_from_watchlist, get_watchlist, get_cached_stock_data
+
+    return {
+        'engine': get_db_engine(),
+        'session': get_db_session,
+        'get_cached_stock_data': get_cached_stock_data,
+        'add_to_watchlist': add_to_watchlist,
+        'remove_from_watchlist': remove_from_watchlist,
+        'get_watchlist': get_watchlist
+    }
+
+
 def main():
     try:
-        # Initialize databases
-        db_init_success = initialize_database()
-        if not db_init_success:
-            st.warning(
-                "Database initialization had issues. Some features may not work correctly.")
-
-        try:
-            create_supabase_tables()
-        except Exception as e:
-            st.warning(
-                f"Supabase tables setup had issues: {e}. Some features may not work correctly.")
-
         # Set page title and configuration
         st.set_page_config(
             page_title="Stock Analysis Tool",
@@ -46,13 +63,30 @@ def main():
             initial_sidebar_state="expanded",
         )
 
-        # Header section
-        st.title("Stock Analysis Tool")
-        st.markdown("""
-        Analyze stocks using both fundamental (value) and technical (momentum) factors.
-        """)
+        # Attempt database connection and show status
+        db_connection = get_db_connection()
+        engine = db_connection.get_engine()
+        connection_type = db_connection.connection_type
 
-        # Initialize strategy and watchlist manager in session state if not already done
+        # Create tables if they don't exist
+        tables_initialized = initialize_tables(engine)
+
+        # Header section with status indicator
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.title("Stock Analysis Tool")
+            st.markdown(
+                "Analyze stocks using both fundamental (value) and technical (momentum) factors.")
+
+        with col2:
+            if connection_type == "postgresql":
+                st.success("✅ Connected to Supabase")
+            else:
+                st.warning("⚠️ Using local SQLite database")
+                st.info(
+                    "Database features will work, but data won't be shared across sessions.")
+
+        # Initialize strategy and watchlist manager in session state
         if 'strategy' not in st.session_state:
             st.session_state.strategy = ValueMomentumStrategy()
 
@@ -62,12 +96,21 @@ def main():
             st.session_state.watchlist_manager = WatchlistManager(
                 st.session_state.db_storage)
 
+        # Initialize company explorer in session state
+        if 'company_explorer' not in st.session_state:
+            st.session_state.company_explorer = CompanyExplorer(
+                st.session_state.db_storage)
+
+        # Initialize show_watchlist_manager if not present
+        if 'show_watchlist_manager' not in st.session_state:
+            st.session_state.show_watchlist_manager = False
+
         # Sidebar for navigation
         st.sidebar.title("Navigation")
         page = st.sidebar.radio(
             "Select a page:",
-            ["Watchlist", "Company Explorer", "Single Stock Analysis",
-                "Batch Analysis", "Stock Scanner", "Database Viewer"]
+            ["Single Stock Analysis", "Watchlist", "Company Explorer",
+             "Batch Analysis", "Stock Scanner", "Database Viewer"]
         )
 
         # Display the selected page
@@ -76,36 +119,40 @@ def main():
         elif page == "Company Explorer":
             display_company_explorer()
         elif page == "Single Stock Analysis":
-            render_analysis_tab()  # Use the new implementation
+            render_analysis_tab()
         elif page == "Batch Analysis":
             display_batch_analysis()
         elif page == "Stock Scanner":
             # Add a fix button for technical indicators
             if st.session_state.get('scan_results') is not None and not st.session_state.get('scan_results').empty:
                 if st.button("🔧 Fix Technical Indicators", help="Recalculate technical indicators to fix blank values"):
-                    from scanner_fix import fix_technical_indicators
-                    fix_technical_indicators()
+                    try:
+                        from scanner_fix import fix_technical_indicators
+                        fix_technical_indicators()
+                    except Exception as e:
+                        st.error(f"Error fixing indicators: {e}")
 
             display_scanner()
         elif page == "Database Viewer":
             display_database_viewer()
 
+        # Footer with database status
+        st.sidebar.markdown("---")
+        st.sidebar.markdown(f"**Database:** {connection_type.capitalize()}")
+        if st.sidebar.button("Test Connection"):
+            with st.sidebar:
+                connection_ok = test_connection()
+                if connection_ok:
+                    st.success("Database connection is working!")
+                else:
+                    st.error(
+                        "Database connection failed. Check your configuration.")
+
     except Exception as e:
         st.error(f"Application error: {e}")
-        import traceback
         st.code(traceback.format_exc())
-        st.info("Please check the configuration and try again.")
-
-
-def create_db_storage():
-    """Create a database storage object for the watchlist manager and strategy"""
-    # This is a simple wrapper to provide DB storage operations to our classes
-    # For now, we'll just use the existing functions from db_integration
-    return {
-        'get_cached_stock_data': get_cached_stock_data,
-        # Just a placeholder, not used directly
-        'add_to_watchlist': create_supabase_tables,
-    }
+        st.info(
+            "Please check the configuration and try again. If the error persists, contact support.")
 
 
 if __name__ == "__main__":

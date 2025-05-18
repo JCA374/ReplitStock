@@ -1,82 +1,75 @@
-import os
-import psycopg2
+# test_db_connection.py
+from data.db_connection import get_db_connection, test_connection
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
-def test_connection():
-    """Test connection to PostgreSQL database using DATABASE_URL."""
-    # Get the connection URL from environment variables
-    database_url = os.getenv("DATABASE_URL")
-    
-    if not database_url:
-        print("Error: DATABASE_URL environment variable is not set!")
-        return
-    
-    print(f"Testing connection to Supabase database...")
-    
-    # For Supabase, the connection string should be in the format:
-    # postgresql://postgres:[YOUR-PASSWORD]@db.dgfudgctsgmcjtgdoxsi.supabase.co:5432/postgres
-    
+
+def run_comprehensive_test():
+    """Run a comprehensive test of the database connection"""
+    print("\n=== DATABASE CONNECTION TEST ===\n")
+
+    # Test basic connection
+    print("Testing basic connection...")
+    connection_ok = test_connection()
+
+    if not connection_ok:
+        print("❌ Basic connection test failed. Cannot continue.")
+        return False
+
+    # Get database connection
+    db = get_db_connection()
+    engine = db.get_engine()
+    connection_type = db.connection_type
+
+    print(f"\nUsing {connection_type.upper()} database")
+
+    # Test creating a temporary table
+    print("\nTesting table creation...")
     try:
-        # Connect to the database
-        conn = psycopg2.connect(database_url)
-        print("✅ Connection successful!")
-        
-        # Create a cursor
-        cur = conn.cursor()
-        
-        # Create a test table
-        print("Creating test table...")
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS test_table (
-                id SERIAL PRIMARY KEY,
-                ticker VARCHAR(10) NOT NULL,
-                company_name VARCHAR(100),
-                price NUMERIC(10, 2),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        # Insert some test data
-        print("Inserting test data...")
-        test_stocks = [
-            ('AAPL', 'Apple Inc.', 190.25),
-            ('MSFT', 'Microsoft Corporation', 420.15),
-            ('TSLA', 'Tesla Inc.', 242.50),
-            ('NVDA', 'NVIDIA Corporation', 950.75),
-            ('GOOGL', 'Alphabet Inc.', 180.20)
-        ]
-        
-        for ticker, name, price in test_stocks:
-            cur.execute(
-                "INSERT INTO test_table (ticker, company_name, price) VALUES (%s, %s, %s)",
-                (ticker, name, price)
-            )
-        
-        # Commit the changes
-        conn.commit()
-        
-        # Query the data to verify it was inserted
-        print("\nRetrieving data from test_table:")
-        cur.execute("SELECT * FROM test_table")
-        rows = cur.fetchall()
-        
-        # Print column names and data
-        colnames = [desc[0] for desc in cur.description]
-        print(f"Columns: {colnames}")
-        
-        # Print each row
-        for row in rows:
-            print(row)
-        
-        # Close cursor and connection
-        cur.close()
-        conn.close()
-        
-        print("\n✅ Test completed successfully!")
-        
+        with engine.connect() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS connection_test (
+                    id SERIAL PRIMARY KEY,
+                    test_name VARCHAR(100),
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            print("✅ Created test table successfully")
+
+            # Insert test data
+            conn.execute(text("""
+                INSERT INTO connection_test (test_name) 
+                VALUES ('IPv4 connection test')
+            """))
+            conn.commit()
+            print("✅ Inserted test data successfully")
+
+            # Query the data
+            result = conn.execute(
+                text("SELECT * FROM connection_test")).fetchall()
+            print(f"✅ Retrieved {len(result)} row(s) from test table")
+            for row in result:
+                print(f"  - ID: {row[0]}, Name: {row[1]}, Timestamp: {row[2]}")
+
+            # Clean up (optional)
+            if connection_type == "postgresql":
+                # Only delete rows in PostgreSQL to preserve evidence
+                conn.execute(text("DELETE FROM connection_test"))
+                conn.commit()
+                print("✅ Cleaned up test data")
+            else:
+                # In SQLite, drop the table entirely
+                conn.execute(text("DROP TABLE connection_test"))
+                conn.commit()
+                print("✅ Dropped test table")
+
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
+        print(f"❌ Error during database operations: {e}")
+        return False
+
+    print("\n✅ All database tests passed successfully!")
+    return True
+
 
 if __name__ == "__main__":
-    test_connection()
+    run_comprehensive_test()
