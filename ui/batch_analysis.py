@@ -9,6 +9,54 @@ from utils.ticker_mapping import normalize_ticker
 from config import TIMEFRAMES, PERIOD_OPTIONS
 from helpers import create_results_table
 
+# Temporary fix for missing SQLite table
+import sqlite3
+from sqlalchemy import create_engine, text
+from pathlib import Path
+
+# Get SQLite DB path
+db_path = "stock_data.db"  # Your database path
+
+# Create the analysis_results table if it doesn't exist
+try:
+    # Connect to SQLite database
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Create table
+    cursor.executescript("""
+    CREATE TABLE IF NOT EXISTS analysis_results (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticker VARCHAR(20) NOT NULL,
+        analysis_date VARCHAR(50) NOT NULL,
+        price FLOAT,
+        tech_score INTEGER,
+        signal VARCHAR(10),
+        above_ma40 INTEGER,
+        above_ma4 INTEGER,
+        rsi_value FLOAT,
+        rsi_above_50 INTEGER,
+        near_52w_high INTEGER,
+        pe_ratio FLOAT,
+        profit_margin FLOAT,
+        revenue_growth FLOAT,
+        is_profitable INTEGER,
+        data_source VARCHAR(20),
+        last_updated BIGINT,
+        CONSTRAINT analysis_results_unique UNIQUE (ticker, analysis_date)
+    );
+    
+    -- Create index for faster lookups
+    CREATE INDEX IF NOT EXISTS idx_analysis_results_ticker ON analysis_results(ticker);
+    CREATE INDEX IF NOT EXISTS idx_analysis_results_date ON analysis_results(analysis_date);
+    """)
+
+    conn.commit()
+    conn.close()
+    print("Successfully created analysis_results table in SQLite")
+except Exception as e:
+    print(f"Error creating analysis_results table: {e}")
+
 def display_batch_analysis():
     st.header("Batch Analysis")
     st.write("Analyze multiple stocks at once to compare their technical and fundamental indicators.")

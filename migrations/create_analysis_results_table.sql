@@ -1,8 +1,8 @@
 -- Create analysis_results table to store batch analysis results
-CREATE TABLE IF NOT EXISTS public.analysis_results (
-    id SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS analysis_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticker VARCHAR(20) NOT NULL,
-    analysis_date TIMESTAMP NOT NULL,
+    analysis_date VARCHAR(50) NOT NULL,
     price FLOAT,
     tech_score INTEGER,
     signal VARCHAR(10),
@@ -21,5 +21,5 @@ CREATE TABLE IF NOT EXISTS public.analysis_results (
 );
 
 -- Create index for faster lookups
-CREATE INDEX IF NOT EXISTS idx_analysis_results_ticker ON public.analysis_results(ticker);
-CREATE INDEX IF NOT EXISTS idx_analysis_results_date ON public.analysis_results(analysis_date);
+CREATE INDEX IF NOT EXISTS idx_analysis_results_ticker ON analysis_results(ticker);
+CREATE INDEX IF NOT EXISTS idx_analysis_results_date ON analysis_results(analysis_date);

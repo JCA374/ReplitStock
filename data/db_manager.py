@@ -89,6 +89,7 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+
 def initialize_database():
     """Initialize the database tables if they don't exist."""
     print("Starting database initialization...")
@@ -98,6 +99,10 @@ def initialize_database():
 
         # Create tables using SQLAlchemy
         engine = get_db_engine()
+
+        # Import all models to ensure they're registered with the Base
+        from data.db_models import Watchlist, StockDataCache, FundamentalsCache, AnalysisResults
+
         Base.metadata.create_all(engine)
         print("SQLite database initialized successfully!")
 

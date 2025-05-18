@@ -251,29 +251,31 @@ class SupabaseDB:
                 }).execute()
         except Exception as e:
             print(f"Error caching stock data: {str(e)}")
-    
+
     def get_cached_stock_data(self, ticker, timeframe, period, source):
         """Retrieve cached stock data if available and not expired."""
         if not self.is_connected():
             return None
-            
+
         try:
-            response = self.client.table("stock_data_cache").select("*").eq("ticker", ticker).eq("timeframe", timeframe).eq("period", period).eq("source", source).execute()
-            
+            response = self.client.table("stock_data_cache").select("*").eq("ticker", ticker).eq(
+                "timeframe", timeframe).eq("period", period).eq("source", source).execute()
+
             if response.data:
                 record = response.data[0]
                 current_timestamp = int(time.time())
-                
+
                 # Check if data needs to be refreshed
                 if (current_timestamp - record["timestamp"]) < CACHE_EXPIRATION:
-                    # Convert JSON back to DataFrame
-                    return pd.read_json(record["data"])
-            
+                    # Convert JSON back to DataFrame - fix warning using StringIO
+                    import io
+                    return pd.read_json(io.StringIO(record["data"]))
+
             return None
         except Exception as e:
-            print(f"Error getting cached stock data: {str(e)}")
+            print(f"Error getting cached stock data: {e}")
             return None
-    
+
     # Fundamentals cache methods
     def cache_fundamentals(self, ticker, fundamentals_data):
         """Cache fundamental data for a ticker."""
@@ -354,56 +356,76 @@ class SupabaseDB:
             print(f"Error getting all fundamentals: {str(e)}")
             return []
 
-# other
+    # other
 
 
-def store_analysis_result(self, ticker, analysis_data):
-    """Store analysis result in Supabase."""
-    if not self.is_connected():
-        return False
+    def store_analysis_result(self, ticker, analysis_data):
+        """Store analysis result in Supabase."""
+        if not self.is_connected():
+            return False
 
-    try:
-        # Check if record exists
-        response = self.client.table("analysis_results").select("id").eq(
-            "ticker", ticker).eq("analysis_date", analysis_data['analysis_date']).execute()
+        try:
+            # Convert boolean values to integers and create a copy of the data
+            serializable_data = {}
+            for key, value in analysis_data.items():
+                if isinstance(value, bool):
+                    # Convert boolean to integer (1/0)
+                    serializable_data[key] = 1 if value else 0
+                else:
+                    serializable_data[key] = value
 
-        if response.data:
-            # Update existing record
-            record_id = response.data[0]["id"]
-            self.client.table("analysis_results").update(
-                analysis_data).eq("id", record_id).execute()
-        else:
-            # Insert new record
-            self.client.table("analysis_results").insert(
-                analysis_data).execute()
+            # Check if record exists
+            response = self.client.table("analysis_results").select("id").eq(
+                "ticker", ticker).eq("analysis_date", analysis_data['analysis_date']).execute()
 
-        return True
-    except Exception as e:
-        print(f"Error storing analysis result in Supabase: {e}")
-        return False
+            if response.data:
+                # Update existing record
+                record_id = response.data[0]["id"]
+                self.client.table("analysis_results").update(
+                    serializable_data).eq("id", record_id).execute()
+            else:
+                # Insert new record
+                self.client.table("analysis_results").insert(
+                    serializable_data).execute()
+
+            return True
+        except Exception as e:
+            print(f"Error storing analysis result in Supabase: {e}")
+            return False
 
 
-def get_analysis_results(self, ticker=None, cutoff_time=None):
-    """Get analysis results from Supabase."""
-    if not self.is_connected():
-        return None
+    def get_analysis_results(self, ticker=None, cutoff_time=None):
+        """Get analysis results from Supabase."""
+        if not self.is_connected():
+            return None
 
-    try:
-        query = self.client.table("analysis_results")
+        try:
+            # Start building the query
+            query = self.client.table("analysis_results")
 
-        if cutoff_time:
-            query = query.gte("last_updated", cutoff_time)
+            # For Supabase client versions that may not support gte
+            # Use alternative filtering approach
+            if ticker:
+                query = query.eq("ticker", ticker)
 
-        if ticker:
-            query = query.eq("ticker", ticker)
+            # Use order by for sorting
+            query = query.order("last_updated", desc=True)
 
-        query = query.order("last_updated", desc=True)
+            # Execute query
+            response = query.execute()
 
-        response = query.execute()
-        return response.data
-    except Exception as e:
-        print(f"Error getting analysis results from Supabase: {e}")
-        return None
+            # If cutoff_time is provided, filter the results in Python
+            if cutoff_time and response.data:
+                filtered_data = [
+                    item for item in response.data
+                    if 'last_updated' in item and item['last_updated'] >= cutoff_time
+                ]
+                return filtered_data
+
+            return response.data
+        except Exception as e:
+            print(f"Error getting analysis results from Supabase: {e}")
+            return None
 
 # Singleton instance
 _supabase_db = None
