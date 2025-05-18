@@ -356,23 +356,35 @@ class SupabaseDB:
             print(f"Error getting all fundamentals: {str(e)}")
             return []
 
-    # other
-
-
     def store_analysis_result(self, ticker, analysis_data):
         """Store analysis result in Supabase."""
         if not self.is_connected():
             return False
 
         try:
-            # Convert boolean values to integers and create a copy of the data
-            serializable_data = {}
-            for key, value in analysis_data.items():
-                if isinstance(value, bool):
-                    # Convert boolean to integer (1/0)
-                    serializable_data[key] = 1 if value else 0
+            # Create a deep copy with all values converted to JSON-serializable formats
+            import json
+
+            # Convert all boolean values recursively
+            def make_serializable(obj):
+                if isinstance(obj, bool):
+                    return 1 if obj else 0
+                elif isinstance(obj, dict):
+                    return {k: make_serializable(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [make_serializable(item) for item in obj]
+                elif isinstance(obj, (int, float, str, type(None))):
+                    return obj
                 else:
-                    serializable_data[key] = value
+                    # Convert any other types to string
+                    return str(obj)
+
+            # Create serializable copy of all data
+            serializable_data = make_serializable(analysis_data)
+
+            # Remove any fields that might cause issues
+            if 'historical_data' in serializable_data:
+                del serializable_data['historical_data']
 
             # Check if record exists
             response = self.client.table("analysis_results").select("id").eq(
@@ -393,38 +405,75 @@ class SupabaseDB:
             print(f"Error storing analysis result in Supabase: {e}")
             return False
 
-
     def get_analysis_results(self, ticker=None, cutoff_time=None):
         """Get analysis results from Supabase."""
         if not self.is_connected():
             return None
 
         try:
-            # Start building the query
-            query = self.client.table("analysis_results")
+            # Build a basic query
+            query = "analysis_results"
 
-            # For Supabase client versions that may not support gte
-            # Use alternative filtering approach
+            # Set up filters
+            filters = {}
             if ticker:
-                query = query.eq("ticker", ticker)
+                filters['ticker'] = ticker
 
-            # Use order by for sorting
-            query = query.order("last_updated", desc=True)
+            # Try a more direct approach that should work with any client version
+            try:
+                response = self.client.from_(query).select('*')
+                if ticker:
+                    response = response.filter('ticker', 'eq', ticker)
 
-            # Execute query
-            response = query.execute()
+                # Get data - different clients have different ways to execute
+                try:
+                    data = response.execute().data
+                except AttributeError:
+                    # If execute() doesn't work, the response might already contain data
+                    try:
+                        data = response.data
+                    except AttributeError:
+                        # Or the response itself might be the data
+                        data = response
 
-            # If cutoff_time is provided, filter the results in Python
-            if cutoff_time and response.data:
-                filtered_data = [
-                    item for item in response.data
-                    if 'last_updated' in item and item['last_updated'] >= cutoff_time
-                ]
-                return filtered_data
+                # Filter by cutoff time if needed
+                if cutoff_time and data:
+                    data = [item for item in data if item.get(
+                        'last_updated', 0) >= cutoff_time]
 
-            return response.data
+                return data
+            except Exception as inner_e:
+                print(f"Direct query method failed: {inner_e}")
+                return []
+
         except Exception as e:
             print(f"Error getting analysis results from Supabase: {e}")
+            return []
+
+    def get_analysis_results_fallback(self):
+        """Fallback method to retrieve analysis results when all else fails."""
+        if not self.is_connected():
+            return None
+
+        try:
+            # Most basic query possible - just get all results
+            response = self.client.from_("analysis_results").select("*")
+
+            # Try to get data
+            try:
+                if hasattr(response, 'execute'):
+                    data = response.execute().data
+                elif hasattr(response, 'data'):
+                    data = response.data
+                else:
+                    data = response
+
+                return data
+            except Exception as e:
+                print(f"Fallback retrieval error: {e}")
+                return None
+        except Exception as e:
+            print(f"Error in analysis results fallback: {e}")
             return None
 
 # Singleton instance
