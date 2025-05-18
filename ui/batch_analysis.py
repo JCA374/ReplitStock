@@ -749,9 +749,62 @@ def display_batch_analysis():
             
             for error in error_results:
                 st.error(f"Error analyzing {error['ticker']}: {error.get('message', 'Unknown error')}")
-    else:
-        # Display instructions if no stocks selected or analysis not yet run
-        if not selected_tickers and analysis_mode == "Selected Stocks":
-            st.info("Select stocks to analyze and click 'Run Batch Analysis'")
-            st.image("https://images.pexels.com/photos/6802042/pexels-photo-6802042.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1", 
-                    caption="Batch analysis allows you to compare multiple stocks at once")
+    
+    # Add a new section to allow viewing historical analysis
+    with st.expander("View Historical Analysis"):
+        st.subheader("Previously Run Analyses")
+
+        # Get data from the database
+        from data.db_integration import get_analysis_results
+
+        # Allow filtering by days
+        days_filter = st.slider(
+            "Show analyses from the last X days:",
+            min_value=1,
+            max_value=90,
+            value=30
+        )
+
+        # Get historical results
+        historical_results = get_analysis_results(days=days_filter)
+
+        if historical_results:
+            # Group by date
+            from collections import defaultdict
+            date_grouped = defaultdict(list)
+
+            for result in historical_results:
+                date_grouped[result["analysis_date"]].append(result)
+
+            # Show dates as a selectbox
+            dates = sorted(date_grouped.keys(), reverse=True)
+            selected_date = st.selectbox("Select analysis date:", dates)
+
+            if selected_date:
+                # Show tickers analyzed on that date
+                date_results = date_grouped[selected_date]
+                st.write(
+                    f"Found {len(date_results)} stocks analyzed on {selected_date}")
+
+                # Convert to DataFrame for display
+                import pandas as pd
+                hist_df = pd.DataFrame(date_results)
+
+                # Format for display
+                display_df = hist_df[['ticker', 'price', 'signal',
+                                    'tech_score', 'rsi_value', 'pe_ratio', 'data_source']].copy()
+                display_df.columns = ['Ticker', 'Price', 'Signal',
+                                    'Tech Score', 'RSI', 'P/E Ratio', 'Data Source']
+
+                # Display the data
+                st.dataframe(display_df, hide_index=True)
+
+                # Option to load this analysis
+                if st.button("Load this analysis"):
+                    st.session_state.analysis_results = date_results
+                    st.rerun()
+        else:
+            st.info("No historical analyses found in the database.")
+
+
+    

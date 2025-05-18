@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, BigInteger, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, Integer, String, Float, BigInteger, Text, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 
 # SQLAlchemy Base class for ORM
@@ -35,6 +35,35 @@ class StockDataCache(Base):
     
     def __repr__(self):
         return f"<StockDataCache(ticker='{self.ticker}', timeframe='{self.timeframe}', period='{self.period}')>"
+
+class AnalysisResults(Base):
+    __tablename__ = 'analysis_results'
+
+    id = Column(Integer, primary_key=True)
+    ticker = Column(String(20), nullable=False)
+    analysis_date = Column(String(50), nullable=False)
+    price = Column(Float)
+    tech_score = Column(Integer)
+    signal = Column(String(10))
+    above_ma40 = Column(Boolean)
+    above_ma4 = Column(Boolean)
+    rsi_value = Column(Float)
+    rsi_above_50 = Column(Boolean)
+    near_52w_high = Column(Boolean)
+    pe_ratio = Column(Float)
+    profit_margin = Column(Float)
+    revenue_growth = Column(Float)
+    is_profitable = Column(Boolean)
+    data_source = Column(String(20))
+    last_updated = Column(BigInteger)
+
+    __table_args__ = (
+        UniqueConstraint('ticker', 'analysis_date',
+                         name='analysis_results_unique'),
+    )
+
+    def __repr__(self):
+        return f"<AnalysisResults(ticker='{self.ticker}', date='{self.analysis_date}', signal='{self.signal}')>"
 
 class FundamentalsCache(Base):
     __tablename__ = 'fundamentals_cache'

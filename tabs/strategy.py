@@ -382,37 +382,37 @@ class ValueMomentumStrategy:
             score = 0
 
         return round(score)
-    
+
     def batch_analyze(self, tickers, progress_callback=None):
         """
         Analyze multiple stocks and return a list of analysis results.
-        
-        Parameters:
-        - tickers: List of stock ticker symbols
-        - progress_callback: Function to call with progress updates (0-1.0 and text)
-        
-        Returns:
-        - List of analysis result dictionaries
+        Also stores results in the database.
         """
         results = []
-        
+
         for i, ticker in enumerate(tickers):
             # Update progress
             if progress_callback:
                 progress = (i / len(tickers))
                 progress_callback(progress, f"Analyzing {ticker}...")
-            
+
             # Analyze stock
             result = self.analyze_stock(ticker)
             results.append(result)
-        
+
+            # Save to database if analysis was successful
+            if "error" not in result or result["error"] is None:
+                from data.db_integration import store_analysis_result
+                store_analysis_result(ticker, result)
+
         # Sort by tech score (descending)
-        results.sort(key=lambda x: x.get('tech_score', 0) if x.get('error') is None else -1, reverse=True)
-        
+        results.sort(key=lambda x: x.get('tech_score', 0)
+                    if x.get('error') is None else -1, reverse=True)
+
         # Final update
         if progress_callback:
             progress_callback(1.0, "Analysis complete!")
-            
+
         return results
 
     def plot_analysis(self, analysis):

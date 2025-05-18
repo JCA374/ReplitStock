@@ -24,8 +24,8 @@ def display_database_viewer():
         db_source = "Local SQLite"
     
     # Create tabs for different tables
-    tab_watchlist, tab_stock_cache, tab_fundamentals, tab_custom = st.tabs([
-        "Watchlist", "Stock Data Cache", "Fundamentals", "Custom Query"
+    tab_watchlist, tab_stock_cache, tab_fundamentals, tab_custom, tab_analysis = st.tabs([
+        "Watchlist", "Stock Data Cache", "Fundamentals", "Custom Query", "Analysis Results"
     ])
     
     # Watchlist tab
@@ -348,7 +348,69 @@ def display_database_viewer():
                     st.error(f"Error executing query: {str(e)}")
             else:
                 st.warning("Please enter a SQL query to execute.")
-    
+
+    # Add Analysis Results tab
+    with tab_analysis:
+        st.subheader("Analysis Results")
+
+        if db_source == "Supabase" and USE_SUPABASE:
+            # Get data from Supabase
+            try:
+                supabase_client = get_supabase_db()
+
+                # Query the analysis_results table
+                if supabase_client and supabase_client.client:
+                    response = supabase_client.client.table("analysis_results").select(
+                        "*").order("analysis_date", desc=True).limit(100).execute()
+                    analysis_data = response.data if hasattr(
+                        response, 'data') else []
+
+                    if analysis_data:
+                        # Convert to DataFrame for display
+                        analysis_df = pd.DataFrame(analysis_data)
+                        st.dataframe(analysis_df)
+                        st.info(
+                            f"Showing latest 100 analysis results from Supabase ({len(analysis_data)} records)")
+                    else:
+                        st.info("No analysis results found in Supabase")
+            except Exception as e:
+                st.error(f"Error querying Supabase analysis results: {e}")
+        else:
+            # Get data from SQLite
+            try:
+                from data.db_models import AnalysisResults
+                session = get_db_session()
+                analysis_data = session.query(AnalysisResults).order_by(
+                    AnalysisResults.analysis_date.desc()).limit(100).all()
+
+                if analysis_data:
+                    # Convert to list of dictionaries
+                    analysis_records = []
+                    for item in analysis_data:
+                        analysis_records.append({
+                            'Ticker': item.ticker,
+                            'Date': item.analysis_date,
+                            'Price': item.price,
+                            'Tech Score': item.tech_score,
+                            'Signal': item.signal,
+                            'P/E Ratio': item.pe_ratio,
+                            'Data Source': item.data_source,
+                            'Last Updated': datetime.fromtimestamp(item.last_updated) if item.last_updated else None
+                        })
+
+                    # Create DataFrame
+                    analysis_df = pd.DataFrame(analysis_records)
+                    st.dataframe(analysis_df)
+                    st.info(
+                        f"Showing latest 100 analysis results from SQLite ({len(analysis_records)} records)")
+                else:
+                    st.info("No analysis results found in SQLite")
+
+                session.close()
+            except Exception as e:
+                st.error(f"Error querying SQLite analysis results: {e}")
+
+
     # Add a button to refresh the data
     if st.button("Refresh Data"):
         st.rerun()
