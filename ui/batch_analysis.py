@@ -58,6 +58,8 @@ except Exception as e:
     print(f"Error creating analysis_results table: {e}")
 
 def display_batch_analysis():
+    import pandas as pd 
+    
     st.header("Batch Analysis")
     st.write("Analyze multiple stocks at once to compare their technical and fundamental indicators.")
     
