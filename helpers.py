@@ -60,9 +60,9 @@ def create_results_table(analysis_results):
             "Över MA4": "Ja" if above_ma4 else "Nej",
             "RSI > 50": "Ja" if rsi_above_50 else "Nej",
             "Högre Bottnar": "Ja" if higher_lows else "Nej",
-            "P/E": pe_ratio if pe_ratio is not None else None,
-            "Vinstmarginal": profit_margin*100 if profit_margin is not None else None,
-            "Omsättning Tillväxt": revenue_growth*100 if revenue_growth is not None else None,
+            "P/E": pe_ratio if pe_ratio is not None else "None",
+            "Vinstmarginal": f"{profit_margin*100:.1f}%" if profit_margin is not None else "None",
+            "Omsättning Tillväxt": f"{revenue_growth*100:.1f}%" if revenue_growth is not None else "None",
             "Data Source": data_source
         }
         
