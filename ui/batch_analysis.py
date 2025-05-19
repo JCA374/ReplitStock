@@ -227,9 +227,52 @@ def display_batch_analysis():
     # Always require a button press before running
     run_button = st.button("Run Batch Analysis", type="primary")
     
+    # Add a demo button for testing display with screenshot values
+    demo_button = st.button("Show Demo Data")
+    
     if run_button and selected_tickers:
         with st.spinner("Analyzing selected stocks..."):
             results = run_analysis(selected_tickers)
+    
+    # Handle demo data - add demo data from screenshot
+    if demo_button:
+        # Create sample results matching the screenshot
+        results = [
+            {
+                "ticker": "DEMO1",
+                "name": "Demo Stock 1",
+                "price": 100.0,
+                "date": "2025-05-19",
+                "tech_score": 65,
+                "signal": "HÅLL",
+                "buy_signal": False,
+                "sell_signal": False,
+                "data_source": "yahoo",
+                "pe_ratio": None,
+                "profit_margin": None, 
+                "revenue_growth": None,
+                "above_ma40": True,
+                "above_ma4": True,
+                "rsi_above_50": True
+            },
+            {
+                "ticker": "DEMO2",
+                "name": "Demo Stock 2",
+                "price": 200.0,
+                "date": "2025-05-19",
+                "tech_score": 75,
+                "signal": "KÖP",
+                "buy_signal": True,
+                "sell_signal": False,
+                "data_source": "yahoo",
+                "pe_ratio": None,
+                "profit_margin": None,
+                "revenue_growth": None,
+                "above_ma40": True,
+                "above_ma4": True,
+                "rsi_above_50": True
+            }
+        ]
     
     # Display results
     if results:
