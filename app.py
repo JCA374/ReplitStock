@@ -111,7 +111,7 @@ def main():
         page = st.sidebar.radio(
             "Select a page:",
             ["Single Stock Analysis", "Watchlist", "Company Explorer",
-             "Batch Analysis", "Stock Scanner", "Database Viewer"]
+             "Batch Analysis", "Stock Scanner", "Enhanced Scanner", "Database Viewer"]
         )
 
         # Display the selected page
@@ -125,15 +125,21 @@ def main():
             display_batch_analysis()
         elif page == "Stock Scanner":
             # Add a fix button for technical indicators
-            if st.session_state.get('scan_results') is not None and not st.session_state.get('scan_results').empty:
+            if st.session_state.get('scan_results') is not None and not st.session_state.get('scan_results', pd.DataFrame()).empty:
                 if st.button("🔧 Fix Technical Indicators", help="Recalculate technical indicators to fix blank values"):
                     try:
-                        from scanner_fix import fix_technical_indicators
-                        fix_technical_indicators()
+                        # Import only if needed
+                        try:
+                            from ui.scanner_fix import fix_technical_indicators
+                            fix_technical_indicators()
+                        except ImportError:
+                            st.warning("Scanner fix module not found. This is a non-critical feature.")
                     except Exception as e:
                         st.error(f"Error fixing indicators: {e}")
 
             display_scanner()
+        elif page == "Enhanced Scanner":
+            display_enhanced_scanner()
         elif page == "Database Viewer":
             display_database_viewer()
 
