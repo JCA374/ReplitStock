@@ -1,0 +1,112 @@
+I'll analyze the code to identify where the sell signal logic might be inconsistent with the expected criteria. Let me trace through the relevant parts of the code that handle the signal generation.
+
+First, let's look at the key places where trading signals are generated:
+
+### In `tabs/strategy.py` - The Value & Momentum Strategy class:
+
+```python
+def _calculate_tech_score(self, tech_analysis):
+    """Calculate a technical score from 0-100 based on technical indicators"""
+    # Define the weight of each technical factor
+    weights = {
+        'above_ma40': 0.25,     # Primary trend
+        'above_ma4': 0.15,      # Short-term momentum
+        'rsi_above_50': 0.15,   # RSI momentum
+        'higher_lows': 0.15,    # Price structure
+        'near_52w_high': 0.20,  # Relative strength
+        'breakout': 0.10        # Volatility expansion
+    }
+
+    # Calculate weighted score
+    score = 0
+    total_weight = 0
+
+    for factor, weight in weights.items():
+        if factor in tech_analysis:
+            value = tech_analysis[factor]
+            if value is not None:  # Only consider valid values
+                score += weight * (100 if value else 0)
+                total_weight += weight
+
+    # Normalize score if we have valid factors
+    if total_weight > 0:
+        score = score / total_weight
+    else:
+        score = 0
+
+    return round(score)
+```
+
+This calculates the tech score that's used for signal generation. The weights are correct.
+
+Let's look at the signal generation in the same file:
+
+```python
+# Determine overall signal
+buy_signal = tech_score >= 70 and fund_check
+sell_signal = tech_score < 40 or not tech_analysis['above_ma40']
+```
+
+This appears to be from the `analyze_stock` method, which correctly implements that a stock should receive a sell signal if either:
+1. Tech score < 40, OR
+2. Not above MA40 (below the primary trend)
+
+Looking at the scanner implementation in `analysis/scanner.py`:
+
+```python
+# Determine the Value & Momentum signal
+if tech_score >= 70 and fundamental_pass:
+    value_momentum_signal = "BUY"
+elif tech_score < 40 or not above_ma40:
+    value_momentum_signal = "SELL"
+else:
+    value_momentum_signal = "HOLD"
+```
+
+This is from the `value_momentum_scan` function and also correctly implements the sell criteria.
+
+Now, checking the `generate_technical_signals` function in `analysis/technical.py`:
+
+```python
+# Signal Classification based on Tech Score and Primary Trend
+if tech_score >= 70:
+    if signals.get('above_ma40', False):
+        overall_signal = "BUY"  # Strong technical score and above primary trend
+    else:
+        overall_signal = "HOLD"  # Strong technical score but below primary trend
+elif tech_score >= 40:
+    overall_signal = "HOLD"  # Average technical score
+else:
+    overall_signal = "SELL"  # Weak technical score
+    
+# If below primary trend (MA40) and score is borderline, lean towards Sell
+if signals.get('above_ma40') is False and tech_score < 50:
+    overall_signal = "SELL"
+```
+
+**Here's the issue!** This implementation in `generate_technical_signals` is inconsistent with the other signal generation logic.
+
+The logic here:
+1. If tech_score >= 70 and above_ma40: "BUY"
+2. If tech_score >= 70 and not above_ma40: "HOLD" (inconsistent with sell criteria!)
+3. If tech_score >= 40: "HOLD"
+4. If tech_score < 40: "SELL" (this part is correct)
+5. Additionally, if not above_ma40 and tech_score < 50: "SELL"
+
+The issue is that it doesn't properly implement the rule that a stock should be a SELL if it's below MA40 regardless of its tech score (except for the specific case where tech_score < 50).
+
+The correction should be:
+
+```python
+# Signal Classification based on Tech Score and Primary Trend
+if tech_score >= 70 and signals.get('above_ma40', False):
+    overall_signal = "BUY"  # Strong technical score and above primary trend
+elif tech_score < 40 or signals.get('above_ma40') is False:
+    overall_signal = "SELL"  # Weak technical score OR below primary trend
+else:
+    overall_signal = "HOLD"  # Average technical score
+```
+
+This would align with the stated criteria and the implementation in other parts of the code.
+
+The discrepancy appears to be that the `generate_technical_signals` function in `analysis/technical.py` is not treating "below MA40" as an automatic sell signal in all cases, which could lead to inconsistent signal generation.
