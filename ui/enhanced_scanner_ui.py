@@ -571,10 +571,6 @@ def display_enhanced_scanner():
         # Show instructions when no scan has been run
         st.info("Configure your scan criteria using the sidebar, then click 'Run Scanner'")
         
-        # Example image
-        st.image("https://images.pexels.com/photos/6770610/pexels-photo-6770610.jpeg", 
-                caption="Use the Enhanced Stock Scanner to find stocks matching your criteria from multiple data sources")
-        
         # Explanation of scanner modes
         st.subheader("Scanner Modes")
         
