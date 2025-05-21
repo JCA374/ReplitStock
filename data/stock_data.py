@@ -218,20 +218,30 @@ class StockDataFetcher:
             stock = yf.Ticker(ticker)
             info = stock.info
             
+            # Add robust logging for debugging
+            print(f"Fetching fundamentals for {ticker}")
+            if 'trailingPE' not in info and 'forwardPE' not in info:
+                print(f"Warning: No P/E ratio found for {ticker}")
+            
             # Get financial data
             try:
                 balance_sheet = stock.balance_sheet
                 income_stmt = stock.income_stmt
                 cash_flow = stock.cashflow
                 has_financials = not balance_sheet.empty and not income_stmt.empty
-            except Exception:
+            except Exception as e:
+                print(f"Error fetching financial statements for {ticker}: {e}")
                 has_financials = False
             
             # Calculate fundamental metrics with validation
             fundamentals = {}
             
-            # Valuation metrics
-            fundamentals['pe_ratio'] = info.get('trailingPE') if isinstance(info.get('trailingPE'), (int, float)) else None
+            # Valuation metrics - Try multiple sources for P/E ratio
+            fundamentals['pe_ratio'] = info.get('trailingPE')
+            if fundamentals['pe_ratio'] is None or not isinstance(fundamentals['pe_ratio'], (int, float)):
+                # Try forward P/E if trailing isn't available
+                fundamentals['pe_ratio'] = info.get('forwardPE')
+                
             fundamentals['forward_pe'] = info.get('forwardPE') if isinstance(info.get('forwardPE'), (int, float)) else None
             fundamentals['peg_ratio'] = info.get('pegRatio') if isinstance(info.get('pegRatio'), (int, float)) else None
             fundamentals['price_to_book'] = info.get('priceToBook') if isinstance(info.get('priceToBook'), (int, float)) else None

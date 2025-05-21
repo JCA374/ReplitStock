@@ -6,6 +6,7 @@ from data.db_manager import get_watchlist
 from analysis.technical import calculate_all_indicators, generate_technical_signals
 from analysis.fundamental import analyze_fundamentals
 from utils.ticker_mapping import normalize_ticker
+from utils.pe_data_helper import add_pe_data_to_results
 from config import TIMEFRAMES, PERIOD_OPTIONS
 from helpers import create_results_table
 
@@ -233,6 +234,8 @@ def display_batch_analysis():
     if run_button and selected_tickers:
         with st.spinner("Analyzing selected stocks..."):
             results = run_analysis(selected_tickers)
+            # Add this line to enhance results with P/E data
+            results = add_pe_data_to_results(results)
     
     # Handle demo data - add demo data from screenshot
     if demo_button:
@@ -338,6 +341,12 @@ def display_batch_analysis():
             
             if data_source_filter and "Data Source" in filtered_df.columns:
                 filtered_df = filtered_df[filtered_df["Data Source"].isin(data_source_filter)]
+                
+            # Format P/E ratio display
+            if "pe_ratio" in filtered_df.columns:
+                filtered_df["P/E Ratio"] = filtered_df["pe_ratio"].apply(
+                    lambda x: f"{x:.2f}" if pd.notna(x) and x is not None else "N/A"
+                )
             
             # Sort by tech score (high to low)
             if "Tech Score" in filtered_df.columns:
