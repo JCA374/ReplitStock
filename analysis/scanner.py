@@ -12,6 +12,7 @@ from config import SCANNER_CRITERIA
 def value_momentum_scan(only_watchlist=False):
     """
     Specialized scanner implementing the Value & Momentum Strategy.
+    Optimized to use only cached database data without API searches.
     
     This strategy looks for stocks that:
     1. Have a Tech Score of 70 or higher (technical momentum)
@@ -23,35 +24,81 @@ def value_momentum_scan(only_watchlist=False):
     Returns:
         list: List of stocks meeting the Value & Momentum criteria
     """
+    # Use the EnhancedScanner to perform the scan from both databases
+    scanner = EnhancedScanner(use_supabase=True, use_sqlite=True)
+    
     # Get list of stocks to scan
     if only_watchlist:
         watchlist = get_watchlist()
         stocks_to_scan = [item['ticker'] for item in watchlist]
     else:
-        # Get all stocks in the database
-        stocks_to_scan = get_all_cached_stocks()
+        # Get all stocks from both databases (without API calls)
+        stocks_to_scan = set()
+        
+        # Get stocks from SQLite
+        sqlite_stocks = get_all_cached_stocks()
+        if sqlite_stocks:
+            stocks_to_scan.update(sqlite_stocks)
+        
+        # Get stocks from Supabase if available
+        try:
+            from data.supabase_client import get_supabase_db
+            supabase_db = get_supabase_db()
+            
+            if supabase_db.is_connected():
+                supabase_stocks = supabase_db.get_all_cached_stocks()
+                if supabase_stocks:
+                    stocks_to_scan.update(supabase_stocks)
+        except Exception as e:
+            print(f"Error getting Supabase stocks: {e}")
+        
+        # Convert to list
+        stocks_to_scan = list(stocks_to_scan)
     
     # If no stocks to scan, return empty list
     if not stocks_to_scan:
         return []
     
-    # Get fundamentals for all stocks
-    all_fundamentals = get_all_fundamentals()
-    fundamentals_by_ticker = {f['ticker']: f for f in all_fundamentals}
+    # Pre-fetch fundamentals for all stocks (from both databases)
+    all_fundamentals = {}
+    
+    # Get fundamentals from SQLite
+    sqlite_fundamentals = get_all_fundamentals()
+    for f in sqlite_fundamentals:
+        ticker = f.get('ticker')
+        if ticker:
+            all_fundamentals[ticker] = f
+    
+    # Get fundamentals from Supabase if available
+    try:
+        from data.supabase_client import get_supabase_db
+        supabase_db = get_supabase_db()
+        
+        if supabase_db.is_connected():
+            supabase_fundamentals = supabase_db.get_all_fundamentals()
+            for f in supabase_fundamentals:
+                ticker = f.get('ticker')
+                if ticker:
+                    # Only override if not already in dictionary (prioritize Supabase)
+                    if ticker not in all_fundamentals:
+                        all_fundamentals[ticker] = f
+    except Exception as e:
+        print(f"Error getting Supabase fundamentals: {e}")
     
     # Results list
     results = []
     
     # Scan each stock
     for ticker in stocks_to_scan:
-        # Get stock data
-        stock_data = get_cached_stock_data(ticker, '1d', '1y', 'yahoo')
+        # Get stock data from both databases without API calls
+        stock_data, fundamentals, data_source = scanner.get_data_from_both_dbs(ticker, '1d', '1y')
         
         if stock_data is None or stock_data.empty:
             continue
             
-        # Get fundamentals
-        fundamentals = fundamentals_by_ticker.get(ticker, {})
+        # Use pre-fetched fundamentals if available
+        if not fundamentals and ticker in all_fundamentals:
+            fundamentals = all_fundamentals[ticker]
         
         # Calculate technical indicators
         indicators = calculate_all_indicators(stock_data)
@@ -60,7 +107,7 @@ def value_momentum_scan(only_watchlist=False):
         signals = generate_technical_signals(indicators)
         
         # Analyze fundamentals
-        fundamental_analysis = analyze_fundamentals(fundamentals)
+        fundamental_analysis = analyze_fundamentals(fundamentals or {})
         
         # Get key metrics for Value & Momentum Strategy
         
@@ -96,9 +143,9 @@ def value_momentum_scan(only_watchlist=False):
         results.append({
             'ticker': ticker,
             'last_price': last_price,
-            'pe_ratio': fundamentals.get('pe_ratio'),
-            'profit_margin': fundamentals.get('profit_margin'),
-            'revenue_growth': fundamentals.get('revenue_growth'),
+            'pe_ratio': fundamentals.get('pe_ratio') if fundamentals else None,
+            'profit_margin': fundamentals.get('profit_margin') if fundamentals else None,
+            'revenue_growth': fundamentals.get('revenue_growth') if fundamentals else None,
             'tech_score': tech_score,
             'above_ma40': above_ma40,
             'above_ma4': above_ma4,
@@ -107,7 +154,8 @@ def value_momentum_scan(only_watchlist=False):
             'is_profitable': is_profitable,
             'reasonable_pe': reasonable_pe,
             'fundamental_pass': fundamental_pass,
-            'value_momentum_signal': value_momentum_signal
+            'value_momentum_signal': value_momentum_signal,
+            'data_source': data_source or "unknown"
         })
     
     # Sort by tech score (descending)
