@@ -1,4 +1,9 @@
 import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+import time
+
+# Import database connections
 from data.db_manager import get_all_fundamentals, get_watchlist, get_cached_stock_data, get_all_cached_stocks
 from analysis.technical import calculate_all_indicators, generate_technical_signals
 from analysis.fundamental import analyze_fundamentals
@@ -109,6 +114,373 @@ def value_momentum_scan(only_watchlist=False):
     results.sort(key=lambda x: x.get('tech_score', 0), reverse=True)
     
     return results
+
+class EnhancedScanner:
+    """Enhanced stock scanner with support for multiple databases and advanced ranking."""
+    
+    def __init__(self, use_supabase=True, use_sqlite=True):
+        """
+        Initialize the scanner with database preferences.
+        
+        Args:
+            use_supabase (bool): Whether to use Supabase data
+            use_sqlite (bool): Whether to use SQLite data
+        """
+        self.use_supabase = use_supabase
+        self.use_sqlite = use_sqlite
+        
+        # Ensure at least one database is enabled
+        if not use_supabase and not use_sqlite:
+            self.use_sqlite = True
+            print("Warning: No database specified, defaulting to SQLite")
+    
+    def get_data_from_both_dbs(self, ticker, timeframe='1wk', period='1y'):
+        """
+        Get stock data from both databases, prioritizing Supabase.
+        
+        Args:
+            ticker (str): Stock ticker symbol
+            timeframe (str): Data timeframe
+            period (str): Data period
+            
+        Returns:
+            tuple: (stock_data, fundamentals, source)
+        """
+        stock_data = None
+        fundamentals = None
+        data_source = None
+        
+        # Try Supabase first if enabled
+        if self.use_supabase:
+            from data.supabase_client import get_supabase_db
+            supabase_db = get_supabase_db()
+            
+            if supabase_db.is_connected():
+                stock_data = supabase_db.get_cached_stock_data(ticker, timeframe, period, 'yahoo')
+                fundamentals = supabase_db.get_cached_fundamentals(ticker)
+                
+                if stock_data is not None or fundamentals is not None:
+                    data_source = "supabase"
+        
+        # If data is missing, try SQLite if enabled
+        if (stock_data is None or fundamentals is None) and self.use_sqlite:
+            # Only get what's missing
+            if stock_data is None:
+                stock_data = get_cached_stock_data(ticker, timeframe, period, 'yahoo')
+            
+            if fundamentals is None:
+                # Get fundamentals from db_manager
+                from data.db_manager import get_all_fundamentals
+                all_fundamentals = get_all_fundamentals()
+                # Find fundamentals for this ticker
+                for f in all_fundamentals:
+                    if f.get('ticker') == ticker:
+                        fundamentals = f
+                        break
+            
+            if stock_data is not None or fundamentals is not None:
+                data_source = "sqlite" if data_source is None else "combined"
+        
+        return stock_data, fundamentals, data_source
+    
+    def scan_stocks(self, criteria, stock_list=None, progress_callback=None):
+        """
+        Scan stocks based on criteria, using data from both databases.
+        
+        Args:
+            criteria (dict): Dictionary of filtering criteria
+            stock_list (list, optional): List of stock tickers to scan. If None, all stocks are scanned.
+            progress_callback (function, optional): Callback for progress updates
+            
+        Returns:
+            list: List of stocks meeting the criteria
+        """
+        # Determine which stocks to scan
+        if stock_list is None:
+            # Get all unique stocks from both databases
+            stocks_to_scan = set()
+            
+            if self.use_sqlite:
+                stocks_to_scan.update(get_all_cached_stocks())
+            
+            if self.use_supabase:
+                from data.supabase_client import get_supabase_db
+                supabase_db = get_supabase_db()
+                
+                if supabase_db.is_connected():
+                    stocks_to_scan.update(supabase_db.get_all_cached_stocks())
+            
+            # Convert to list
+            stocks_to_scan = list(stocks_to_scan)
+        else:
+            stocks_to_scan = stock_list
+        
+        # No stocks to scan
+        if not stocks_to_scan:
+            return []
+        
+        # Results list
+        results = []
+        
+        # Process each stock
+        for i, ticker in enumerate(stocks_to_scan):
+            # Update progress if callback provided
+            if progress_callback:
+                progress = (i + 1) / len(stocks_to_scan)
+                progress_callback(progress, f"Analyzing {ticker} ({i+1}/{len(stocks_to_scan)})")
+            
+            try:
+                # Get data from both databases
+                stock_data, fundamentals, data_source = self.get_data_from_both_dbs(ticker)
+                
+                # Skip if no stock data available
+                if stock_data is None or stock_data.empty:
+                    continue
+                
+                # Calculate technical indicators
+                indicators = calculate_all_indicators(stock_data)
+                
+                # Generate technical signals
+                signals = generate_technical_signals(indicators)
+                
+                # Analyze fundamentals if available
+                fundamental_analysis = analyze_fundamentals(fundamentals or {})
+                
+                # Get latest price
+                latest_price = stock_data['close'].iloc[-1] if not stock_data.empty else None
+                
+                # Create result dictionary
+                result = {
+                    "ticker": ticker,
+                    "name": fundamentals.get("name", ticker) if fundamentals else ticker,
+                    "price": latest_price,
+                    "date": datetime.now().strftime("%Y-%m-%d"),
+                    # Technical indicators
+                    "tech_score": signals.get('tech_score', 0),
+                    "signal": signals.get('overall_signal', 'HOLD'),
+                    "above_ma40": signals.get('above_ma40', False),
+                    "above_ma4": signals.get('above_ma4', False),
+                    "rsi": signals.get('rsi', None),
+                    "rsi_above_50": signals.get('rsi_above_50', False),
+                    "near_52w_high": signals.get('near_52w_high', False),
+                    "breakout": signals.get('breakout', False),
+                    # Fundamental indicators
+                    "pe_ratio": fundamentals.get('pe_ratio') if fundamentals else None,
+                    "profit_margin": fundamentals.get('profit_margin') if fundamentals else None,
+                    "revenue_growth": fundamentals.get('revenue_growth') if fundamentals else None,
+                    "earnings_growth": fundamentals.get('earnings_growth') if fundamentals else None,
+                    "is_profitable": fundamental_analysis.get('overall', {}).get('is_profitable', False),
+                    "fundamental_pass": fundamental_analysis.get('overall', {}).get('value_momentum_pass', False),
+                    # Additional info
+                    "sector": fundamentals.get('sector', "") if fundamentals else "",
+                    "exchange": fundamentals.get('exchange', "") if fundamentals else "",
+                    "data_source": data_source or "unknown"
+                }
+                
+                # Check if the stock meets Value & Momentum Strategy criteria
+                if criteria.get('strategy') == 'value_momentum':
+                    # Include if tech score >= 70 and passes fundamental check
+                    if signals.get('tech_score', 0) >= 70 and fundamental_analysis.get('overall', {}).get('value_momentum_pass', False):
+                        results.append(result)
+                    continue
+                
+                # For custom criteria, check each criterion
+                meets_criteria = True
+                
+                # Apply filtering criteria
+                for criterion, value in criteria.items():
+                    if criterion == 'strategy':
+                        # Skip strategy flag
+                        continue
+                    elif criterion == 'sectors' and value:
+                        # Filter by sector
+                        if result.get('sector', '') not in value:
+                            meets_criteria = False
+                            break
+                    elif criterion == 'data_sources' and value:
+                        # Filter by data source
+                        if result.get('data_source', '') not in value:
+                            meets_criteria = False
+                            break
+                    elif criterion == 'min_tech_score':
+                        # Minimum tech score
+                        if result.get('tech_score', 0) < value:
+                            meets_criteria = False
+                            break
+                    elif criterion == 'pe_below' and result.get('pe_ratio') is not None:
+                        # P/E ratio below value
+                        if result['pe_ratio'] > value:
+                            meets_criteria = False
+                            break
+                    elif criterion == 'pe_above' and result.get('pe_ratio') is not None:
+                        # P/E ratio above value
+                        if result['pe_ratio'] < value:
+                            meets_criteria = False
+                            break
+                    elif criterion == 'profit_margin_above' and result.get('profit_margin') is not None:
+                        # Profit margin above value
+                        if result['profit_margin'] < value:
+                            meets_criteria = False
+                            break
+                    elif criterion == 'revenue_growth_above' and result.get('revenue_growth') is not None:
+                        # Revenue growth above value
+                        if result['revenue_growth'] < value:
+                            meets_criteria = False
+                            break
+                    elif criterion == 'is_profitable':
+                        # Profitable companies only
+                        if not result.get('is_profitable', False):
+                            meets_criteria = False
+                            break
+                    elif criterion == 'price_above_sma':
+                        # Price above SMA
+                        if not signals.get(f'price_above_sma_{value}', False):
+                            meets_criteria = False
+                            break
+                    elif criterion == 'price_below_sma':
+                        # Price below SMA
+                        if signals.get(f'price_above_sma_{value}', True):
+                            meets_criteria = False
+                            break
+                    elif criterion == 'rsi_overbought':
+                        # RSI overbought
+                        if not signals.get('rsi_overbought', False):
+                            meets_criteria = False
+                            break
+                    elif criterion == 'rsi_oversold':
+                        # RSI oversold
+                        if not signals.get('rsi_oversold', False):
+                            meets_criteria = False
+                            break
+                    elif criterion == 'rsi_above_50':
+                        # RSI above 50
+                        if not signals.get('rsi_above_50', False):
+                            meets_criteria = False
+                            break
+                    elif criterion == 'rsi_below_50':
+                        # RSI below 50
+                        if signals.get('rsi_above_50', True):
+                            meets_criteria = False
+                            break
+                    elif criterion == 'macd_bullish':
+                        # MACD bullish cross
+                        if not signals.get('macd_bullish_cross', False):
+                            meets_criteria = False
+                            break
+                    elif criterion == 'macd_bearish':
+                        # MACD bearish cross
+                        if not signals.get('macd_bearish_cross', False):
+                            meets_criteria = False
+                            break
+                    elif criterion == 'price_near_52w_high':
+                        # Price near 52-week high
+                        if not signals.get('near_52w_high', False):
+                            meets_criteria = False
+                            break
+                    elif criterion == 'price_near_52w_low':
+                        # Price near 52-week low
+                        if not signals.get('near_52w_low', False):
+                            meets_criteria = False
+                            break
+                
+                # Include stock if it meets criteria
+                if meets_criteria:
+                    results.append(result)
+                
+            except Exception as e:
+                print(f"Error analyzing {ticker}: {str(e)}")
+        
+        # Apply ranking if requested
+        if criteria.get('rank_by_score', True):
+            results = self.rank_stocks(results)
+        
+        return results
+    
+    def rank_stocks(self, analysis_results):
+        """
+        Rank stocks based on a comprehensive scoring system.
+        
+        Args:
+            analysis_results (list): List of stock analysis results
+            
+        Returns:
+            list: Ranked analysis results
+        """
+        # Remove errors
+        valid_results = [r for r in analysis_results if "error" not in r or r["error"] is None]
+        
+        if not valid_results:
+            return []
+        
+        # Define scoring weights
+        weights = {
+            # Technical factors (60% of total score)
+            'tech_score': 30,                 # Base technical score
+            'above_ma40': 10,                 # Primary trend
+            'above_ma4': 5,                   # Short-term momentum
+            'rsi_above_50': 5,                # RSI momentum
+            'near_52w_high': 5,               # Relative strength
+            'breakout': 5,                    # Breakout factor
+            
+            # Fundamental factors (40% of total score)
+            'is_profitable': 15,              # Profitability
+            'reasonable_pe': 10,              # PE ratio is reasonable 
+            'revenue_growth_positive': 10,    # Revenue growth
+            'profit_margin_positive': 5       # Profit margin 
+        }
+        
+        # Calculate scores
+        for result in valid_results:
+            total_score = 0
+            applied_weights = 0
+            
+            # Calculate technical score component
+            for factor, weight in weights.items():
+                if factor in result:
+                    # For boolean factors
+                    if isinstance(result[factor], bool):
+                        if result[factor]:
+                            total_score += weight
+                        applied_weights += weight
+                    # For numeric factors like tech_score
+                    elif factor == 'tech_score' and result[factor] is not None:
+                        score_fraction = result[factor] / 100.0
+                        total_score += weight * score_fraction
+                        applied_weights += weight
+                # Special cases for derived factors
+                elif factor == 'reasonable_pe':
+                    pe_ratio = result.get('pe_ratio')
+                    if pe_ratio is not None and 0 < pe_ratio < 30:  # Reasonable PE range
+                        total_score += weight
+                    applied_weights += weight
+                elif factor == 'revenue_growth_positive':
+                    growth = result.get('revenue_growth')
+                    if growth is not None and growth > 0:
+                        total_score += weight
+                    applied_weights += weight
+                elif factor == 'profit_margin_positive':
+                    margin = result.get('profit_margin')
+                    if margin is not None and margin > 0:
+                        total_score += weight
+                    applied_weights += weight
+            
+            # Calculate normalized score (0-100)
+            if applied_weights > 0:
+                normalized_score = (total_score / applied_weights) * 100
+            else:
+                normalized_score = 0
+                
+            # Add overall score to result
+            result['overall_score'] = round(normalized_score, 1)
+        
+        # Sort by overall score (descending)
+        ranked_results = sorted(valid_results, key=lambda x: x.get('overall_score', 0), reverse=True)
+        
+        # Add rank to each result
+        for i, result in enumerate(ranked_results):
+            result['rank'] = i + 1
+        
+        return ranked_results
 
 def scan_stocks(criteria, only_watchlist=False):
     """

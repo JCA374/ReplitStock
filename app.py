@@ -11,6 +11,7 @@ from data.db_connection import get_db_connection, get_db_engine, get_db_session,
 from ui.watchlist import display_watchlist
 from ui.batch_analysis import display_batch_analysis
 from ui.scanner_ui import display_scanner
+from ui.enhanced_scanner_ui import display_enhanced_scanner
 from ui.database_viewer import display_database_viewer
 from ui.company_explorer import display_company_explorer
 
