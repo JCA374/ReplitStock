@@ -25,8 +25,9 @@ def display_enhanced_scanner():
     # Select scan scope
     scan_scope = st.sidebar.radio(
         "Scan Scope:",
-        ["All Available Stocks", "Watchlist Only", "Small Cap", "Mid Cap", "Large Cap"],
-        key="scanner_scope"
+        ["All Database Stocks (No API)", "All Available Stocks", "Watchlist Only", "Small Cap", "Mid Cap", "Large Cap"],
+        key="scanner_scope",
+        help="'All Database Stocks' uses only cached data from databases without API calls"
     )
     
     # Get available stocks for information
@@ -309,8 +310,32 @@ def display_enhanced_scanner():
                 st.error(f"Error loading Large Cap CSV: {e}")
                 stock_list = []
                 scan_title = "Stocks"
+        elif scan_scope == "All Database Stocks (No API)":
+            # Only scan stocks that exist in database, no API calls
+            stock_list = set()
+            
+            # Get stocks from SQLite
+            if use_sqlite:
+                sqlite_stocks = get_all_cached_stocks()
+                stock_list.update(sqlite_stocks)
+            
+            # Get stocks from Supabase
+            if use_supabase:
+                from data.supabase_client import get_supabase_db
+                supabase_db = get_supabase_db()
+                
+                if supabase_db.is_connected():
+                    supabase_stocks = supabase_db.get_all_cached_stocks()
+                    stock_list.update(supabase_stocks)
+            
+            # Convert to list
+            stock_list = list(stock_list)
+            scan_title = "Database Stocks (No API)"
+            
+            # Show count of stocks being scanned
+            st.info(f"Scanning {len(stock_list)} stocks found in database(s)")
         else:
-            # All stocks
+            # All stocks - may trigger API calls
             stock_list = None
             scan_title = "All Stocks"
         
