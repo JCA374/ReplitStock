@@ -414,19 +414,12 @@ def generate_technical_signals(indicators):
         tech_score = max(1, tech_score)
         
         # Signal Classification based on Tech Score and Primary Trend
-        if tech_score >= 70:
-            if signals.get('above_ma40', False):
-                overall_signal = "BUY"  # Strong technical score and above primary trend
-            else:
-                overall_signal = "HOLD"  # Strong technical score but below primary trend
-        elif tech_score >= 40:
-            overall_signal = "HOLD"  # Average technical score
+        if tech_score >= 70 and signals.get('above_ma40', False):
+            overall_signal = "BUY"  # Strong technical score and above primary trend
+        elif tech_score < 40 or signals.get('above_ma40') is False:
+            overall_signal = "SELL"  # Weak technical score OR below primary trend
         else:
-            overall_signal = "SELL"  # Weak technical score
-            
-        # If below primary trend (MA40) and score is borderline, lean towards Sell
-        if signals.get('above_ma40') is False and tech_score < 50:
-            overall_signal = "SELL"
+            overall_signal = "HOLD"  # Average technical score
             
         signals['tech_score'] = tech_score
         signals['overall_signal'] = overall_signal
