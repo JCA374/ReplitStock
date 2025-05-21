@@ -137,6 +137,7 @@ class EnhancedScanner:
     def get_data_from_both_dbs(self, ticker, timeframe='1wk', period='1y'):
         """
         Get stock data from both databases, prioritizing Supabase.
+        Optimized to avoid API calls and reduce database queries.
         
         Args:
             ticker (str): Stock ticker symbol
@@ -156,6 +157,7 @@ class EnhancedScanner:
             supabase_db = get_supabase_db()
             
             if supabase_db.is_connected():
+                # Get data only from cache, without triggering API calls
                 stock_data = supabase_db.get_cached_stock_data(ticker, timeframe, period, 'yahoo')
                 fundamentals = supabase_db.get_cached_fundamentals(ticker)
                 
@@ -166,17 +168,13 @@ class EnhancedScanner:
         if (stock_data is None or fundamentals is None) and self.use_sqlite:
             # Only get what's missing
             if stock_data is None:
+                # Get data only from cache, without triggering API calls
                 stock_data = get_cached_stock_data(ticker, timeframe, period, 'yahoo')
             
             if fundamentals is None:
-                # Get fundamentals from db_manager
-                from data.db_manager import get_all_fundamentals
-                all_fundamentals = get_all_fundamentals()
-                # Find fundamentals for this ticker
-                for f in all_fundamentals:
-                    if f.get('ticker') == ticker:
-                        fundamentals = f
-                        break
+                # Get fundamentals directly for this ticker instead of getting all
+                from data.db_manager import get_cached_fundamentals
+                fundamentals = get_cached_fundamentals(ticker)
             
             if stock_data is not None or fundamentals is not None:
                 data_source = "sqlite" if data_source is None else "combined"
@@ -185,7 +183,7 @@ class EnhancedScanner:
     
     def scan_stocks(self, criteria, stock_list=None, progress_callback=None):
         """
-        Scan stocks based on criteria, using data from both databases.
+        Scan stocks based on criteria, using data from both databases without API searches.
         
         Args:
             criteria (dict): Dictionary of filtering criteria
@@ -197,18 +195,24 @@ class EnhancedScanner:
         """
         # Determine which stocks to scan
         if stock_list is None:
-            # Get all unique stocks from both databases
+            # Get all unique stocks from both databases without API calls
             stocks_to_scan = set()
             
             if self.use_sqlite:
-                stocks_to_scan.update(get_all_cached_stocks())
+                # Get all cached stocks from SQLite
+                sqlite_stocks = get_all_cached_stocks()
+                if sqlite_stocks:
+                    stocks_to_scan.update(sqlite_stocks)
             
             if self.use_supabase:
                 from data.supabase_client import get_supabase_db
                 supabase_db = get_supabase_db()
                 
                 if supabase_db.is_connected():
-                    stocks_to_scan.update(supabase_db.get_all_cached_stocks())
+                    # Get all cached stocks from Supabase
+                    supabase_stocks = supabase_db.get_all_cached_stocks()
+                    if supabase_stocks:
+                        stocks_to_scan.update(supabase_stocks)
             
             # Convert to list
             stocks_to_scan = list(stocks_to_scan)
@@ -218,6 +222,31 @@ class EnhancedScanner:
         # No stocks to scan
         if not stocks_to_scan:
             return []
+        
+        # Pre-fetch fundamentals for all stocks to avoid repeated queries
+        all_fundamentals = {}
+        
+        # Get fundamentals from SQLite if enabled
+        if self.use_sqlite:
+            sqlite_fundamentals = get_all_fundamentals()
+            for f in sqlite_fundamentals:
+                ticker = f.get('ticker')
+                if ticker:
+                    all_fundamentals[ticker] = f
+        
+        # Get fundamentals from Supabase if enabled
+        if self.use_supabase:
+            from data.supabase_client import get_supabase_db
+            supabase_db = get_supabase_db()
+            
+            if supabase_db.is_connected():
+                supabase_fundamentals = supabase_db.get_all_fundamentals()
+                for f in supabase_fundamentals:
+                    ticker = f.get('ticker')
+                    if ticker:
+                        # Only override if not already in dictionary (prioritize Supabase)
+                        if ticker not in all_fundamentals:
+                            all_fundamentals[ticker] = f
         
         # Results list
         results = []
@@ -230,12 +259,18 @@ class EnhancedScanner:
                 progress_callback(progress, f"Analyzing {ticker} ({i+1}/{len(stocks_to_scan)})")
             
             try:
-                # Get data from both databases
+                # Get data from both databases without API calls
                 stock_data, fundamentals, data_source = self.get_data_from_both_dbs(ticker)
                 
                 # Skip if no stock data available
                 if stock_data is None or stock_data.empty:
                     continue
+                
+                # Use pre-fetched fundamentals if available
+                if not fundamentals and ticker in all_fundamentals:
+                    fundamentals = all_fundamentals[ticker]
+                    if data_source == "supabase":
+                        data_source = "combined"
                 
                 # Calculate technical indicators
                 indicators = calculate_all_indicators(stock_data)
