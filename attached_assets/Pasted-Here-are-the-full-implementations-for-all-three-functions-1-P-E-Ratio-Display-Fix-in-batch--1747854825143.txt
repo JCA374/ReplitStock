@@ -1,0 +1,194 @@
+Here are the full implementations for all three functions:
+
+### 1. P/E Ratio Display Fix in batch_analysis.py
+
+```python
+# This is part of the display_batch_analysis function in ui/batch_analysis.py
+# Add this where you create filtered_df for display (around line 265-280 in your code)
+
+# Apply filters to DataFrame
+filtered_df = results_df.copy()
+
+if signal_filter and "Signal" in filtered_df.columns:
+    filtered_df = filtered_df[filtered_df["Signal"].isin(signal_filter)]
+
+if ma40_filter and "Över MA40" in filtered_df.columns:
+    filtered_df = filtered_df[filtered_df["Över MA40"] == "Ja"]
+
+if "Tech Score" in filtered_df.columns:
+    filtered_df = filtered_df[filtered_df["Tech Score"] >= tech_score_min]
+
+if data_source_filter and "Data Source" in filtered_df.columns:
+    filtered_df = filtered_df[filtered_df["Data Source"].isin(data_source_filter)]
+
+# Format P/E ratio display
+if "pe_ratio" in filtered_df.columns:
+    filtered_df["P/E Ratio"] = filtered_df["pe_ratio"].apply(
+        lambda x: f"{x:.2f}" if pd.notna(x) and x is not None else "N/A"
+    )
+
+# Sort by tech score (high to low)
+if "Tech Score" in filtered_df.columns:
+    filtered_df = filtered_df.sort_values("Tech Score", ascending=False)
+```
+
+### 2. Enhanced get_fundamentals Method in stock_data.py
+
+```python
+def get_fundamentals(self, ticker):
+    """Get fundamental data for a stock."""
+    # Check cache first
+    cached_fundamentals = get_cached_fundamentals(ticker)
+    if cached_fundamentals:
+        return cached_fundamentals
+    
+    try:
+        # Use Yahoo Finance for fundamentals
+        stock = yf.Ticker(ticker)
+        info = stock.info
+        
+        # Add robust logging for debugging
+        print(f"Fetching fundamentals for {ticker}")
+        if 'trailingPE' not in info and 'forwardPE' not in info:
+            print(f"Warning: No P/E ratio found for {ticker}")
+        
+        # Get financial data
+        try:
+            balance_sheet = stock.balance_sheet
+            income_stmt = stock.income_stmt
+            cash_flow = stock.cashflow
+            has_financials = not balance_sheet.empty and not income_stmt.empty
+        except Exception as e:
+            print(f"Error fetching financial statements for {ticker}: {e}")
+            has_financials = False
+        
+        # Calculate fundamental metrics with validation
+        fundamentals = {}
+        
+        # Valuation metrics - Try multiple sources for P/E ratio
+        fundamentals['pe_ratio'] = info.get('trailingPE')
+        if fundamentals['pe_ratio'] is None or not isinstance(fundamentals['pe_ratio'], (int, float)):
+            # Try forward P/E if trailing isn't available
+            fundamentals['pe_ratio'] = info.get('forwardPE')
+            
+        fundamentals['forward_pe'] = info.get('forwardPE') if isinstance(info.get('forwardPE'), (int, float)) else None
+        fundamentals['peg_ratio'] = info.get('pegRatio') if isinstance(info.get('pegRatio'), (int, float)) else None
+        fundamentals['price_to_book'] = info.get('priceToBook') if isinstance(info.get('priceToBook'), (int, float)) else None
+        fundamentals['enterprise_value'] = info.get('enterpriseValue') if isinstance(info.get('enterpriseValue'), (int, float)) else None
+        
+        # Profitability metrics
+        fundamentals['profit_margin'] = info.get('profitMargins') if isinstance(info.get('profitMargins'), (int, float)) else None
+        fundamentals['operating_margin'] = info.get('operatingMargins') if isinstance(info.get('operatingMargins'), (int, float)) else None
+        fundamentals['roa'] = info.get('returnOnAssets') if isinstance(info.get('returnOnAssets'), (int, float)) else None
+        fundamentals['roe'] = info.get('returnOnEquity') if isinstance(info.get('returnOnEquity'), (int, float)) else None
+        
+        # Growth metrics (calculated from financial statements)
+        fundamentals['revenue_growth'] = None
+        fundamentals['earnings_growth'] = None
+        
+        # Financial health
+        fundamentals['book_value'] = info.get('bookValue') if isinstance(info.get('bookValue'), (int, float)) else None
+        fundamentals['market_cap'] = info.get('marketCap') if isinstance(info.get('marketCap'), (int, float)) else None
+        fundamentals['dividend_yield'] = info.get('dividendYield') if isinstance(info.get('dividendYield'), (int, float)) else None
+        fundamentals['debt_to_equity'] = info.get('debtToEquity') if isinstance(info.get('debtToEquity'), (int, float)) else None
+        fundamentals['current_ratio'] = info.get('currentRatio') if isinstance(info.get('currentRatio'), (int, float)) else None
+        
+        # Calculate growth metrics if financial data is available
+        if has_financials:
+            # Calculate revenue growth
+            if not income_stmt.empty and 'Total Revenue' in income_stmt.index:
+                revenues = income_stmt.loc['Total Revenue']
+                if len(revenues) >= 2:
+                    latest_revenue = revenues.iloc[0]
+                    previous_revenue = revenues.iloc[1]
+                    if previous_revenue and previous_revenue > 0:
+                        fundamentals['revenue_growth'] = (latest_revenue - previous_revenue) / previous_revenue
+            
+            # Calculate earnings growth
+            if not income_stmt.empty and 'Net Income' in income_stmt.index:
+                earnings = income_stmt.loc['Net Income']
+                if len(earnings) >= 2:
+                    latest_earnings = earnings.iloc[0]
+                    previous_earnings = earnings.iloc[1]
+                    if previous_earnings and previous_earnings > 0:
+                        fundamentals['earnings_growth'] = (latest_earnings - previous_earnings) / previous_earnings
+        
+        # Cache the fundamentals
+        cache_fundamentals(ticker, fundamentals)
+        
+        return fundamentals
+        
+    except Exception as e:
+        logger.error(f"Error fetching fundamentals for {ticker}: {e}")
+        return {
+            'pe_ratio': None,
+            'profit_margin': None,
+            'revenue_growth': None,
+            'earnings_growth': None,
+            'book_value': None,
+            'market_cap': None,
+            'dividend_yield': None,
+        }
+```
+
+### 3. Utility Function to Add P/E Data to Results
+
+```python
+def add_pe_data_to_results(results):
+    """
+    Add P/E ratio data to batch analysis results where missing.
+    
+    Args:
+        results: List of analysis result dictionaries
+        
+    Returns:
+        List of enhanced results with P/E ratio data where possible
+    """
+    from data.stock_data import StockDataFetcher
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    fetcher = StockDataFetcher()
+    
+    logger.info(f"Enhancing P/E data for {len(results)} results")
+    pe_count = 0
+    
+    for result in results:
+        if 'error' in result and result['error'] is not None:
+            continue  # Skip results with errors
+            
+        if 'pe_ratio' not in result or result['pe_ratio'] is None:
+            ticker = result.get('ticker')
+            if ticker:
+                try:
+                    # Try to fetch fundamentals
+                    fundamentals = fetcher.get_fundamentals(ticker)
+                    if fundamentals and fundamentals.get('pe_ratio') is not None:
+                        result['pe_ratio'] = fundamentals['pe_ratio']
+                        pe_count += 1
+                        
+                        # Also update other fundamental metrics if missing
+                        if 'profit_margin' not in result or result['profit_margin'] is None:
+                            result['profit_margin'] = fundamentals.get('profit_margin')
+                            
+                        if 'revenue_growth' not in result or result['revenue_growth'] is None:
+                            result['revenue_growth'] = fundamentals.get('revenue_growth')
+                except Exception as e:
+                    logger.error(f"Error enhancing data for {ticker}: {e}")
+    
+    logger.info(f"Added P/E data to {pe_count} results")
+    return results
+```
+
+You can call the utility function after you get the batch analysis results but before displaying them:
+
+```python
+# After running the analysis
+if run_button and selected_tickers:
+    with st.spinner("Analyzing selected stocks..."):
+        results = run_analysis(selected_tickers)
+        # Add this line to enhance results with P/E data
+        results = add_pe_data_to_results(results)
+```
+
+These implementations should help ensure P/E ratio data is properly fetched, processed and displayed in your batch analysis.
