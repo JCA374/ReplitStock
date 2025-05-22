@@ -229,7 +229,7 @@ class EnhancedScanner:
         
         return stock_data, fundamentals, data_source
     
-    def scan_stocks(self, criteria, stock_list=None, progress_callback=None):
+    def scan_stocks(self, criteria, stock_list=None, progress_callback=None, database_only=False):
         """
         Scan stocks based on criteria, using data from both databases without API searches.
         
@@ -237,6 +237,7 @@ class EnhancedScanner:
             criteria (dict): Dictionary of filtering criteria
             stock_list (list, optional): List of stock tickers to scan. If None, all stocks are scanned.
             progress_callback (function, optional): Callback for progress updates
+            database_only (bool): If True, only use data from databases without API calls
             
         Returns:
             list: List of stocks meeting the criteria
