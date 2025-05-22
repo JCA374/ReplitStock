@@ -913,16 +913,20 @@ def display_batch_analysis():
                             "date": result["analysis_date"],
                             "tech_score": result["tech_score"],
                             "signal": result["signal"],
-                            "above_ma40": result["above_ma40"],
-                            "above_ma4": result["above_ma4"],
+                            "above_ma40": bool(result["above_ma40"]),
+                            "above_ma4": bool(result["above_ma4"]),
+                            "rsi": result["rsi_value"],
                             "rsi_value": result["rsi_value"],
-                            "rsi_above_50": result["rsi_above_50"],
-                            "near_52w_high": result["near_52w_high"],
+                            "rsi_above_50": bool(result["rsi_above_50"]),
+                            "near_52w_high": bool(result["near_52w_high"]),
                             "pe_ratio": result["pe_ratio"],
                             "profit_margin": result["profit_margin"],
                             "revenue_growth": result["revenue_growth"],
-                            "is_profitable": result["is_profitable"],
-                            "data_source": result["data_source"]
+                            "is_profitable": bool(result["is_profitable"]),
+                            "data_source": result["data_source"],
+                            # Add signal flags based on the signal value
+                            "buy_signal": result["signal"] == "KÖP",
+                            "sell_signal": result["signal"] == "SÄLJ"
                         }
                         formatted_results.append(formatted_result)
                     
