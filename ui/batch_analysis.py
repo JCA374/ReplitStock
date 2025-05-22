@@ -776,4 +776,8 @@ def display_batch_analysis():
                     ))
 
                     fig.update_layout(
-Adding watchlist functionality to batch analysis view.
+                        title='P/E Ratios',
+                        xaxis_title='Stock',
+                        yaxis_title='P/E Ratio',
+                        template='plotly_white'
+                    )
