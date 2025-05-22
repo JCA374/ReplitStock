@@ -3,12 +3,13 @@ import pandas as pd
 import plotly.graph_objects as go
 from data.stock_data import StockDataFetcher
 from data.db_manager import get_watchlist
+from data.db_integration import add_to_watchlist
 from analysis.technical import calculate_all_indicators, generate_technical_signals
 from analysis.fundamental import analyze_fundamentals
 from utils.ticker_mapping import normalize_ticker
 from utils.pe_data_helper import add_pe_data_to_results
 from config import TIMEFRAMES, PERIOD_OPTIONS
-from helpers import create_results_table
+from helpers import create_results_table, preserve_state_on_action
 
 # Temporary fix for missing SQLite table
 import sqlite3
@@ -358,6 +359,7 @@ def display_batch_analysis():
             if not filtered_df.empty:
                 if view_mode == "Tabellvy":
                     # Table view
+                    # Add "Add to Watchlist" buttons for each stock
                     st.dataframe(
                         filtered_df,
                         column_config={
@@ -381,6 +383,38 @@ def display_batch_analysis():
                         use_container_width=True,
                         hide_index=True
                     )
+                    
+                    # Add a section to quickly add stocks to the watchlist
+                    with st.expander("Add to Watchlist", expanded=False):
+                        st.write("Select stocks to add to your watchlist:")
+                        
+                        # Create columns for a multi-select grid of stocks
+                        selected_watchlist_stocks = st.multiselect(
+                            "Select stocks to add",
+                            options=filtered_df["Ticker"].tolist() if "Ticker" in filtered_df.columns else [],
+                            format_func=lambda x: f"{x}" + (f" - {filtered_df[filtered_df['Ticker'] == x]['Name'].iloc[0]}" if "Name" in filtered_df.columns else "")
+                        )
+                        
+                        # Button to add selected stocks to watchlist
+                        if st.button("Add Selected Stocks to Watchlist", type="primary"):
+                            if selected_watchlist_stocks:
+                                added_count = 0
+                                for ticker in selected_watchlist_stocks:
+                                    # Find the stock info
+                                    stock_row = filtered_df[filtered_df["Ticker"] == ticker].iloc[0] if "Ticker" in filtered_df.columns else None
+                                    if stock_row is not None:
+                                        name = stock_row.get("Name", ticker) if "Name" in stock_row else ticker
+                                        # Add to watchlist
+                                        success = add_to_watchlist(ticker, name)
+                                        if success:
+                                            added_count += 1
+                                
+                                if added_count > 0:
+                                    st.success(f"Added {added_count} stock(s) to your watchlist!")
+                                else:
+                                    st.warning("Failed to add stocks to watchlist. They might already be in your watchlist.")
+                            else:
+                                st.warning("Please select at least one stock to add to your watchlist.")
                 else:
                     # Card view - create a grid layout for cards
                     num_cards = len(filtered_df)
@@ -445,32 +479,16 @@ def display_batch_analysis():
                                             st.session_state.selected_batch_analysis_ticker = card["ticker"]
                                             st.rerun()
                                     with col2:
-                                        # Get watchlists for selection
-                                        watchlist_manager = st.session_state.watchlist_manager
-                                        all_watchlists = watchlist_manager.get_all_watchlists()
-                                        watchlist_names = [w["name"] for w in all_watchlists]
-
-                                        # Create unique key for each stock's watchlist selector
-                                        watchlist_key = f"watchlist_select_{card['ticker']}"
-
-                                        # Add to watchlist button
-                                        target_watchlist = st.selectbox(
-                                            "Add to watchlist",
-                                            range(len(watchlist_names)),
-                                            format_func=lambda i: watchlist_names[i],
-                                            key=watchlist_key
-                                        )
-
+                                        # Simple add to watchlist button
                                         if st.button("Add to Watchlist", key=f"add_watchlist_{card['ticker']}"):
-                                            success = watchlist_manager.add_stock_to_watchlist(
-                                                target_watchlist,
+                                            success = add_to_watchlist(
                                                 card['ticker'],
-                                                add_to_db=(target_watchlist == 0)
+                                                card.get('name', card['ticker'])
                                             )
                                             if success:
-                                                st.success(f"Added {card['ticker']} to {watchlist_names[target_watchlist]}")
+                                                st.success(f"Added {card['ticker']} to watchlist!")
                                             else:
-                                                st.warning(f"{card['ticker']} is already in {watchlist_names[target_watchlist]}")
+                                                st.warning(f"{card['ticker']} might already be in your watchlist.")
 
             # Handle selected ticker for detailed analysis
             if 'selected_batch_analysis_ticker' in st.session_state:
