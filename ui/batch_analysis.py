@@ -903,7 +903,31 @@ def display_batch_analysis():
 
                 # Option to load this analysis
                 if st.button("Load this analysis"):
-                    st.session_state.analysis_results = date_results
+                    # Convert database results to match expected format
+                    formatted_results = []
+                    for result in date_results:
+                        formatted_result = {
+                            "ticker": result["ticker"],
+                            "name": result.get("name", result["ticker"]),
+                            "price": result["price"],
+                            "date": result["analysis_date"],
+                            "tech_score": result["tech_score"],
+                            "signal": result["signal"],
+                            "above_ma40": result["above_ma40"],
+                            "above_ma4": result["above_ma4"],
+                            "rsi_value": result["rsi_value"],
+                            "rsi_above_50": result["rsi_above_50"],
+                            "near_52w_high": result["near_52w_high"],
+                            "pe_ratio": result["pe_ratio"],
+                            "profit_margin": result["profit_margin"],
+                            "revenue_growth": result["revenue_growth"],
+                            "is_profitable": result["is_profitable"],
+                            "data_source": result["data_source"]
+                        }
+                        formatted_results.append(formatted_result)
+                    
+                    st.session_state.analysis_results = formatted_results
+                    st.session_state.previous_scan_scope = "Historical Analysis"
                     st.rerun()
         else:
             st.info("No historical analyses found in the database.")
