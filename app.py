@@ -110,7 +110,7 @@ def main():
         page = st.sidebar.radio(
             "Select a page:",
             ["Single Stock Analysis", "Watchlist", "Company Explorer",
-             "Batch Analysis", "Stock Scanner", "Database Viewer"]
+             "Batch Analysis", "Database Viewer", "Development"]
         )
 
         # Display the selected page
@@ -122,11 +122,20 @@ def main():
             render_analysis_tab()
         elif page == "Batch Analysis":
             display_batch_analysis()
-        elif page == "Stock Scanner":
-            # Display the enhanced scanner in place of the old scanner
-            display_enhanced_scanner()
         elif page == "Database Viewer":
             display_database_viewer()
+        elif page == "Development":
+            # Development section with sub-navigation
+            st.header("Development Tools")
+            st.write("Tools and features in development phase")
+            
+            dev_page = st.selectbox(
+                "Select Development Tool:",
+                ["Stock Scanner"]
+            )
+            
+            if dev_page == "Stock Scanner":
+                display_enhanced_scanner()
 
         # Footer with database status
         st.sidebar.markdown("---")
