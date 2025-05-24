@@ -1,0 +1,194 @@
+Current Behavior
+
+Weekends: The app recognizes weekends and won't force data refresh if the cached data is less than 24 hours old
+After Hours: Basic check for market hours (9 AM - 4 PM, though this doesn't account for timezone)
+Cache Priority: During market closed times, the app relies more heavily on cached data
+
+Issues with Current Implementation
+
+Timezone Not Considered: The simple hour check doesn't account for the user's timezone vs market timezone
+No Holiday Detection: Doesn't recognize market holidays
+Limited to US Markets: Doesn't handle different market hours for Swedish stocks
+Still Makes API Calls: Even on weekends, it might still try to fetch data if cache is expired
+
+Recommended Improvements
+Here's an enhanced implementation that better handles closed markets:
+python# File: utils/market_hours.py (NEW FILE)
+import pytz
+from datetime import datetime, time
+import holidays
+
+class MarketHoursChecker:
+    """Check if various stock markets are open"""
+    
+    def __init__(self):
+        # Define market hours for different exchanges
+        self.market_hours = {
+            'NYSE': {
+                'timezone': pytz.timezone('America/New_York'),
+                'open_time': time(9, 30),
+                'close_time': time(16, 0),
+                'holidays': holidays.NYSE()
+            },
+            'NASDAQ': {
+                'timezone': pytz.timezone('America/New_York'),
+                'open_time': time(9, 30),
+                'close_time': time(16, 0),
+                'holidays': holidays.NYSE()  # Same as NYSE
+            },
+            'STOCKHOLM': {
+                'timezone': pytz.timezone('Europe/Stockholm'),
+                'open_time': time(9, 0),
+                'close_time': time(17, 30),
+                'holidays': holidays.Sweden()
+            }
+        }
+    
+    def is_market_open(self, exchange='NYSE'):
+        """Check if a specific market is currently open"""
+        if exchange not in self.market_hours:
+            exchange = 'NYSE'  # Default
+            
+        market = self.market_hours[exchange]
+        tz = market['timezone']
+        now = datetime.now(tz)
+        
+        # Check if weekend
+        if now.weekday() >= 5:  # Saturday = 5, Sunday = 6
+            return False
+            
+        # Check if holiday
+        if now.date() in market['holidays']:
+            return False
+            
+        # Check if within market hours
+        current_time = now.time()
+        return market['open_time'] <= current_time <= market['close_time']
+    
+    def get_last_market_close(self, exchange='NYSE'):
+        """Get the last time the market closed"""
+        market = self.market_hours.get(exchange, self.market_hours['NYSE'])
+        tz = market['timezone']
+        now = datetime.now(tz)
+        
+        # Start from today
+        check_date = now.date()
+        
+        # Go back until we find a trading day
+        for i in range(7):  # Check up to a week back
+            if check_date.weekday() < 5 and check_date not in market['holidays']:
+                # This was a trading day
+                return tz.localize(datetime.combine(check_date, market['close_time']))
+            check_date = check_date - timedelta(days=1)
+            
+        # Fallback
+        return now - timedelta(days=1)
+    
+    def should_use_cached_data(self, data_timestamp, exchange='NYSE'):
+        """Determine if we should use cached data instead of fetching new"""
+        if not self.is_market_open(exchange):
+            # Market is closed - check when it last closed
+            last_close = self.get_last_market_close(exchange)
+            
+            # If data is from after the last market close, it's fresh enough
+            if data_timestamp and data_timestamp > last_close.timestamp():
+                return True
+                
+        return False
+Update StockDataFetcher (data/stock_data.py):
+python# Add to imports
+from utils.market_hours import MarketHoursChecker
+
+class StockDataFetcher:
+    def __init__(self):
+        # ... existing code ...
+        self.market_checker = MarketHoursChecker()
+    
+    def get_stock_data(self, ticker, timeframe='1d', period='1y', attempt_fallback=True):
+        """
+        Get stock price data with market hours awareness
+        """
+        logger.info(f"Fetching data for {ticker} (timeframe: {timeframe}, period: {period})")
+        
+        # Determine which exchange this ticker is from
+        exchange = 'STOCKHOLM' if ticker.endswith('.ST') else 'NYSE'
+        
+        # Step 1: Check database cache first
+        cached_data = get_cached_stock_data(ticker, timeframe, period, "alphavantage")
+        if cached_data is not None and not cached_data.empty:
+            # Check if we should just use this cached data
+            cache_timestamp = self._get_cache_timestamp(ticker, timeframe, period)
+            if self.market_checker.should_use_cached_data(cache_timestamp, exchange):
+                logger.info(f"Using cached data for {ticker} - market is closed and data is fresh")
+                return cached_data
+        
+        # Step 2: If market is closed and we have ANY cached data, use it
+        if not self.market_checker.is_market_open(exchange):
+            if cached_data is not None and not cached_data.empty:
+                logger.info(f"Market closed - using existing cached data for {ticker}")
+                return cached_data
+                
+            # Also check Yahoo cache
+            cached_data = get_cached_stock_data(ticker, timeframe, period, "yahoo")
+            if cached_data is not None and not cached_data.empty:
+                logger.info(f"Market closed - using Yahoo cached data for {ticker}")
+                return cached_data
+        
+        # Step 3: Market is open or no cache - proceed with API calls
+        # ... rest of existing code ...
+Add Market Status Indicator to UI (app.py):
+pythondef display_market_status():
+    """Display current market status in the UI"""
+    from utils.market_hours import MarketHoursChecker
+    
+    checker = MarketHoursChecker()
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        nyse_open = checker.is_market_open('NYSE')
+        if nyse_open:
+            st.success("🟢 US Markets Open")
+        else:
+            st.info("🔴 US Markets Closed")
+            
+    with col2:
+        stockholm_open = checker.is_market_open('STOCKHOLM')
+        if stockholm_open:
+            st.success("🟢 Stockholm Open")
+        else:
+            st.info("🔴 Stockholm Closed")
+            
+    # Show data freshness info
+    if not nyse_open and not stockholm_open:
+        st.info("ℹ️ Markets are closed. Showing cached data from last trading session.")
+Update Cache Strategy (config.py):
+python# Add market-aware cache settings
+CACHE_EXPIRATION_MARKET_OPEN = 3600      # 1 hour when market is open
+CACHE_EXPIRATION_MARKET_CLOSED = 86400   # 24 hours when market is closed
+CACHE_EXPIRATION_WEEKEND = 259200        # 72 hours on weekends
+
+# Data freshness thresholds
+DATA_FRESHNESS = {
+    'intraday': {
+        'market_open': 300,      # 5 minutes
+        'market_closed': 86400,  # 24 hours
+    },
+    'daily': {
+        'market_open': 3600,     # 1 hour
+        'market_closed': 86400,  # 24 hours
+    },
+    'fundamentals': {
+        'market_open': 86400,    # 24 hours
+        'market_closed': 604800, # 1 week
+    }
+}
+Benefits of These Improvements
+
+Timezone Aware: Properly handles different market timezones
+Holiday Detection: Knows when markets are closed for holidays
+Multi-Market Support: Handles both US and Swedish market hours
+Smarter Caching: Uses longer cache times when markets are closed
+Better UX: Shows users when markets are closed
+Reduced API Calls: Avoids unnecessary API calls on weekends/holidays
+Data Freshness: Ensures data from the last trading session is used when markets are closed
