@@ -105,20 +105,32 @@ class BatchAnalyzer:
                     fundamentals = {}
 
             # Calculate technical indicators
-            indicators = calculate_all_indicators(stock_data)
-            if not indicators:
-                logger.warning(
-                    f"Could not calculate technical indicators for {ticker}")
+            try:
+                indicators = calculate_all_indicators(stock_data)
+                if not indicators:
+                    logger.warning(
+                        f"Could not calculate technical indicators for {ticker}")
+                    indicators = {}
+            except Exception as e:
+                logger.error(f"Error calculating technical indicators for {ticker}: {e}")
                 indicators = {}
 
             # Generate technical signals
-            signals = generate_technical_signals(indicators)
-            if not signals:
-                logger.warning(f"Could not generate signals for {ticker}")
+            try:
+                signals = generate_technical_signals(indicators)
+                if not signals:
+                    logger.warning(f"Could not generate signals for {ticker}")
+                    signals = {}
+            except Exception as e:
+                logger.error(f"Error generating technical signals for {ticker}: {e}")
                 signals = {}
 
             # Analyze fundamentals
-            fundamental_analysis = analyze_fundamentals(fundamentals or {})
+            try:
+                fundamental_analysis = analyze_fundamentals(fundamentals or {})
+            except Exception as e:
+                logger.error(f"Error analyzing fundamentals for {ticker}: {e}")
+                fundamental_analysis = {'overall': {'value_momentum_pass': False, 'is_profitable': False}}
 
             # Get current price
             current_price = stock_data['close'].iloc[-1] if not stock_data.empty else 0
