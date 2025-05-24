@@ -13,20 +13,20 @@ def value_momentum_scan(only_watchlist=False):
     """
     Specialized scanner implementing the Value & Momentum Strategy.
     Optimized to use only cached database data without API searches.
-    
+
     This strategy looks for stocks that:
     1. Have a Tech Score of 70 or higher (technical momentum)
     2. Pass basic fundamental checks (profitable and reasonable valuation)
-    
+
     Args:
         only_watchlist (bool): If True, only scan stocks in the watchlist
-        
+
     Returns:
         list: List of stocks meeting the Value & Momentum criteria
     """
     # Use the EnhancedScanner to perform the scan from both databases
     scanner = EnhancedScanner(use_supabase=True, use_sqlite=True)
-    
+
     # Get list of stocks to scan
     if only_watchlist:
         watchlist = get_watchlist()
@@ -34,46 +34,46 @@ def value_momentum_scan(only_watchlist=False):
     else:
         # Get all stocks from both databases (without API calls)
         stocks_to_scan = set()
-        
+
         # Get stocks from SQLite
         sqlite_stocks = get_all_cached_stocks()
         if sqlite_stocks:
             stocks_to_scan.update(sqlite_stocks)
-        
+
         # Get stocks from Supabase if available
         try:
             from data.supabase_client import get_supabase_db
             supabase_db = get_supabase_db()
-            
+
             if supabase_db.is_connected():
                 supabase_stocks = supabase_db.get_all_cached_stocks()
                 if supabase_stocks:
                     stocks_to_scan.update(supabase_stocks)
         except Exception as e:
             print(f"Error getting Supabase stocks: {e}")
-        
+
         # Convert to list
         stocks_to_scan = list(stocks_to_scan)
-    
+
     # If no stocks to scan, return empty list
     if not stocks_to_scan:
         return []
-    
+
     # Pre-fetch fundamentals for all stocks (from both databases)
     all_fundamentals = {}
-    
+
     # Get fundamentals from SQLite
     sqlite_fundamentals = get_all_fundamentals()
     for f in sqlite_fundamentals:
         ticker = f.get('ticker')
         if ticker:
             all_fundamentals[ticker] = f
-    
+
     # Get fundamentals from Supabase if available
     try:
         from data.supabase_client import get_supabase_db
         supabase_db = get_supabase_db()
-        
+
         if supabase_db.is_connected():
             supabase_fundamentals = supabase_db.get_all_fundamentals()
             for f in supabase_fundamentals:
@@ -84,51 +84,51 @@ def value_momentum_scan(only_watchlist=False):
                         all_fundamentals[ticker] = f
     except Exception as e:
         print(f"Error getting Supabase fundamentals: {e}")
-    
+
     # Results list
     results = []
-    
+
     # Scan each stock
     for ticker in stocks_to_scan:
         # Get stock data from both databases without API calls
         stock_data, fundamentals, data_source = scanner.get_data_from_both_dbs(ticker, '1d', '1y')
-        
+
         if stock_data is None or stock_data.empty:
             continue
-            
+
         # Use pre-fetched fundamentals if available
         if not fundamentals and ticker in all_fundamentals:
             fundamentals = all_fundamentals[ticker]
-        
+
         # Calculate technical indicators
         indicators = calculate_all_indicators(stock_data)
-        
+
         # Generate technical signals
         signals = generate_technical_signals(indicators)
-        
+
         # Analyze fundamentals
         fundamental_analysis = analyze_fundamentals(fundamentals or {})
-        
+
         # Get key metrics for Value & Momentum Strategy
-        
+
         # 1. Technical momentum score (0-100)
         tech_score = signals.get('tech_score', 0)
-        
+
         # 2. Fundamental "pass/fail" check
         fundamental_pass = fundamental_analysis['overall'].get('value_momentum_pass', False)
-        
+
         # 3. Individual signal components
         above_ma40 = signals.get('above_ma40', False)  # Primary trend
         above_ma4 = signals.get('above_ma4', False)    # Short-term momentum
         rsi_above_50 = signals.get('rsi_above_50', False)  # RSI momentum
         near_52w_high = signals.get('near_52w_high', False)  # Near 52-week high
-        
+
         # 4. Is the stock profitable?
         is_profitable = fundamental_analysis['overall'].get('is_profitable', False)
-        
+
         # 5. Does it have a reasonable P/E?
         reasonable_pe = fundamental_analysis['overall'].get('reasonable_pe', True)
-        
+
         # Determine the Value & Momentum signal
         if tech_score >= 70 and fundamental_pass:
             value_momentum_signal = "BUY"
@@ -136,10 +136,10 @@ def value_momentum_scan(only_watchlist=False):
             value_momentum_signal = "SELL"
         else:
             value_momentum_signal = "HOLD"
-        
+
         # Add to results
         last_price = stock_data['close'].iloc[-1] if not stock_data.empty else None
-        
+
         results.append({
             'ticker': ticker,
             'last_price': last_price,
@@ -157,88 +157,88 @@ def value_momentum_scan(only_watchlist=False):
             'value_momentum_signal': value_momentum_signal,
             'data_source': data_source or "unknown"
         })
-    
+
     # Sort by tech score (descending)
     results.sort(key=lambda x: x.get('tech_score', 0), reverse=True)
-    
+
     return results
 
 class EnhancedScanner:
     """Enhanced stock scanner with support for multiple databases and advanced ranking."""
-    
+
     def __init__(self, use_supabase=True, use_sqlite=True):
         """
         Initialize the scanner with database preferences.
-        
+
         Args:
             use_supabase (bool): Whether to use Supabase data
             use_sqlite (bool): Whether to use SQLite data
         """
         self.use_supabase = use_supabase
         self.use_sqlite = use_sqlite
-        
+
         # Ensure at least one database is enabled
         if not use_supabase and not use_sqlite:
             self.use_sqlite = True
             print("Warning: No database specified, defaulting to SQLite")
-    
+
     def get_data_from_both_dbs(self, ticker, timeframe='1wk', period='1y'):
         """
         Get stock data from both databases, prioritizing Supabase.
         Optimized to avoid API calls and reduce database queries.
-        
+
         Args:
             ticker (str): Stock ticker symbol
             timeframe (str): Data timeframe
             period (str): Data period
-            
+
         Returns:
             tuple: (stock_data, fundamentals, source)
         """
         stock_data = None
         fundamentals = None
         data_source = None
-        
+
         # Try Supabase first if enabled
         if self.use_supabase:
             from data.supabase_client import get_supabase_db
             supabase_db = get_supabase_db()
-            
+
             if supabase_db.is_connected():
                 # Get data only from cache, without triggering API calls
                 stock_data = supabase_db.get_cached_stock_data(ticker, timeframe, period, 'yahoo')
                 fundamentals = supabase_db.get_cached_fundamentals(ticker)
-                
+
                 if stock_data is not None or fundamentals is not None:
                     data_source = "supabase"
-        
+
         # If data is missing, try SQLite if enabled
         if (stock_data is None or fundamentals is None) and self.use_sqlite:
             # Only get what's missing
             if stock_data is None:
                 # Get data only from cache, without triggering API calls
                 stock_data = get_cached_stock_data(ticker, timeframe, period, 'yahoo')
-            
+
             if fundamentals is None:
                 # Get fundamentals directly for this ticker instead of getting all
                 from data.db_manager import get_cached_fundamentals
                 fundamentals = get_cached_fundamentals(ticker)
-            
+
             if stock_data is not None or fundamentals is not None:
                 data_source = "sqlite" if data_source is None else "combined"
-        
+
         return stock_data, fundamentals, data_source
-    
+
     def scan_stocks(self, criteria, stock_list=None, progress_callback=None, database_only=False):
         """
         Scan stocks based on criteria, using data from both databases without API searches.
-        
+
         Args:
             criteria (dict): Dictionary of filtering criteria
             stock_list (list, optional): List of stock tickers to scan. If None, all stocks are scanned.
             progress_callback (function, optional): Callback for progress updates
             database_only (bool): If True, only use data from databases without API calls
-            
+
         Returns:
             list: List of stocks meeting the criteria
         """
@@ -246,35 +246,35 @@ class EnhancedScanner:
         if stock_list is None:
             # Get all unique stocks from both databases without API calls
             stocks_to_scan = set()
-            
+
             if self.use_sqlite:
                 # Get all cached stocks from SQLite
                 sqlite_stocks = get_all_cached_stocks()
                 if sqlite_stocks:
                     stocks_to_scan.update(sqlite_stocks)
-            
+
             if self.use_supabase:
                 from data.supabase_client import get_supabase_db
                 supabase_db = get_supabase_db()
-                
+
                 if supabase_db.is_connected():
                     # Get all cached stocks from Supabase
                     supabase_stocks = supabase_db.get_all_cached_stocks()
                     if supabase_stocks:
                         stocks_to_scan.update(supabase_stocks)
-            
+
             # Convert to list
             stocks_to_scan = list(stocks_to_scan)
         else:
             stocks_to_scan = stock_list
-        
+
         # No stocks to scan
         if not stocks_to_scan:
             return []
-        
+
         # Pre-fetch fundamentals for all stocks to avoid repeated queries
         all_fundamentals = {}
-        
+
         # Get fundamentals from SQLite if enabled
         if self.use_sqlite:
             sqlite_fundamentals = get_all_fundamentals()
@@ -282,12 +282,12 @@ class EnhancedScanner:
                 ticker = f.get('ticker')
                 if ticker:
                     all_fundamentals[ticker] = f
-        
+
         # Get fundamentals from Supabase if enabled
         if self.use_supabase:
             from data.supabase_client import get_supabase_db
             supabase_db = get_supabase_db()
-            
+
             if supabase_db.is_connected():
                 supabase_fundamentals = supabase_db.get_all_fundamentals()
                 for f in supabase_fundamentals:
@@ -296,43 +296,74 @@ class EnhancedScanner:
                         # Only override if not already in dictionary (prioritize Supabase)
                         if ticker not in all_fundamentals:
                             all_fundamentals[ticker] = f
-        
+
         # Results list
         results = []
-        
-        # Process each stock
+
+        # Bulk fetch fundamentals and stock data
+        fundamentals_data = {}
+        stock_data_bulk = {}
+
+        if self.use_supabase:
+            from data.supabase_client import get_supabase_db
+            supabase = get_supabase_db()
+            if supabase.is_connected():
+                # Fetch all fundamentals in one query
+                fundamentals = supabase.get_cached_fundamentals_bulk(stocks_to_scan)
+                fundamentals_data.update(fundamentals)
+
+                # Fetch all stock data in one query
+                stock_data = supabase.get_cached_stock_data_bulk(stocks_to_scan)
+                stock_data_bulk.update(stock_data)
+
+        if self.use_sqlite:
+            from data.db_manager import get_cached_fundamentals_bulk, get_cached_stock_data_bulk
+            # Fetch remaining data from SQLite
+            sqlite_fundamentals = get_cached_fundamentals_bulk(
+                [t for t in stocks_to_scan if t not in fundamentals_data])
+            fundamentals_data.update(sqlite_fundamentals)
+
+            sqlite_stock_data = get_cached_stock_data_bulk(
+                [t for t in stocks_to_scan if t not in stock_data_bulk])
+            stock_data_bulk.update(sqlite_stock_data)
+
+        # Process each stock with pre-fetched data
         for i, ticker in enumerate(stocks_to_scan):
             # Update progress if callback provided
             if progress_callback:
                 progress = (i + 1) / len(stocks_to_scan)
                 progress_callback(progress, f"Analyzing {ticker} ({i+1}/{len(stocks_to_scan)})")
-            
+
             try:
+                # Get data from bulk fetch
+                fundamentals = fundamentals_data.get(ticker)
+                stock_data = stock_data_bulk.get(ticker)
+
                 # Get data from both databases without API calls
-                stock_data, fundamentals, data_source = self.get_data_from_both_dbs(ticker)
-                
+                # stock_data, fundamentals, data_source = self.get_data_from_both_dbs(ticker)
+
                 # Skip if no stock data available
                 if stock_data is None or stock_data.empty:
                     continue
-                
+
                 # Use pre-fetched fundamentals if available
-                if not fundamentals and ticker in all_fundamentals:
-                    fundamentals = all_fundamentals[ticker]
-                    if data_source == "supabase":
-                        data_source = "combined"
-                
+                # if not fundamentals and ticker in all_fundamentals:
+                #     fundamentals = all_fundamentals[ticker]
+                #     if data_source == "supabase":
+                #         data_source = "combined"
+
                 # Calculate technical indicators
                 indicators = calculate_all_indicators(stock_data)
-                
+
                 # Generate technical signals
                 signals = generate_technical_signals(indicators)
-                
+
                 # Analyze fundamentals if available
                 fundamental_analysis = analyze_fundamentals(fundamentals or {})
-                
+
                 # Get latest price
                 latest_price = stock_data['close'].iloc[-1] if not stock_data.empty else None
-                
+
                 # Create result dictionary
                 result = {
                     "ticker": ticker,
@@ -358,19 +389,19 @@ class EnhancedScanner:
                     # Additional info
                     "sector": fundamentals.get('sector', "") if fundamentals else "",
                     "exchange": fundamentals.get('exchange', "") if fundamentals else "",
-                    "data_source": data_source or "unknown"
+                    # "data_source": data_source or "unknown"
                 }
-                
+
                 # Check if the stock meets Value & Momentum Strategy criteria
                 if criteria.get('strategy') == 'value_momentum':
                     # Include if tech score >= 70 and passes fundamental check
                     if signals.get('tech_score', 0) >= 70 and fundamental_analysis.get('overall', {}).get('value_momentum_pass', False):
                         results.append(result)
                     continue
-                
+
                 # For custom criteria, check each criterion
                 meets_criteria = True
-                
+
                 # Apply filtering criteria
                 for criterion, value in criteria.items():
                     if criterion == 'strategy':
@@ -383,9 +414,9 @@ class EnhancedScanner:
                             break
                     elif criterion == 'data_sources' and value:
                         # Filter by data source
-                        if result.get('data_source', '') not in value:
-                            meets_criteria = False
-                            break
+                        # if result.get('data_source', '') not in value:
+                        meets_criteria = False
+                        break
                     elif criterion == 'min_tech_score':
                         # Minimum tech score
                         if result.get('tech_score', 0) < value:
@@ -466,36 +497,36 @@ class EnhancedScanner:
                         if not signals.get('near_52w_low', False):
                             meets_criteria = False
                             break
-                
+
                 # Include stock if it meets criteria
                 if meets_criteria:
                     results.append(result)
-                
+
             except Exception as e:
                 print(f"Error analyzing {ticker}: {str(e)}")
-        
+
         # Apply ranking if requested
         if criteria.get('rank_by_score', True):
             results = self.rank_stocks(results)
-        
+
         return results
-    
+
     def rank_stocks(self, analysis_results):
         """
         Rank stocks based on a comprehensive scoring system.
-        
+
         Args:
             analysis_results (list): List of stock analysis results
-            
+
         Returns:
             list: Ranked analysis results
         """
         # Remove errors
         valid_results = [r for r in analysis_results if "error" not in r or r["error"] is None]
-        
+
         if not valid_results:
             return []
-        
+
         # Define scoring weights
         weights = {
             # Technical factors (60% of total score)
@@ -505,19 +536,19 @@ class EnhancedScanner:
             'rsi_above_50': 5,                # RSI momentum
             'near_52w_high': 5,               # Relative strength
             'breakout': 5,                    # Breakout factor
-            
+
             # Fundamental factors (40% of total score)
             'is_profitable': 15,              # Profitability
             'reasonable_pe': 10,              # PE ratio is reasonable 
             'revenue_growth_positive': 10,    # Revenue growth
             'profit_margin_positive': 5       # Profit margin 
         }
-        
+
         # Calculate scores
         for result in valid_results:
             total_score = 0
             applied_weights = 0
-            
+
             # Calculate technical score component
             for factor, weight in weights.items():
                 if factor in result:
@@ -547,40 +578,40 @@ class EnhancedScanner:
                     if margin is not None and margin > 0:
                         total_score += weight
                     applied_weights += weight
-            
+
             # Calculate normalized score (0-100)
             if applied_weights > 0:
                 normalized_score = (total_score / applied_weights) * 100
             else:
                 normalized_score = 0
-                
+
             # Add overall score to result
             result['overall_score'] = round(normalized_score, 1)
-        
+
         # Sort by overall score (descending)
         ranked_results = sorted(valid_results, key=lambda x: x.get('overall_score', 0), reverse=True)
-        
+
         # Add rank to each result
         for i, result in enumerate(ranked_results):
             result['rank'] = i + 1
-        
+
         return ranked_results
 
 def scan_stocks(criteria, only_watchlist=False):
     """
     Scan stocks based on specified criteria.
-    
+
     Args:
         criteria (dict): Dictionary with criteria keys and values
         only_watchlist (bool): If True, only scan stocks in the watchlist
-        
+
     Returns:
         list: List of stocks meeting the criteria, with details
     """
     # Special case for Value & Momentum Strategy scan
     if criteria.get('strategy') == 'value_momentum':
         return value_momentum_scan(only_watchlist)
-    
+
     # Get list of stocks to scan
     if only_watchlist:
         watchlist = get_watchlist()
@@ -588,62 +619,62 @@ def scan_stocks(criteria, only_watchlist=False):
     else:
         # Get all stocks in the database
         stocks_to_scan = get_all_cached_stocks()
-    
+
     # If no stocks to scan, return empty list
     if not stocks_to_scan:
         return []
-    
+
     # Get fundamentals for all stocks
     all_fundamentals = get_all_fundamentals()
     fundamentals_by_ticker = {f['ticker']: f for f in all_fundamentals}
-    
+
     # Results list
     results = []
-    
+
     # Scan each stock
     for ticker in stocks_to_scan:
         # Get stock data
         stock_data = get_cached_stock_data(ticker, '1d', '1y', 'yahoo')
-        
+
         if stock_data is None or stock_data.empty:
             continue
-            
+
         # Get fundamentals
         fundamentals = fundamentals_by_ticker.get(ticker, {})
-        
+
         # Calculate technical indicators
         indicators = calculate_all_indicators(stock_data)
-        
+
         # Generate technical signals
         signals = generate_technical_signals(indicators)
-        
+
         # Analyze fundamentals
         fundamental_analysis = analyze_fundamentals(fundamentals)
-        
+
         # Check if the stock meets all criteria
         meets_criteria = True
-        
+
         for criterion, value in criteria.items():
             if criterion == 'pe_below' and fundamentals.get('pe_ratio') is not None:
                 if not (fundamentals['pe_ratio'] <= float(value)):
                     meets_criteria = False
                     break
-                    
+
             elif criterion == 'pe_above' and fundamentals.get('pe_ratio') is not None:
                 if not (fundamentals['pe_ratio'] >= float(value)):
                     meets_criteria = False
                     break
-                    
+
             elif criterion == 'profit_margin_above' and fundamentals.get('profit_margin') is not None:
                 if not (fundamentals['profit_margin'] >= float(value)):
                     meets_criteria = False
                     break
-                    
+
             elif criterion == 'revenue_growth_above' and fundamentals.get('revenue_growth') is not None:
                 if not (fundamentals['revenue_growth'] >= float(value)):
                     meets_criteria = False
                     break
-                    
+
             elif criterion == 'price_above_sma' and 'price_above_sma_short' in signals:
                 window = int(value)
                 if window == 50 and 'price_above_sma_medium' in signals:
@@ -657,7 +688,7 @@ def scan_stocks(criteria, only_watchlist=False):
                 elif not signals['price_above_sma_short']:
                     meets_criteria = False
                     break
-                    
+
             elif criterion == 'price_below_sma' and 'price_above_sma_short' in signals:
                 window = int(value)
                 if window == 50 and 'price_above_sma_medium' in signals:
@@ -671,42 +702,42 @@ def scan_stocks(criteria, only_watchlist=False):
                 elif signals['price_above_sma_short']:
                     meets_criteria = False
                     break
-                    
+
             elif criterion == 'rsi_overbought' and 'rsi_overbought' in signals:
                 if not signals['rsi_overbought']:
                     meets_criteria = False
                     break
-                    
+
             elif criterion == 'rsi_oversold' and 'rsi_oversold' in signals:
                 if not signals['rsi_oversold']:
                     meets_criteria = False
                     break
-                    
+
             elif criterion == 'macd_bullish' and 'macd_bullish_cross' in signals:
                 if not signals['macd_bullish_cross']:
                     meets_criteria = False
                     break
-                    
+
             elif criterion == 'macd_bearish' and 'macd_bearish_cross' in signals:
                 if not signals['macd_bearish_cross']:
                     meets_criteria = False
                     break
-                    
+
             elif criterion == 'price_near_52w_high' and 'near_52w_high' in signals:
                 if not signals['near_52w_high']:
                     meets_criteria = False
                     break
-                    
+
             elif criterion == 'price_near_52w_low' and 'near_52w_low' in signals:
                 if not signals['near_52w_low']:
                     meets_criteria = False
                     break
-        
+
         # If the stock meets all criteria, add it to the results
         if meets_criteria:
             # Get last price
             last_price = stock_data['close'].iloc[-1] if not stock_data.empty else None
-            
+
             # Add to results
             results.append({
                 'ticker': ticker,
@@ -718,5 +749,5 @@ def scan_stocks(criteria, only_watchlist=False):
                 'signal_strength': signals.get('signal_strength'),
                 'fundamental_status': fundamental_analysis['overall']['status']
             })
-    
+
     return results
