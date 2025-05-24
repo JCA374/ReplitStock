@@ -16,6 +16,7 @@ from ui.company_explorer import display_company_explorer
 
 # Import analysis components and services
 from tabs.analysis_tab import render_analysis_tab
+from tabs.enhanced_scanner_tab import render_enhanced_scanner_ui
 from tabs.strategy import ValueMomentumStrategy
 from services.watchlist_manager import WatchlistManager
 from services.company_explorer import CompanyExplorer
@@ -109,13 +110,15 @@ def main():
         st.sidebar.title("Navigation")
         page = st.sidebar.radio(
             "Select a page:",
-            ["Single Stock Analysis", "Watchlist", "Company Explorer",
+            ["Single Stock Analysis", "Enhanced Stock Scanner", "Watchlist", "Company Explorer",
              "Batch Analysis", "Database Viewer", "Development"]
         )
 
         # Display the selected page
         if page == "Watchlist":
             display_watchlist()
+        elif page == "Enhanced Stock Scanner":
+            render_enhanced_scanner_ui()
         elif page == "Company Explorer":
             display_company_explorer()
         elif page == "Single Stock Analysis":
