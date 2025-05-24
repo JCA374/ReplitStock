@@ -118,6 +118,11 @@ def main():
                 st.info(
                     "Database features will work, but data won't be shared across sessions.")
 
+        # Display market status
+        st.markdown("---")
+        display_market_status()
+        st.markdown("---")
+
         # Initialize strategy and watchlist manager in session state
         if 'strategy' not in st.session_state:
             st.session_state.strategy = ValueMomentumStrategy()
