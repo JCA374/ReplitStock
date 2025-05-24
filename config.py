@@ -4,6 +4,10 @@ import os
 ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "")
 YAHOO_FINANCE_ENABLED = True  # No API key needed for yfinance
 
+# Data source priority
+DEFAULT_DATA_SOURCE_PRIORITY = ['database', 'alphavantage', 'yahoo']
+PREFERRED_API_SOURCE = 'alphavantage'  # Alpha Vantage as preferred API
+
 # Database configuration
 import os
 # Use SQLite as reliable fallback when Supabase is unavailable

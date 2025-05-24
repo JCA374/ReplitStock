@@ -106,39 +106,58 @@ def main():
         if 'show_watchlist_manager' not in st.session_state:
             st.session_state.show_watchlist_manager = False
 
+
         # Sidebar for navigation
         st.sidebar.title("Navigation")
+
+        # Main pages
         page = st.sidebar.radio(
             "Select a page:",
-            ["Single Stock Analysis", "Enhanced Stock Scanner", "Watchlist", "Company Explorer",
-             "Batch Analysis", "Database Viewer", "Development"]
+            ["Single Stock Analysis", "Batch Analysis",
+                "Enhanced Stock Scanner", "Watchlist"]
         )
 
+        # Store the selected page in session state if needed
+        if 'selected_page' not in st.session_state:
+            st.session_state.selected_page = page
+        else:
+            st.session_state.selected_page = page
+
+        # Batch Analysis Settings - only show when Batch Analysis is selected
+        if page == "Batch Analysis":
+            st.sidebar.markdown("---")
+            st.sidebar.subheader("Batch Analysis Settings")
+            # The batch analysis settings will be handled within the display_batch_analysis() function
+            # This is just a placeholder to show where they appear in the sidebar
+
+        # Development section at the bottom with expander
+        st.sidebar.markdown("---")
+        with st.sidebar.expander("Development", expanded=False):
+            dev_pages = ["Company Explorer",
+                         "Database Viewer", "Development Scanner"]
+            for dev_page in dev_pages:
+                if st.button(dev_page, key=f"dev_{dev_page}", use_container_width=True):
+                    page = dev_page
+                    st.session_state.selected_page = dev_page
+
         # Display the selected page
-        if page == "Watchlist":
-            display_watchlist()
-        elif page == "Enhanced Stock Scanner":
-            render_enhanced_scanner_ui()
-        elif page == "Company Explorer":
-            display_company_explorer()
-        elif page == "Single Stock Analysis":
+        page = st.session_state.get('selected_page', page)
+
+        if page == "Single Stock Analysis":
             render_analysis_tab()
         elif page == "Batch Analysis":
             display_batch_analysis()
+        elif page == "Enhanced Stock Scanner":
+            render_enhanced_scanner_ui()
+        elif page == "Watchlist":
+            display_watchlist()
+        elif page == "Company Explorer":
+            display_company_explorer()
         elif page == "Database Viewer":
             display_database_viewer()
-        elif page == "Development":
-            # Development section with sub-navigation
-            st.header("Development Tools")
-            st.write("Tools and features in development phase")
-            
-            dev_page = st.selectbox(
-                "Select Development Tool:",
-                ["Stock Scanner"]
-            )
-            
-            if dev_page == "Stock Scanner":
-                display_enhanced_scanner()
+        elif page == "Development Scanner":
+            display_enhanced_scanner()
+ 
 
         # Footer with database status
         st.sidebar.markdown("---")
