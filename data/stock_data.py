@@ -61,21 +61,21 @@ class StockDataFetcher:
     def get_stock_data(self, ticker, timeframe='1d', period='1y', attempt_fallback=True):
         """
         Get stock price data with market hours awareness
-        
+
         Args:
             ticker (str): Stock ticker symbol
             timeframe (str): Timeframe for data (1d, 1wk, 1mo)
             period (str): Period to fetch (1mo, 3mo, 6mo, 1y, etc.)
             attempt_fallback (bool): Whether to try fallback sources
-            
+
         Returns:
             pandas.DataFrame: Stock price data
         """
         logger.info(f"Fetching data for {ticker} (timeframe: {timeframe}, period: {period})")
-        
+
         # Determine which exchange this ticker is from
         exchange = 'STOCKHOLM' if ticker.endswith('.ST') else 'NYSE'
-        
+
         # Step 1: Check database cache first
         cached_data = get_cached_stock_data(ticker, timeframe, period, "alphavantage")
         if cached_data is not None and not cached_data.empty:
@@ -84,13 +84,13 @@ class StockDataFetcher:
             if self.market_checker.should_use_cached_data(cache_timestamp, exchange):
                 logger.info(f"Using cached data for {ticker} - market is closed and data is fresh")
                 return cached_data
-        
+
         # Step 2: If market is closed and we have ANY cached data, use it
         if not self.market_checker.is_market_open(exchange):
             if cached_data is not None and not cached_data.empty:
                 logger.info(f"Market closed - using existing cached data for {ticker}")
                 return cached_data
-                
+
             # Also check Yahoo cache
             cached_data = get_cached_stock_data(ticker, timeframe, period, "yahoo")
             if cached_data is not None and not cached_data.empty:
@@ -195,8 +195,8 @@ class StockDataFetcher:
             # Get appropriate function based on timeframe
             av_timeframe = av_timeframe_map.get(timeframe, 'daily')
 
-            # Add delay to respect API rate limits
-            time.sleep(12)  # Alpha Vantage free tier: 5 calls per minute
+            # Add smaller delay for API rate limits
+            time.sleep(1)  # Reduced delay since we're using more caching
 
             if av_timeframe == 'daily':
                 data, meta_data = self.alpha_vantage.get_daily(
