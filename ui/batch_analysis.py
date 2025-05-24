@@ -404,8 +404,8 @@ def display_batch_analysis():
                     with col3:
                         data_source_filter = st.multiselect(
                             "Data Source:",
-                            ["database", "alphavantage", "yahoo"],
-                            default=["database", "alphavantage", "yahoo"],
+                            ["Database", "Alphavantage", "Yahoo"],
+                            default=["Database", "Alphavantage", "Yahoo"],
                             key="batch_source_filter"
                         )
 
