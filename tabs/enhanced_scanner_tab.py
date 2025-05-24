@@ -129,9 +129,9 @@ class EnhancedStockScorer:
             
         return min(100, score)
 
-class EnhancedStockScanner:
+class StockScanner:
     """
-    Enhanced stock scanner with comprehensive ranking and easy watchlist management
+    Stock scanner with comprehensive ranking and easy watchlist management
     """
     
     def __init__(self):
@@ -247,10 +247,10 @@ def render_enhanced_scanner_ui():
     st.markdown("*Comprehensive stock ranking with easy watchlist management*")
     
     # Initialize scanner
-    if 'enhanced_scanner' not in st.session_state:
-        st.session_state.enhanced_scanner = EnhancedStockScanner()
+    if 'stock_scanner' not in st.session_state:
+        st.session_state.stock_scanner = StockScanner()
     
-    scanner = st.session_state.enhanced_scanner
+    scanner = st.session_state.stock_scanner
     
     col1, col2 = st.columns([1, 3])
     
