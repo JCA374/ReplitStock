@@ -26,7 +26,6 @@ from data.db_connection import get_db_session_context
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 class BatchAnalyzer:
     """Enhanced batch analyzer with database-first approach"""
 
@@ -248,7 +247,6 @@ class BatchAnalyzer:
 
         return results
 
-
 def start_optimized_batch_analysis(tickers, progress_callback=None):
     """
     Start optimized batch analysis using bulk scanning approach
@@ -444,14 +442,9 @@ def display_batch_analysis():
     # Show data source priority info
     st.info("📊 **Data Source Priority**: Database Cache → Alpha Vantage API → Yahoo Finance API")
 
-    # Analysis execution
-    results = None
+    # Analysis execution - THIS IS THE MISSING PART!
     run_button = st.button("🚀 Run Batch Analysis",
                            type="primary", disabled=len(selected_tickers) == 0)
-
-
-def display_batch_analysis():
-    # ... existing code up to the run_button logic ...
 
     if run_button and selected_tickers:
         # Create progress indicators
@@ -488,9 +481,7 @@ def display_batch_analysis():
         with col3:
             st.metric("Failed", error_count)
 
-
-
-    # Display results if available
+    # Display results if available - REST OF THE EXISTING CODE
     if 'batch_analysis_results' in st.session_state:
         results = st.session_state.batch_analysis_results
 
@@ -503,18 +494,8 @@ def display_batch_analysis():
                 st.subheader(
                     f"📈 Analysis Results ({len(success_results)} successful)")
 
-                # Debug: Show raw results for troubleshooting
-                st.write("Debug Info:")
-                st.write(f"Number of success results: {len(success_results)}")
-                if success_results:
-                    st.write("Sample result keys:", list(success_results[0].keys()))
-                    st.write("Sample result:", success_results[0])
-
                 # Create results table
                 results_df = create_results_table(success_results)
-                st.write(f"Results DataFrame shape: {results_df.shape}")
-                if not results_df.empty:
-                    st.write("DataFrame columns:", results_df.columns.tolist())
 
                 if not results_df.empty:
                     # Add filtering options
@@ -537,7 +518,8 @@ def display_batch_analysis():
 
                     with col3:
                         # Get actual data source values from the results
-                        available_sources = results_df["Data Source"].unique().tolist() if "Data Source" in results_df.columns else []
+                        available_sources = results_df["Data Source"].unique(
+                        ).tolist() if "Data Source" in results_df.columns else []
                         data_source_filter = st.multiselect(
                             "Data Source:",
                             available_sources,
@@ -625,7 +607,6 @@ def display_batch_analysis():
     elif not selected_tickers:
         st.info(
             "👆 Select stocks to analyze using the options above, then click 'Run Batch Analysis'.")
-
 
 if __name__ == "__main__":
     display_batch_analysis()
