@@ -89,11 +89,41 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+def ensure_database_exists():
+    """
+    Ensure the local SQLite database exists and is properly initialized.
+    This is safe to call multiple times.
+    """
+    try:
+        # Check if database file exists
+        if not os.path.exists(DB_PATH):
+            print(f"Database file {DB_PATH} does not exist. Creating...")
+
+        # Initialize database connection and tables
+        engine = get_db_engine()
+
+        # Import all models to ensure they're registered
+        from data.db_models import Base, Watchlist, StockDataCache, FundamentalsCache, AnalysisResults
+
+        # Create all tables
+        Base.metadata.create_all(engine)
+
+        print(f"Database {DB_PATH} initialized successfully")
+        return True
+
+    except Exception as e:
+        print(f"Error ensuring database exists: {e}")
+        return False
 
 def initialize_database():
     """Initialize the database tables if they don't exist."""
     print("Starting database initialization...")
     try:
+        # Ensure local SQLite database exists first
+        if not ensure_database_exists():
+            print("Failed to ensure local database exists")
+            return False
+
         # Always use SQLite for now due to connection issues with PostgreSQL on Replit
         print("Initializing SQLite database...")
 
@@ -119,8 +149,6 @@ def initialize_database():
             except Exception as e:
                 print(
                     f"Supabase connection error (continuing with SQLite): {e}")
-                import traceback
-                print(traceback.format_exc())
         else:
             print("No Supabase credentials found, using SQLite only")
 
@@ -131,7 +159,7 @@ def initialize_database():
         print(traceback.format_exc())
         # Return True anyway to allow the app to continue
         return True
-    
+
 def add_to_watchlist(ticker, name, exchange="", sector=""):
     """Add a ticker to the watchlist."""
     current_date = datetime.now().strftime("%Y-%m-%d")

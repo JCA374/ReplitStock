@@ -53,6 +53,43 @@ def create_db_storage():
         'get_watchlist': get_watchlist
     }
 
+def display_database_status():
+    """Display database status in the sidebar"""
+    try:
+        from data.db_integration import get_database_status
+        import os
+
+        status = get_database_status()
+
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("📊 Database Status")
+
+        # SQLite status
+        if status['sqlite_available']:
+            db_size = "Unknown"
+            try:
+                if os.path.exists("stock_data.db"):
+                    size_bytes = os.path.getsize("stock_data.db")
+                    db_size = f"{size_bytes / (1024*1024):.1f} MB"
+            except:
+                pass
+            st.sidebar.success(f"✅ SQLite: Active ({db_size})")
+        else:
+            st.sidebar.error("❌ SQLite: Not available")
+
+        # Supabase status
+        if status['supabase_connected']:
+            st.sidebar.success("✅ Supabase: Connected")
+        else:
+            st.sidebar.info("ℹ️ Supabase: Not connected")
+
+        # Primary database
+        primary_color = "green" if status['primary_db'] == 'supabase' else "blue"
+        st.sidebar.markdown(
+            f"**Primary DB:** :{primary_color}[{status['primary_db'].title()}]")
+
+    except Exception as e:
+        st.sidebar.error(f"Database status error: {e}")
 
 def main():
     try:
