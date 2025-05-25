@@ -1,14 +1,17 @@
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import streamlit as st
-import time
+# Standard library imports
 import json
-import os
-from datetime import datetime, timedelta
 import logging
+import os
+import time
+from datetime import datetime, timedelta
 
-# Import the Stock Data Manager and database integration
+# Third-party imports
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import streamlit as st
+
+# Local application imports
 from data.db_integration import (
     get_cached_stock_data, get_cached_fundamentals,
     cache_stock_data, cache_fundamentals,
@@ -114,78 +117,36 @@ class ValueMomentumStrategy:
         try:
             self.logger.info(f"Starting analysis for {ticker}")
 
-            # Step 1: Try to get data from database cache first
-            stock_data = get_cached_stock_data(
-                ticker, '1d', '1y', 'alphavantage')
+            # Step 1: Fetch stock data and fundamentals
+            stock_data, fundamentals, data_source = self._fetch_stock_data(ticker)
+            
             if stock_data is None or stock_data.empty:
-                stock_data = get_cached_stock_data(ticker, '1d', '1y', 'yahoo')
+                return {
+                    "ticker": ticker,
+                    "error": "No data available",
+                    "error_message": f"Could not retrieve data for {ticker} from any source"
+                }
 
-            fundamentals = get_cached_fundamentals(ticker)
-            data_source = "database"
+            # Step 2: Get stock info
+            name, stock_info = self._get_stock_info(ticker, fundamentals)
 
-            # Step 2: If no cached data, fetch from APIs
-            if stock_data is None or stock_data.empty:
-                self.logger.info(
-                    f"No cached data for {ticker}, fetching from APIs")
-
-                # Try Alpha Vantage first, then Yahoo Finance
-                stock_data = self.data_fetcher.get_stock_data(
-                    ticker, '1d', '1y', attempt_fallback=True)
-
-                if stock_data is None or stock_data.empty:
-                    return {
-                        "ticker": ticker,
-                        "error": "No data available",
-                        "error_message": f"Could not retrieve data for {ticker} from any source"
-                    }
-
-                data_source = "api"
-
-            # Step 3: Get stock info and fundamentals
-            try:
-                if not fundamentals:
-                    fundamentals = self.data_fetcher.get_fundamentals(ticker)
-
-                stock_info = self.data_fetcher.get_stock_info(ticker)
-                name = stock_info.get('name', ticker)
-            except Exception as e:
-                self.logger.warning(
-                    f"Could not get stock info for {ticker}: {e}")
-                name = ticker
-                stock_info = {'name': ticker}
-                if not fundamentals:
-                    fundamentals = {}
-
-            # Calculate current price
+            # Step 3: Calculate price
             price = stock_data['close'].iloc[-1] if not stock_data.empty else 0
 
-            # Calculate technical indicators
+            # Step 4: Calculate technical and fundamental indicators
             tech_analysis = self._calculate_technical_indicators(stock_data)
+            fund_analysis = self._calculate_fundamental_indicators(fundamentals, stock_info)
 
-            # Calculate fundamental indicators
-            fund_analysis = self._calculate_fundamental_indicators(
-                fundamentals, stock_info)
-
-            # Calculate signal
+            # Step 5: Calculate signals and scores
             tech_score = self._calculate_tech_score(tech_analysis)
             fund_check = fund_analysis['fundamental_check']
-
-            # Determine overall signal
             buy_signal = tech_score >= 70 and fund_check
             sell_signal = tech_score < 40 or not tech_analysis['above_ma40']
 
-            # Process historical data to add indicators
-            processed_hist = stock_data.copy()
-            # Add moving averages
-            processed_hist['MA4'] = processed_hist['close'].rolling(
-                window=20).mean()  # 20 trading days ≈ 4 weeks
-            processed_hist['MA40'] = processed_hist['close'].rolling(
-                window=200).mean()  # 200 trading days ≈ 40 weeks
-            # Add RSI
-            processed_hist['RSI'] = self.calculate_rsi(
-                processed_hist['close'].values, window=self.rsi_period)
+            # Step 6: Process historical data to add indicators
+            processed_hist = self._process_historical_data(stock_data)
 
-            # Create results dictionary
+            # Step 7: Create results dictionary
             result = {
                 "ticker": ticker,
                 "name": name,
@@ -217,6 +178,56 @@ class ValueMomentumStrategy:
                 "error": err,
                 "error_message": f"Fel vid analys: {err}"
             }
+            
+    def _fetch_stock_data(self, ticker):
+        """Fetch stock data and fundamentals with fallback mechanisms"""
+        # Try to get data from database cache first
+        stock_data = get_cached_stock_data(ticker, '1d', '1y', 'alphavantage')
+        if stock_data is None or stock_data.empty:
+            stock_data = get_cached_stock_data(ticker, '1d', '1y', 'yahoo')
+
+        fundamentals = get_cached_fundamentals(ticker)
+        data_source = "database"
+
+        # If no cached data, fetch from APIs
+        if stock_data is None or stock_data.empty:
+            self.logger.info(f"No cached data for {ticker}, fetching from APIs")
+            # Try Alpha Vantage first, then Yahoo Finance
+            stock_data = self.data_fetcher.get_stock_data(
+                ticker, '1d', '1y', attempt_fallback=True)
+            data_source = "api"
+
+        return stock_data, fundamentals, data_source
+        
+    def _get_stock_info(self, ticker, fundamentals):
+        """Get stock information and handle exceptions"""
+        try:
+            if not fundamentals:
+                fundamentals = self.data_fetcher.get_fundamentals(ticker)
+
+            stock_info = self.data_fetcher.get_stock_info(ticker)
+            name = stock_info.get('name', ticker)
+            return name, stock_info
+        except Exception as e:
+            self.logger.warning(f"Could not get stock info for {ticker}: {e}")
+            return ticker, {'name': ticker}
+            
+    def _process_historical_data(self, stock_data):
+        """Process historical data to add technical indicators"""
+        # Make a copy to avoid modifying original data
+        processed_hist = stock_data.copy()
+        
+        # Add moving averages
+        processed_hist['MA4'] = processed_hist['close'].rolling(
+            window=20).mean()  # 20 trading days ≈ 4 weeks
+        processed_hist['MA40'] = processed_hist['close'].rolling(
+            window=200).mean()  # 200 trading days ≈ 40 weeks
+            
+        # Add RSI
+        processed_hist['RSI'] = self.calculate_rsi(
+            processed_hist['close'].values, window=self.rsi_period)
+            
+        return processed_hist
 
     def _calculate_technical_indicators(self, hist):
         """Calculate technical indicators from historical price data"""

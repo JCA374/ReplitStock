@@ -1,8 +1,9 @@
-from datetime import datetime
-import time
+# Standard library imports
 import logging
+import time
+from datetime import datetime
 
-# Import database managers
+# Local application imports
 from data.db_manager import (
     get_db_session, add_to_watchlist as add_to_sqlite_watchlist,
     remove_from_watchlist as remove_from_sqlite_watchlist,

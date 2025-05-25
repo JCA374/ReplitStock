@@ -1,16 +1,19 @@
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-import time
+# Standard library imports
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Optional
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
 
-# Import database connections
-from data.db_manager import get_all_fundamentals, get_watchlist, get_cached_stock_data, get_all_cached_stocks
-from analysis.technical import calculate_all_indicators, generate_technical_signals
+# Third-party imports
+import numpy as np
+import pandas as pd
+
+# Local application imports
 from analysis.fundamental import analyze_fundamentals
+from analysis.technical import calculate_all_indicators, generate_technical_signals
 from config import SCANNER_CRITERIA
+from data.db_manager import get_all_fundamentals, get_watchlist, get_cached_stock_data, get_all_cached_stocks
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

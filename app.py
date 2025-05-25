@@ -1,27 +1,29 @@
-import streamlit as st
-from streamlit.logger import get_logger
+# Standard library imports
 import os
 import traceback
+
+# Third-party imports
 import pandas as pd
+import streamlit as st
+from streamlit.logger import get_logger
 
-# Import database connection
+# Local application imports
+# Database
 from data.db_connection import get_db_connection, get_db_engine, get_db_session, test_connection
+from data.db_models import Base
 
-# Import UI components
-from ui.watchlist import display_watchlist
+# UI components
 from ui.batch_analysis import display_batch_analysis
-from ui.database_viewer import display_database_viewer
 from ui.company_explorer import display_company_explorer
+from ui.database_viewer import display_database_viewer
+from ui.watchlist import display_watchlist
 
-# Import analysis components and services
+# Analysis components and services
+from services.company_explorer import CompanyExplorer
+from services.watchlist_manager import WatchlistManager
 from tabs.analysis_tab import render_analysis_tab
 from tabs.enhanced_scanner_tab import render_enhanced_scanner_ui
 from tabs.strategy import ValueMomentumStrategy
-from services.watchlist_manager import WatchlistManager
-from services.company_explorer import CompanyExplorer
-
-# Import database models (needed for creating tables)
-from data.db_models import Base
 
 # Setup logging
 logger = get_logger(__name__)

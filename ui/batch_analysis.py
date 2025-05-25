@@ -1,21 +1,24 @@
-import streamlit as st
+# Standard library imports
+import logging
+import time
+from datetime import datetime
+
+# Third-party imports
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime
-import time
-import logging
+import streamlit as st
 
-# Import data sources in priority order
+# Local application imports
+from analysis.fundamental import analyze_fundamentals
+from analysis.technical import calculate_all_indicators, generate_technical_signals
+from config import TIMEFRAMES, PERIOD_OPTIONS
 from data.db_integration import (
     get_watchlist, get_all_cached_stocks, get_cached_stock_data,
     get_cached_fundamentals, add_to_watchlist
 )
 from data.stock_data import StockDataFetcher
-from analysis.technical import calculate_all_indicators, generate_technical_signals
-from analysis.fundamental import analyze_fundamentals
-from utils.ticker_mapping import normalize_ticker
-from config import TIMEFRAMES, PERIOD_OPTIONS
 from helpers import create_results_table
+from utils.ticker_mapping import normalize_ticker
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -38,49 +41,9 @@ class BatchAnalyzer:
             ticker = normalize_ticker(ticker)
             logger.info(f"Starting analysis for {ticker}")
 
-            # Step 1: Try to get data from database first
-            stock_data = get_cached_stock_data(ticker, '1d', '1y', 'yahoo')
-            if stock_data is None:
-                stock_data = get_cached_stock_data(
-                    ticker, '1d', '1y', 'alphavantage')
-
-            fundamentals = get_cached_fundamentals(ticker)
-
-            data_source = "database"
-
-            # Step 2: If no cached data, try Alpha Vantage API
-            if stock_data is None or stock_data.empty:
-                try:
-                    logger.info(
-                        f"No cached data for {ticker}, trying Alpha Vantage API")
-                    stock_data = self.data_fetcher.get_stock_data(
-                        ticker, '1d', '1y', attempt_fallback=False)
-                    if not stock_data.empty:
-                        data_source = "alphavantage"
-                        logger.info(
-                            f"Got data from Alpha Vantage for {ticker}")
-                except Exception as e:
-                    logger.warning(f"Alpha Vantage failed for {ticker}: {e}")
-                    stock_data = None
-
-            # Step 3: If still no data, try Yahoo Finance as final fallback
-            if stock_data is None or stock_data.empty:
-                try:
-                    logger.info(f"Trying Yahoo Finance for {ticker}")
-                    stock_data = self.data_fetcher.get_stock_data(
-                        ticker, '1d', '1y', attempt_fallback=True)
-                    if not stock_data.empty:
-                        data_source = "yahoo"
-                        logger.info(
-                            f"Got data from Yahoo Finance for {ticker}")
-                except Exception as e:
-                    logger.error(f"All data sources failed for {ticker}: {e}")
-                    return {
-                        "ticker": ticker,
-                        "error": f"Failed to fetch data: {str(e)}",
-                        "error_message": f"No data available for {ticker}"
-                    }
-
+            # Step 1: Fetch stock data
+            stock_data, fundamentals, data_source = self._fetch_stock_data(ticker)
+            
             if stock_data is None or stock_data.empty:
                 return {
                     "ticker": ticker,
@@ -88,74 +51,24 @@ class BatchAnalyzer:
                     "error_message": f"Could not retrieve data for {ticker} from any source"
                 }
 
-            # Get stock info
-            try:
-                stock_info = self.data_fetcher.get_stock_info(ticker)
-                name = stock_info.get('name', ticker)
-            except Exception as e:
-                logger.warning(f"Could not get stock info for {ticker}: {e}")
-                name = ticker
-                stock_info = {'name': ticker}
+            # Step 2: Get stock info and name
+            name, stock_info = self._get_stock_info(ticker)
+            
+            # Step 3: Ensure we have fundamentals
+            fundamentals = self._get_fundamentals(ticker, fundamentals)
 
-            # Get fundamentals if not from cache
-            if not fundamentals:
-                try:
-                    fundamentals = self.data_fetcher.get_fundamentals(ticker)
-                except Exception as e:
-                    logger.warning(
-                        f"Could not get fundamentals for {ticker}: {e}")
-                    fundamentals = {}
+            # Step 4: Calculate technical and fundamental indicators
+            indicators, signals = self._calculate_technical_indicators(ticker, stock_data)
+            fundamental_analysis = self._analyze_fundamentals(ticker, fundamentals)
 
-            # Calculate technical indicators with error handling
-            try:
-                indicators = calculate_all_indicators(stock_data)
-                if not indicators:
-                    logger.warning(
-                        f"Could not calculate technical indicators for {ticker}")
-                    indicators = {}
-            except Exception as e:
-                logger.warning(f"Error calculating indicators for {ticker}: {e}")
-                indicators = {}
+            # Step 5: Get current price safely
+            current_price = self._get_current_price(ticker, stock_data)
 
-            # Generate technical signals with error handling
-            try:
-                signals = generate_technical_signals(indicators)
-                if not signals:
-                    logger.warning(f"Could not generate signals for {ticker}")
-                    signals = {}
-            except Exception as e:
-                logger.warning(f"Error generating signals for {ticker}: {e}")
-                signals = {
-                    'tech_score': 50,
-                    'overall_signal': 'HOLD',
-                    'error': str(e)
-                }
+            # Step 6: Calculate tech score and signals
+            tech_score, buy_signal, sell_signal, signal = self._calculate_signals(
+                signals, fundamental_analysis)
 
-            # Analyze fundamentals with error handling
-            try:
-                fundamental_analysis = analyze_fundamentals(fundamentals or {})
-            except Exception as e:
-                logger.warning(f"Error analyzing fundamentals for {ticker}: {e}")
-                fundamental_analysis = {'overall': {
-                    'value_momentum_pass': False, 'is_profitable': False}}
-
-            # Get current price safely
-            try:
-                current_price = stock_data['close'].iloc[-1] if not stock_data.empty else 0
-            except Exception as e:
-                logger.warning(f"Error getting price for {ticker}: {e}")
-                current_price = 0
-
-            # Calculate tech score and signals safely
-            tech_score = signals.get('tech_score', 0)
-            buy_signal = tech_score >= 70 and fundamental_analysis['overall'].get(
-                'value_momentum_pass', False)
-            sell_signal = tech_score < 40 or not signals.get(
-                'above_ma40', False)
-
-            signal = "KÖP" if buy_signal else "SÄLJ" if sell_signal else "HÅLL"
-
-            # Create comprehensive result
+            # Step 7: Create comprehensive result
             result = {
                 "ticker": ticker,
                 "name": name,
@@ -198,8 +111,122 @@ class BatchAnalyzer:
                 "price": 0,
                 "tech_score": 0,
                 "signal": "HÅLL",  # Default to hold on error
-                "data_source": "error"
+                "buy_signal": False,
+                "sell_signal": False
             }
+            
+    def _fetch_stock_data(self, ticker):
+        """Fetch stock data from database first, then APIs"""
+        # Step 1: Try to get data from database first
+        stock_data = get_cached_stock_data(ticker, '1d', '1y', 'yahoo')
+        if stock_data is None:
+            stock_data = get_cached_stock_data(ticker, '1d', '1y', 'alphavantage')
+
+        fundamentals = get_cached_fundamentals(ticker)
+        data_source = "database"
+
+        # Step 2: If no cached data, try Alpha Vantage API
+        if stock_data is None or stock_data.empty:
+            try:
+                logger.info(f"No cached data for {ticker}, trying Alpha Vantage API")
+                stock_data = self.data_fetcher.get_stock_data(
+                    ticker, '1d', '1y', attempt_fallback=False)
+                if not stock_data.empty:
+                    data_source = "alphavantage"
+                    logger.info(f"Got data from Alpha Vantage for {ticker}")
+            except Exception as e:
+                logger.warning(f"Alpha Vantage failed for {ticker}: {e}")
+                stock_data = None
+
+        # Step 3: If still no data, try Yahoo Finance as final fallback
+        if stock_data is None or stock_data.empty:
+            try:
+                logger.info(f"Trying Yahoo Finance for {ticker}")
+                stock_data = self.data_fetcher.get_stock_data(
+                    ticker, '1d', '1y', attempt_fallback=True)
+                if not stock_data.empty:
+                    data_source = "yahoo"
+                    logger.info(f"Got data from Yahoo Finance for {ticker}")
+            except Exception as e:
+                logger.error(f"All data sources failed for {ticker}: {e}")
+                stock_data = None
+
+        return stock_data, fundamentals, data_source
+        
+    def _get_stock_info(self, ticker):
+        """Get stock information"""
+        try:
+            stock_info = self.data_fetcher.get_stock_info(ticker)
+            name = stock_info.get('name', ticker)
+            return name, stock_info
+        except Exception as e:
+            logger.warning(f"Could not get stock info for {ticker}: {e}")
+            return ticker, {'name': ticker}
+            
+    def _get_fundamentals(self, ticker, existing_fundamentals):
+        """Get fundamentals data if not already available"""
+        if not existing_fundamentals:
+            try:
+                return self.data_fetcher.get_fundamentals(ticker)
+            except Exception as e:
+                logger.warning(f"Could not get fundamentals for {ticker}: {e}")
+                return {}
+        return existing_fundamentals
+        
+    def _calculate_technical_indicators(self, ticker, stock_data):
+        """Calculate technical indicators with error handling"""
+        try:
+            indicators = calculate_all_indicators(stock_data)
+            if not indicators:
+                logger.warning(f"Could not calculate technical indicators for {ticker}")
+                indicators = {}
+                
+            # Generate technical signals
+            signals = generate_technical_signals(indicators)
+            if not signals:
+                logger.warning(f"Could not generate signals for {ticker}")
+                signals = {}
+                
+            return indicators, signals
+        except Exception as e:
+            logger.warning(f"Error calculating indicators for {ticker}: {e}")
+            return {}, {
+                'tech_score': 50,
+                'overall_signal': 'HOLD',
+                'error': str(e)
+            }
+            
+    def _analyze_fundamentals(self, ticker, fundamentals):
+        """Analyze fundamentals with error handling"""
+        try:
+            return analyze_fundamentals(fundamentals or {})
+        except Exception as e:
+            logger.warning(f"Error analyzing fundamentals for {ticker}: {e}")
+            return {'overall': {'value_momentum_pass': False, 'is_profitable': False}}
+            
+    def _get_current_price(self, ticker, stock_data):
+        """Get current price from stock data safely"""
+        try:
+            return stock_data['close'].iloc[-1] if not stock_data.empty else 0
+        except Exception as e:
+            logger.warning(f"Error getting price for {ticker}: {e}")
+            return 0
+            
+    def _calculate_signals(self, signals, fundamental_analysis):
+        """Calculate technical score and buy/sell signals"""
+        tech_score = signals.get('tech_score', 0)
+        
+        # Check fundamental criteria
+        fundamental_pass = fundamental_analysis['overall'].get('value_momentum_pass', False)
+        
+        # Determine buy/sell signals
+        buy_signal = tech_score >= 70 and fundamental_pass
+        sell_signal = tech_score < 40 or not signals.get('above_ma40', False)
+        
+        # Convert to human-readable signal
+        signal = "KÖP" if buy_signal else "SÄLJ" if sell_signal else "HÅLL"
+        
+        return tech_score, buy_signal, sell_signal, signal
 
     def batch_analyze(self, tickers, progress_callback=None):
         """Analyze multiple stocks with progress tracking"""
