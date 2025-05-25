@@ -12,7 +12,9 @@
       "Bash([ -f \"ui/fix_indicators.py\" ])",
       "Bash(mkdir:*)",
       "Bash(ls:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }

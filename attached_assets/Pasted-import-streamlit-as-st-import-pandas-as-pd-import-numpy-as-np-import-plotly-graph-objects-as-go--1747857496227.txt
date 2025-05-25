@@ -264,21 +264,21 @@ def display_enhanced_scanner():
             stocks_to_scan = [item['ticker'] for item in get_watchlist()]
         elif scan_scope == "Small Cap":
             try:
-                small_cap_df = pd.read_csv('csv/updated_small.csv')
+                small_cap_df = pd.read_csv('data/updated_small.csv')
                 stocks_to_scan = small_cap_df['YahooTicker'].tolist()
             except Exception as e:
                 st.error(f"Error loading Small Cap CSV: {e}")
                 stocks_to_scan = []
         elif scan_scope == "Mid Cap":
             try:
-                mid_cap_df = pd.read_csv('csv/updated_mid.csv')
+                mid_cap_df = pd.read_csv('data/updated_mid.csv')
                 stocks_to_scan = mid_cap_df['YahooTicker'].tolist()
             except Exception as e:
                 st.error(f"Error loading Mid Cap CSV: {e}")
                 stocks_to_scan = []
         elif scan_scope == "Large Cap":
             try:
-                large_cap_df = pd.read_csv('csv/updated_large.csv')
+                large_cap_df = pd.read_csv('data/updated_large.csv')
                 stocks_to_scan = large_cap_df['YahooTicker'].tolist()
             except Exception as e:
                 st.error(f"Error loading Large Cap CSV: {e}")

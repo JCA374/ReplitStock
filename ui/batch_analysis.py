@@ -287,7 +287,7 @@ def display_batch_analysis():
 
     elif analysis_mode == "All Small Cap":
         try:
-            small_cap_df = pd.read_csv('csv/updated_small.csv')
+            small_cap_df = pd.read_csv('data/csv/updated_small.csv')
             small_cap_tickers = small_cap_df['YahooTicker'].tolist()
             selected_tickers = [t for t in small_cap_tickers if pd.notna(t)]
             st.success(
@@ -297,7 +297,7 @@ def display_batch_analysis():
 
     elif analysis_mode == "All Mid Cap":
         try:
-            mid_cap_df = pd.read_csv('csv/updated_mid.csv')
+            mid_cap_df = pd.read_csv('data/csv/updated_mid.csv')
             mid_cap_tickers = mid_cap_df['YahooTicker'].tolist()
             selected_tickers = [t for t in mid_cap_tickers if pd.notna(t)]
             st.success(
@@ -307,7 +307,7 @@ def display_batch_analysis():
 
     elif analysis_mode == "All Large Cap":
         try:
-            large_cap_df = pd.read_csv('csv/updated_large.csv')
+            large_cap_df = pd.read_csv('data/csv/updated_large.csv')
             large_cap_tickers = large_cap_df['YahooTicker'].tolist()
             selected_tickers = [t for t in large_cap_tickers if pd.notna(t)]
             st.success(
@@ -335,7 +335,7 @@ def display_batch_analysis():
 
         elif input_method == "Small Cap CSV":
             try:
-                small_cap_df = pd.read_csv('csv/updated_small.csv')
+                small_cap_df = pd.read_csv('data/csv/updated_small.csv')
                 small_cap_tickers = small_cap_df['YahooTicker'].tolist()
                 selected_tickers = st.multiselect(
                     "Select stocks from Small Cap list:",
@@ -347,7 +347,7 @@ def display_batch_analysis():
 
         elif input_method == "Mid Cap CSV":
             try:
-                mid_cap_df = pd.read_csv('csv/updated_mid.csv')
+                mid_cap_df = pd.read_csv('data/csv/updated_mid.csv')
                 mid_cap_tickers = mid_cap_df['YahooTicker'].tolist()
                 selected_tickers = st.multiselect(
                     "Select stocks from Mid Cap list:",
@@ -359,7 +359,7 @@ def display_batch_analysis():
 
         elif input_method == "Large Cap CSV":
             try:
-                large_cap_df = pd.read_csv('csv/updated_large.csv')
+                large_cap_df = pd.read_csv('data/csv/updated_large.csv')
                 large_cap_tickers = large_cap_df['YahooTicker'].tolist()
                 selected_tickers = st.multiselect(
                     "Select stocks from Large Cap list:",
