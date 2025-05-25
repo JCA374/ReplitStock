@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash([ -f \"ui/enhanced_scanner_ui.py\" ])",
+      "Bash([ -f \"analysis/optimized_scanner.py\" ])",
+      "Bash([ -f \"utils/supabase_connection.py\" ])",
+      "Bash([ -f \"ui/scanner_fix.py\" ])",
+      "Bash([ -f \"ui/company_search.py\" ])",
+      "Bash([ -f \"ui/search_history.py\" ])",
+      "Bash([ -f \"migrations/create_analysis_results_table.sql\" ])",
+      "Bash([ -f \"supabase_tables.sql\" ])",
+      "Bash([ -f \"ui/fix_indicators.py\" ])",
+      "Bash(mkdir:*)",
+      "Bash(ls:*)"
+    ],
+    "deny": []
+  }
+}

@@ -10,7 +10,6 @@ from data.db_connection import get_db_connection, get_db_engine, get_db_session,
 # Import UI components
 from ui.watchlist import display_watchlist
 from ui.batch_analysis import display_batch_analysis
-from ui.enhanced_scanner_ui import display_enhanced_scanner
 from ui.database_viewer import display_database_viewer
 from ui.company_explorer import display_company_explorer
 
@@ -171,7 +170,7 @@ def main():
         st.sidebar.markdown("---")
         with st.sidebar.expander("Development", expanded=False):
             dev_pages = ["Company Explorer",
-                         "Database Viewer", "Development Scanner"]
+                         "Database Viewer"]
             for dev_page in dev_pages:
                 if st.button(dev_page, key=f"dev_{dev_page}", use_container_width=True):
                     page = dev_page
@@ -192,9 +191,6 @@ def main():
             display_company_explorer()
         elif page == "Database Viewer":
             display_database_viewer()
-        elif page == "Development Scanner":
-            display_enhanced_scanner()
- 
 
         # Footer with database status
         st.sidebar.markdown("---")
