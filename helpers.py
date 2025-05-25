@@ -6,6 +6,7 @@ import numpy as np
 def create_results_table(analysis_results):
     """
     Create a formatted table from analysis results for display
+    Updated to handle both traditional and optimized bulk scanner results
     
     Args:
         analysis_results: List of analysis result dictionaries
@@ -24,35 +25,58 @@ def create_results_table(analysis_results):
     formatted_data = []
 
     for result in valid_results:
-        # Extract basic info
+        # Extract basic info with flexible field names
         ticker = result.get("ticker", "")
-        name = result.get("name", ticker)
-        price = result.get("price", 0)
+        name = result.get("name", result.get("Name", ticker))
 
-        # Get signals
+        # Handle different price field names
+        price = result.get("price", result.get(
+            "Price", result.get("last_price", 0)))
+
+        # Get signals with flexible field names
         buy_signal = result.get("buy_signal", False)
         sell_signal = result.get("sell_signal", False)
 
-        signal = result.get("signal", "")
+        # Handle different signal field names and formats
+        signal = result.get("signal", result.get("Signal", ""))
         if not signal:
-            signal = "KÖP" if buy_signal else "SÄLJ" if sell_signal else "HÅLL"
+            # Check for value_momentum_signal from bulk scanner
+            vm_signal = result.get("value_momentum_signal", "")
+            if vm_signal == "BUY":
+                signal = "KÖP"
+            elif vm_signal == "SELL":
+                signal = "SÄLJ"
+            elif vm_signal == "HOLD":
+                signal = "HÅLL"
+            else:
+                # Fallback to buy/sell signals
+                signal = "KÖP" if buy_signal else "SÄLJ" if sell_signal else "HÅLL"
 
         # Get tech score
-        tech_score = result.get("tech_score", 0)
+        tech_score = result.get("tech_score", result.get("Tech Score", 0))
 
-        # Get technical indicators
-        above_ma40 = result.get("above_ma40", False)
-        above_ma4 = result.get("above_ma4", False)
-        rsi_above_50 = result.get("rsi_above_50", False)
-        higher_lows = result.get("higher_lows", False)
+        # Get technical indicators with flexible field names
+        above_ma40 = result.get("above_ma40", result.get("Above MA40", False))
+        above_ma4 = result.get("above_ma4", result.get("Above MA4", False))
+        rsi_above_50 = result.get(
+            "rsi_above_50", result.get("RSI > 50", False))
+        higher_lows = result.get(
+            "higher_lows", result.get("Högre Bottnar", False))
+        near_52w_high = result.get(
+            "near_52w_high", result.get("Near 52w High", False))
 
-        # Get fundamentals
-        pe_ratio = result.get("pe_ratio")
-        profit_margin = result.get("profit_margin")
-        revenue_growth = result.get("revenue_growth")
+        # Get fundamentals with flexible field names
+        pe_ratio = result.get("pe_ratio", result.get("P/E", None))
+        profit_margin = result.get(
+            "profit_margin", result.get("Profit Margin", None))
+        revenue_growth = result.get(
+            "revenue_growth", result.get("Revenue Growth", None))
+        is_profitable = result.get(
+            "is_profitable", result.get("Profitable", False))
 
         # Get data source
-        data_source = result.get("data_source", "unknown")
+        data_source = result.get(
+            "data_source", result.get("Data Source", "unknown"))
 
         # Format into a row
         row = {
@@ -65,10 +89,12 @@ def create_results_table(analysis_results):
             "Över MA4": "Ja" if above_ma4 else "Nej",
             "RSI > 50": "Ja" if rsi_above_50 else "Nej",
             "Högre Bottnar": "Ja" if higher_lows else "Nej",
+            "Nära 52v-högsta": "Ja" if near_52w_high else "Nej",
+            "Lönsam": "Ja" if is_profitable else "Nej",
             "P/E": f"{pe_ratio:.2f}" if pe_ratio is not None and isinstance(pe_ratio, (int, float)) else "N/A",
             "Vinstmarginal": f"{profit_margin*100:.1f}%" if profit_margin is not None and isinstance(profit_margin, (int, float)) else "N/A",
             "Omsättning Tillväxt": f"{revenue_growth*100:.1f}%" if revenue_growth is not None and isinstance(revenue_growth, (int, float)) else "N/A",
-            "Data Source": data_source.title()
+            "Data Source": data_source.title().replace("_", " ")
         }
 
         formatted_data.append(row)
@@ -257,9 +283,17 @@ def calculate_portfolio_metrics(results):
 
     total_stocks = len(valid_results)
 
-    # Count signals
-    buy_signals = sum(1 for r in valid_results if r.get('buy_signal', False))
-    sell_signals = sum(1 for r in valid_results if r.get('sell_signal', False))
+    # Count signals with flexible field names
+    buy_signals = 0
+    sell_signals = 0
+
+    for r in valid_results:
+        # Check multiple signal formats
+        if r.get('buy_signal', False) or r.get('value_momentum_signal') == 'BUY':
+            buy_signals += 1
+        elif r.get('sell_signal', False) or r.get('value_momentum_signal') == 'SELL':
+            sell_signals += 1
+
     hold_signals = total_stocks - buy_signals - sell_signals
 
     # Calculate average tech score
@@ -370,12 +404,10 @@ def display_portfolio_summary(metrics):
         for i, (source, count) in enumerate(metrics['data_sources'].items()):
             with source_cols[i]:
                 st.metric(
-                    source.title(),
+                    source.title().replace("_", " "),
                     count,
                     f"{(count / metrics['total_stocks']) * 100:.1f}%"
                 )
-
-# Add to helpers.py
 
 
 def safe_compare(a, b, comparison="gt"):
@@ -410,6 +442,7 @@ def safe_compare(a, b, comparison="gt"):
         # Handle cases where comparison is not supported
         return None
 
+
 def filter_results_by_criteria(results, criteria):
     """
     Filter analysis results based on criteria
@@ -430,32 +463,44 @@ def filter_results_by_criteria(results, criteria):
 
         meets_criteria = True
 
-        # Signal filter
+        # Signal filter - handle multiple signal formats
         if 'signals' in criteria and criteria['signals']:
-            signal = result.get('signal', 'HÅLL')
+            signal = result.get('signal', result.get('Signal', 'HÅLL'))
+
+            # Handle value_momentum_signal format
+            if not signal:
+                vm_signal = result.get('value_momentum_signal', 'HOLD')
+                if vm_signal == 'BUY':
+                    signal = 'KÖP'
+                elif vm_signal == 'SELL':
+                    signal = 'SÄLJ'
+                else:
+                    signal = 'HÅLL'
+
             if signal not in criteria['signals']:
                 meets_criteria = False
 
         # Tech score filter
         if 'min_tech_score' in criteria:
-            tech_score = result.get('tech_score', 0)
+            tech_score = result.get('tech_score', result.get('Tech Score', 0))
             if tech_score < criteria['min_tech_score']:
                 meets_criteria = False
 
         # Data source filter
         if 'data_sources' in criteria and criteria['data_sources']:
-            data_source = result.get('data_source', 'unknown')
+            data_source = result.get(
+                'data_source', result.get('Data Source', 'unknown'))
             if data_source not in criteria['data_sources']:
                 meets_criteria = False
 
         # MA40 filter
         if criteria.get('above_ma40_only', False):
-            if not result.get('above_ma40', False):
+            if not result.get('above_ma40', result.get('Above MA40', False)):
                 meets_criteria = False
 
         # Profitable filter
         if criteria.get('profitable_only', False):
-            if not result.get('is_profitable', False):
+            if not result.get('is_profitable', result.get('Profitable', False)):
                 meets_criteria = False
 
         if meets_criteria:
