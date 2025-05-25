@@ -482,134 +482,139 @@ def display_batch_analysis():
             st.metric("Failed", error_count)
 
 
-    # Display results if available - FIXED VERSION
+    # Display results if available - WITH DEBUGGING
     if 'batch_analysis_results' in st.session_state:
         results = st.session_state.batch_analysis_results
 
+        # DEBUG: Show what we have
+        st.write(
+            f"🔍 DEBUG: Found {len(results) if results else 0} results in session_state")
+
         if results:
+            # Show first result structure
+            st.write("🔍 DEBUG: First result structure:")
+            st.json(results[0] if len(results) > 0 else {})
+
             # Filter successful analyses
             success_results = [r for r in results if "error" not in r]
             error_results = [r for r in results if "error" in r]
 
+            st.write(
+                f"🔍 DEBUG: {len(success_results)} successful, {len(error_results)} errors")
+
             if success_results:
-                st.subheader(
-                    f"📈 Analysis Results ({len(success_results)} successful)")
+                st.write("🔍 DEBUG: About to call create_results_table...")
 
-                # Create results table
-                results_df = create_results_table(success_results)
+                try:
+                    results_df = create_results_table(success_results)
+                    st.write(
+                        f"🔍 DEBUG: create_results_table returned DataFrame with shape: {results_df.shape}")
+                    st.write(
+                        f"🔍 DEBUG: DataFrame columns: {list(results_df.columns) if not results_df.empty else 'Empty DataFrame'}")
 
-                if not results_df.empty:
-                    # Add filtering options
-                    col1, col2, col3 = st.columns(3)
+                    if not results_df.empty:
+                        st.subheader(
+                            f"📈 Analysis Results ({len(success_results)} successful)")
 
-                    with col1:
-                        signal_filter = st.multiselect(
-                            "Filter by Signal:",
-                            ["KÖP", "HÅLL", "SÄLJ"],
-                            default=["KÖP", "HÅLL", "SÄLJ"],
-                            key="batch_signal_filter"
+                        # Show a simple version first
+                        st.write("🔍 DEBUG: Showing raw DataFrame:")
+                        st.dataframe(results_df.head())
+
+                        # Now show the filtered version
+                        st.write("🔍 DEBUG: Now showing with filters...")
+
+                        # Add filtering options
+                        col1, col2, col3 = st.columns(3)
+
+                        with col1:
+                            signal_filter = st.multiselect(
+                                "Filter by Signal:",
+                                ["KÖP", "HÅLL", "SÄLJ"],
+                                default=["KÖP", "HÅLL", "SÄLJ"],
+                                key="batch_signal_filter"
+                            )
+
+                        with col2:
+                            min_tech_score = st.slider(
+                                "Minimum Tech Score:",
+                                0, 100, 0,
+                                key="batch_tech_score_filter"
+                            )
+
+                        with col3:
+                            # Get actual data source values from the results
+                            available_sources = results_df["Data Source"].unique(
+                            ).tolist() if "Data Source" in results_df.columns else []
+                            data_source_filter = st.multiselect(
+                                "Data Source:",
+                                available_sources,
+                                default=available_sources,
+                                key="batch_source_filter"
+                            )
+
+                        # Apply filters
+                        filtered_df = results_df.copy()
+
+                        if signal_filter and "Signal" in filtered_df.columns:
+                            filtered_df = filtered_df[filtered_df["Signal"].isin(
+                                signal_filter)]
+
+                        if "Tech Score" in filtered_df.columns:
+                            filtered_df = filtered_df[filtered_df["Tech Score"]
+                                                      >= min_tech_score]
+
+                        if data_source_filter and "Data Source" in filtered_df.columns:
+                            filtered_df = filtered_df[filtered_df["Data Source"].isin(
+                                data_source_filter)]
+
+                        # Sort by Tech Score
+                        if "Tech Score" in filtered_df.columns:
+                            filtered_df = filtered_df.sort_values(
+                                "Tech Score", ascending=False)
+
+                        st.write(
+                            f"🔍 DEBUG: Filtered DataFrame shape: {filtered_df.shape}")
+
+                        # Display results table
+                        st.dataframe(
+                            filtered_df, use_container_width=True, hide_index=True)
+
+                        # Download button
+                        csv_data = filtered_df.to_csv(
+                            index=False).encode('utf-8')
+                        st.download_button(
+                            label="📥 Download Results as CSV",
+                            data=csv_data,
+                            file_name=f"batch_analysis_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                            mime="text/csv"
                         )
+                    else:
+                        st.error(
+                            "🔍 DEBUG: create_results_table returned empty DataFrame!")
 
-                    with col2:
-                        min_tech_score = st.slider(
-                            "Minimum Tech Score:",
-                            0, 100, 0,
-                            key="batch_tech_score_filter"
-                        )
+                        # Show raw data
+                        st.write("🔍 DEBUG: Raw success_results data:")
+                        for i, result in enumerate(success_results[:3]):
+                            st.write(f"Result {i+1}:")
+                            st.json(result)
 
-                    with col3:
-                        # Get actual data source values from the results
-                        available_sources = results_df["Data Source"].unique(
-                        ).tolist() if "Data Source" in results_df.columns else []
-                        data_source_filter = st.multiselect(
-                            "Data Source:",
-                            available_sources,
-                            default=available_sources,
-                            key="batch_source_filter"
-                        )
+                except Exception as e:
+                    st.error(f"🔍 DEBUG: Error in create_results_table: {e}")
+                    import traceback
+                    st.code(traceback.format_exc())
 
-                    # Apply filters
-                    filtered_df = results_df.copy()
-
-                    if signal_filter and "Signal" in filtered_df.columns:
-                        filtered_df = filtered_df[filtered_df["Signal"].isin(
-                            signal_filter)]
-
-                    if "Tech Score" in filtered_df.columns:
-                        filtered_df = filtered_df[filtered_df["Tech Score"]
-                                                  >= min_tech_score]
-
-                    if data_source_filter and "Data Source" in filtered_df.columns:
-                        filtered_df = filtered_df[filtered_df["Data Source"].isin(
-                            data_source_filter)]
-
-                    # Sort by Tech Score
-                    if "Tech Score" in filtered_df.columns:
-                        filtered_df = filtered_df.sort_values(
-                            "Tech Score", ascending=False)
-
-                    # Display results table
-                    st.dataframe(
-                        filtered_df, use_container_width=True, hide_index=True)
-
-                    # Download button
-                    csv_data = filtered_df.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📥 Download Results as CSV",
-                        data=csv_data,
-                        file_name=f"batch_analysis_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv"
-                    )
-
-                    # Quick add to watchlist section
-                    if not filtered_df.empty:
-                        st.subheader("📝 Quick Add to Watchlist")
-
-                        # Get top performers for quick add
-                        top_performers = filtered_df.head(10)
-
-                        selected_for_watchlist = st.multiselect(
-                            "Select stocks to add to watchlist:",
-                            options=top_performers["Ticker"].tolist(
-                            ) if "Ticker" in top_performers.columns else [],
-                            format_func=lambda x: f"{x} - {top_performers[top_performers['Ticker'] == x]['Signal'].iloc[0] if 'Signal' in top_performers.columns else ''}"
-                        )
-
-                        if selected_for_watchlist and st.button("Add Selected to Watchlist"):
-                            added_count = 0
-                            for ticker in selected_for_watchlist:
-                                # Find the stock info
-                                stock_row = top_performers[top_performers["Ticker"] == ticker]
-                                if not stock_row.empty:
-                                    name = stock_row["Namn"].iloc[0] if "Namn" in stock_row.columns else ticker
-                                    try:
-                                        add_to_watchlist(ticker, name)
-                                        added_count += 1
-                                    except:
-                                        pass  # Stock might already be in watchlist
-
-                            if added_count > 0:
-                                st.success(
-                                    f"✅ Added {added_count} stock(s) to your watchlist!")
-                            else:
-                                st.info(
-                                    "Selected stocks might already be in your watchlist.")
-
-                else:
-                    st.warning("No results to display after filtering.")
-
-            # Show errors if any - FIXED: Now error_results is properly defined
+            # Show errors if any
             if error_results:
                 with st.expander(f"❌ Failed Analyses ({len(error_results)} stocks)", expanded=False):
                     for error in error_results:
                         st.error(
                             f"**{error.get('ticker', 'Unknown')}**: {error.get('error_message', 'Unknown error')}")
+        else:
+            st.write("🔍 DEBUG: No results found in session_state")
 
     elif not selected_tickers:
         st.info(
             "👆 Select stocks to analyze using the options above, then click 'Run Batch Analysis'.")
-
-
 
 
 if __name__ == "__main__":
