@@ -4,10 +4,19 @@
 .env
 .env.*
 
-# Database files
+# Database files (SQLite and others)
 *.db
 *.sqlite
 *.sqlite3
+stock_data.db
+search_history.json
+alpha_vantage_quota.json
+
+# Cache and temporary files
+cache/
+temp/
+*.cache
+*.tmp
 
 # Python bytecode
 __pycache__/
@@ -75,16 +84,17 @@ Thumbs.db
 
 # Project specific
 *.pickle
-cache/
 data/*.csv
 !attached_assets/*.csv
-stock_data.db
 *.bak
 backup/
 test_*.py
 !test_app.py
-temp/
 
-
-__pycache__/
-
+# SSH Keys
+*.pub
+*_rsa
+*_dsa
+*_ed25519
+*_ecdsa
+.ssh/

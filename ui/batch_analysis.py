@@ -28,7 +28,7 @@ class BatchAnalyzer:
     def __init__(self):
         self.data_fetcher = StockDataFetcher()
 
-    def analyze_stock(self, ticker):
+    def analyze_stock(self, ticker, fundamentals=None):
         """
         Analyze a single stock with database-first, then API fallback approach
         Priority: Database -> Alpha Vantage -> Yahoo Finance
@@ -43,7 +43,8 @@ class BatchAnalyzer:
                 stock_data = get_cached_stock_data(
                     ticker, '1d', '1y', 'alphavantage')
 
-            fundamentals = get_cached_fundamentals(ticker)
+            if fundamentals is None:
+                fundamentals = get_cached_fundamentals(ticker)
 
             data_source = "database"
 
@@ -105,20 +106,32 @@ class BatchAnalyzer:
                     fundamentals = {}
 
             # Calculate technical indicators
-            indicators = calculate_all_indicators(stock_data)
-            if not indicators:
-                logger.warning(
-                    f"Could not calculate technical indicators for {ticker}")
+            try:
+                indicators = calculate_all_indicators(stock_data)
+                if not indicators:
+                    logger.warning(
+                        f"Could not calculate technical indicators for {ticker}")
+                    indicators = {}
+            except Exception as e:
+                logger.error(f"Error calculating technical indicators for {ticker}: {e}")
                 indicators = {}
 
             # Generate technical signals
-            signals = generate_technical_signals(indicators)
-            if not signals:
-                logger.warning(f"Could not generate signals for {ticker}")
+            try:
+                signals = generate_technical_signals(indicators)
+                if not signals:
+                    logger.warning(f"Could not generate signals for {ticker}")
+                    signals = {}
+            except Exception as e:
+                logger.error(f"Error generating technical signals for {ticker}: {e}")
                 signals = {}
 
             # Analyze fundamentals
-            fundamental_analysis = analyze_fundamentals(fundamentals or {})
+            try:
+                fundamental_analysis = analyze_fundamentals(fundamentals or {})
+            except Exception as e:
+                logger.error(f"Error analyzing fundamentals for {ticker}: {e}")
+                fundamental_analysis = {'overall': {'value_momentum_pass': False, 'is_profitable': False}}
 
             # Get current price
             current_price = stock_data['close'].iloc[-1] if not stock_data.empty else 0
@@ -177,17 +190,33 @@ class BatchAnalyzer:
         """Analyze multiple stocks with progress tracking"""
         results = []
 
+        # Bulk fetch fundamentals for all tickers first
+        fundamentals_data = {}
+        for ticker in tickers:
+            cached_fundamentals = get_cached_fundamentals(ticker)
+            if cached_fundamentals:
+                fundamentals_data[ticker] = cached_fundamentals
+
+        # Process tickers
         for i, ticker in enumerate(tickers):
             if progress_callback:
                 progress = (i + 1) / len(tickers)
-                progress_callback(
-                    progress, f"Analyzing {ticker}... ({i+1}/{len(tickers)})")
+                progress_callback(progress, f"Analyzing {ticker}... ({i+1}/{len(tickers)})")
 
-            result = self.analyze_stock(ticker)
-            results.append(result)
-
-            # Small delay to prevent rate limiting
-            time.sleep(0.1)
+            try:
+                # Use cached fundamentals if available
+                if ticker in fundamentals_data:
+                    result = self.analyze_stock(ticker, fundamentals=fundamentals_data[ticker])
+                else:
+                    result = self.analyze_stock(ticker)
+                results.append(result)
+            except Exception as e:
+                logger.error(f"Error analyzing {ticker}: {e}")
+                results.append({
+                    "ticker": ticker,
+                    "error": str(e),
+                    "error_message": f"Analysis failed for {ticker}: {str(e)}"
+                })
 
         return results
 
@@ -392,8 +421,8 @@ def display_batch_analysis():
                     with col3:
                         data_source_filter = st.multiselect(
                             "Data Source:",
-                            ["database", "alphavantage", "yahoo"],
-                            default=["database", "alphavantage", "yahoo"],
+                            ["Database", "Alphavantage", "Yahoo"],
+                            default=["Database", "Alphavantage", "Yahoo"],
                             key="batch_source_filter"
                         )
 

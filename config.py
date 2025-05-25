@@ -58,6 +58,27 @@ STOCKHOLM_EXCHANGE_SUFFIX = ".ST"
 # Cache expiration in seconds
 CACHE_EXPIRATION = 86400  # 24 hours
 
+# Market-aware cache settings
+CACHE_EXPIRATION_MARKET_OPEN = 3600      # 1 hour when market is open
+CACHE_EXPIRATION_MARKET_CLOSED = 86400   # 24 hours when market is closed
+CACHE_EXPIRATION_WEEKEND = 259200        # 72 hours on weekends
+
+# Data freshness thresholds
+DATA_FRESHNESS = {
+    'intraday': {
+        'market_open': 300,      # 5 minutes
+        'market_closed': 86400,  # 24 hours
+    },
+    'daily': {
+        'market_open': 3600,     # 1 hour
+        'market_closed': 86400,  # 24 hours
+    },
+    'fundamentals': {
+        'market_open': 86400,    # 24 hours
+        'market_closed': 604800, # 1 week
+    }
+}
+
 # Scanner criteria options
 SCANNER_CRITERIA = {
     'pe_below': 'P/E Below',
