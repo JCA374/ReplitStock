@@ -28,6 +28,7 @@ class BatchAnalyzer:
     def __init__(self):
         self.data_fetcher = StockDataFetcher()
 
+
     def analyze_stock(self, ticker):
         """
         Analyze a single stock with database-first, then API fallback approach
@@ -91,7 +92,8 @@ class BatchAnalyzer:
             try:
                 stock_info = self.data_fetcher.get_stock_info(ticker)
                 name = stock_info.get('name', ticker)
-            except:
+            except Exception as e:
+                logger.warning(f"Could not get stock info for {ticker}: {e}")
                 name = ticker
                 stock_info = {'name': ticker}
 
@@ -104,26 +106,47 @@ class BatchAnalyzer:
                         f"Could not get fundamentals for {ticker}: {e}")
                     fundamentals = {}
 
-            # Calculate technical indicators
-            indicators = calculate_all_indicators(stock_data)
-            if not indicators:
-                logger.warning(
-                    f"Could not calculate technical indicators for {ticker}")
+            # Calculate technical indicators with error handling
+            try:
+                indicators = calculate_all_indicators(stock_data)
+                if not indicators:
+                    logger.warning(
+                        f"Could not calculate technical indicators for {ticker}")
+                    indicators = {}
+            except Exception as e:
+                logger.warning(f"Error calculating indicators for {ticker}: {e}")
                 indicators = {}
 
-            # Generate technical signals
-            signals = generate_technical_signals(indicators)
-            if not signals:
-                logger.warning(f"Could not generate signals for {ticker}")
-                signals = {}
+            # Generate technical signals with error handling
+            try:
+                signals = generate_technical_signals(indicators)
+                if not signals:
+                    logger.warning(f"Could not generate signals for {ticker}")
+                    signals = {}
+            except Exception as e:
+                logger.warning(f"Error generating signals for {ticker}: {e}")
+                signals = {
+                    'tech_score': 50,
+                    'overall_signal': 'HOLD',
+                    'error': str(e)
+                }
 
-            # Analyze fundamentals
-            fundamental_analysis = analyze_fundamentals(fundamentals or {})
+            # Analyze fundamentals with error handling
+            try:
+                fundamental_analysis = analyze_fundamentals(fundamentals or {})
+            except Exception as e:
+                logger.warning(f"Error analyzing fundamentals for {ticker}: {e}")
+                fundamental_analysis = {'overall': {
+                    'value_momentum_pass': False, 'is_profitable': False}}
 
-            # Get current price
-            current_price = stock_data['close'].iloc[-1] if not stock_data.empty else 0
+            # Get current price safely
+            try:
+                current_price = stock_data['close'].iloc[-1] if not stock_data.empty else 0
+            except Exception as e:
+                logger.warning(f"Error getting price for {ticker}: {e}")
+                current_price = 0
 
-            # Calculate tech score and signals
+            # Calculate tech score and signals safely
             tech_score = signals.get('tech_score', 0)
             buy_signal = tech_score >= 70 and fundamental_analysis['overall'].get(
                 'value_momentum_pass', False)
@@ -144,7 +167,7 @@ class BatchAnalyzer:
                 "sell_signal": sell_signal,
                 "data_source": data_source,
 
-                # Technical indicators
+                # Technical indicators (with safe gets)
                 "above_ma40": signals.get('above_ma40', False),
                 "above_ma4": signals.get('above_ma4', False),
                 "rsi": signals.get('rsi_value', None),
@@ -153,7 +176,7 @@ class BatchAnalyzer:
                 "near_52w_high": signals.get('near_52w_high', False),
                 "breakout": signals.get('breakout_up', False),
 
-                # Fundamental indicators
+                # Fundamental indicators (with safe gets)
                 "pe_ratio": fundamentals.get('pe_ratio') if fundamentals else None,
                 "profit_margin": fundamentals.get('profit_margin') if fundamentals else None,
                 "revenue_growth": fundamentals.get('revenue_growth') if fundamentals else None,
@@ -170,7 +193,12 @@ class BatchAnalyzer:
             return {
                 "ticker": ticker,
                 "error": str(e),
-                "error_message": f"Analysis failed for {ticker}: {str(e)}"
+                "error_message": f"Analysis failed for {ticker}: {str(e)}",
+                "name": ticker,
+                "price": 0,
+                "tech_score": 0,
+                "signal": "HÅLL",  # Default to hold on error
+                "data_source": "error"
             }
 
     def batch_analyze(self, tickers, progress_callback=None):

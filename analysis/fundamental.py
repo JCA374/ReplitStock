@@ -92,6 +92,9 @@ def analyze_revenue_growth(revenue_growth):
             'description': f'Strong revenue growth ({revenue_growth:.2%})'
         }
 
+# Add this check to analyze_fundamentals function in analysis/fundamental.py
+
+
 def analyze_fundamentals(fundamentals):
     """
     Perform a comprehensive fundamental analysis based on all available metrics.
@@ -106,22 +109,44 @@ def analyze_fundamentals(fundamentals):
         return {
             'overall': {
                 'status': 'unknown',
-                'description': 'Fundamental data not available'
+                'description': 'Fundamental data not available',
+                'is_profitable': False,
+                'reasonable_pe': False,
+                'value_momentum_pass': False
             }
         }
-    
+
     analysis = {}
-    
-    # Analyze individual metrics
-    analysis['pe_ratio'] = analyze_pe_ratio(fundamentals.get('pe_ratio'))
-    analysis['profit_margin'] = analyze_profit_margin(fundamentals.get('profit_margin'))
-    analysis['revenue_growth'] = analyze_revenue_growth(fundamentals.get('revenue_growth'))
-    
-    # Count positive and negative factors
+
+    # Analyze individual metrics with error handling
+    try:
+        analysis['pe_ratio'] = analyze_pe_ratio(fundamentals.get('pe_ratio'))
+    except Exception as e:
+        print(f"Error analyzing PE ratio: {e}")
+        analysis['pe_ratio'] = {'status': 'unknown',
+                                'description': 'Error analyzing P/E ratio'}
+
+    try:
+        analysis['profit_margin'] = analyze_profit_margin(
+            fundamentals.get('profit_margin'))
+    except Exception as e:
+        print(f"Error analyzing profit margin: {e}")
+        analysis['profit_margin'] = {
+            'status': 'unknown', 'description': 'Error analyzing profit margin'}
+
+    try:
+        analysis['revenue_growth'] = analyze_revenue_growth(
+            fundamentals.get('revenue_growth'))
+    except Exception as e:
+        print(f"Error analyzing revenue growth: {e}")
+        analysis['revenue_growth'] = {
+            'status': 'unknown', 'description': 'Error analyzing revenue growth'}
+
+    # Count positive and negative factors with error handling
     positive_factors = 0
     negative_factors = 0
     total_factors = 0
-    
+
     # Check P/E ratio
     if analysis['pe_ratio']['status'] == 'undervalued':
         positive_factors += 1
@@ -129,7 +154,7 @@ def analyze_fundamentals(fundamentals):
         negative_factors += 1
     if analysis['pe_ratio']['status'] != 'unknown':
         total_factors += 1
-    
+
     # Check profit margin
     if analysis['profit_margin']['status'] == 'good':
         positive_factors += 1
@@ -137,7 +162,7 @@ def analyze_fundamentals(fundamentals):
         negative_factors += 1
     if analysis['profit_margin']['status'] != 'unknown':
         total_factors += 1
-    
+
     # Check revenue growth
     if analysis['revenue_growth']['status'] == 'growing':
         positive_factors += 1
@@ -145,14 +170,14 @@ def analyze_fundamentals(fundamentals):
         negative_factors += 1
     if analysis['revenue_growth']['status'] != 'unknown':
         total_factors += 1
-    
+
     # Calculate overall sentiment
     if total_factors == 0:
         overall_status = 'unknown'
         overall_description = 'Insufficient fundamental data for analysis'
     else:
         score = positive_factors - negative_factors
-        
+
         if score > 0:
             overall_status = 'positive'
             overall_description = f'{positive_factors}/{total_factors} positive factors suggest favorable fundamentals'
@@ -162,23 +187,35 @@ def analyze_fundamentals(fundamentals):
         else:
             overall_status = 'neutral'
             overall_description = 'Mixed or neutral fundamental indicators'
-    
+
     # Value & Momentum Strategy Fundamental Checks
-    # 1. Profitability Check
-    is_profitable = fundamentals.get('profit_margin', 0) > 0
-    
+    # 1. Profitability Check - safely handle None values
+    try:
+        profit_margin = fundamentals.get('profit_margin', 0)
+        is_profitable = profit_margin is not None and profit_margin > 0
+    except Exception:
+        is_profitable = False
+
     # 2. Valuation Check - P/E ratio below threshold
-    pe_ratio = fundamentals.get('pe_ratio', 0)
-    reasonable_pe = pe_ratio > 0 and pe_ratio < 30  # P/E < 30 as per strategy
-    
+    try:
+        pe_ratio = fundamentals.get('pe_ratio', 0)
+        # P/E < 30 as per strategy
+        reasonable_pe = pe_ratio is not None and pe_ratio > 0 and pe_ratio < 30
+    except Exception:
+        reasonable_pe = False
+
     # 3. Growth Check
-    revenue_growth_positive = fundamentals.get('revenue_growth', 0) > 0
-    
+    try:
+        revenue_growth = fundamentals.get('revenue_growth', 0)
+        revenue_growth_positive = revenue_growth is not None and revenue_growth > 0
+    except Exception:
+        revenue_growth_positive = False
+
     # Value & Momentum Strategy pass/fail for fundamental criteria
     value_momentum_pass = is_profitable
-    if pe_ratio > 0:  # Only check PE if it exists
+    if pe_ratio is not None and pe_ratio > 0:  # Only check PE if it exists
         value_momentum_pass = value_momentum_pass and reasonable_pe
-    
+
     analysis['overall'] = {
         'status': overall_status,
         'description': overall_description,
@@ -191,5 +228,6 @@ def analyze_fundamentals(fundamentals):
         'revenue_growth_positive': revenue_growth_positive,
         'value_momentum_pass': value_momentum_pass
     }
-    
+
     return analysis
+

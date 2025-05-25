@@ -375,6 +375,40 @@ def display_portfolio_summary(metrics):
                     f"{(count / metrics['total_stocks']) * 100:.1f}%"
                 )
 
+# Add to helpers.py
+
+
+def safe_compare(a, b, comparison="gt"):
+    """
+    Safely compare two values that might be None
+    
+    Args:
+        a: First value
+        b: Second value
+        comparison: Type of comparison ("gt", "lt", "ge", "le", "eq")
+        
+    Returns:
+        bool or None: Result of comparison or None if either value is None
+    """
+    if a is None or b is None:
+        return None
+
+    try:
+        if comparison == "gt":
+            return a > b
+        elif comparison == "lt":
+            return a < b
+        elif comparison == "ge":
+            return a >= b
+        elif comparison == "le":
+            return a <= b
+        elif comparison == "eq":
+            return a == b
+        else:
+            return None
+    except TypeError:
+        # Handle cases where comparison is not supported
+        return None
 
 def filter_results_by_criteria(results, criteria):
     """

@@ -295,6 +295,9 @@ def ensure_indicators_not_blank(indicators, data=None):
     
     return indicators
 
+# Update the generate_technical_signals function in analysis/technical.py
+
+
 def generate_technical_signals(indicators):
     """
     Generate trading signals based on the Value & Momentum Strategy.
@@ -312,9 +315,9 @@ def generate_technical_signals(indicators):
     """
     if not indicators:
         return {}
-    
+
     signals = {}
-    
+
     # Get latest values
     try:
         # Use the price_pattern if available, otherwise try to get from original data
@@ -324,27 +327,35 @@ def generate_technical_signals(indicators):
             latest_price = indicators['original_data']['close'].iloc[-1]
         else:
             latest_price = 0
-            
+
         # Get standard technical indicators
-        latest_sma_short = indicators['sma_short'].iloc[-1] if ('sma_short' in indicators and not indicators['sma_short'].empty) else 0
-        latest_sma_medium = indicators['sma_medium'].iloc[-1] if ('sma_medium' in indicators and not indicators['sma_medium'].empty) else 0
-        latest_sma_long = indicators['sma_long'].iloc[-1] if ('sma_long' in indicators and not indicators['sma_long'].empty) else 0
-        latest_rsi = indicators['rsi'].iloc[-1] if ('rsi' in indicators and not indicators['rsi'].empty) else 0
-        latest_macd = indicators['macd'].iloc[-1] if ('macd' in indicators and not indicators['macd'].empty) else 0
-        latest_macd_signal = indicators['macd_signal'].iloc[-1] if ('macd_signal' in indicators and not indicators['macd_signal'].empty) else 0
-        
+        latest_sma_short = indicators['sma_short'].iloc[-1] if (
+            'sma_short' in indicators and not indicators['sma_short'].empty) else 0
+        latest_sma_medium = indicators['sma_medium'].iloc[-1] if (
+            'sma_medium' in indicators and not indicators['sma_medium'].empty) else 0
+        latest_sma_long = indicators['sma_long'].iloc[-1] if (
+            'sma_long' in indicators and not indicators['sma_long'].empty) else 0
+        latest_rsi = indicators['rsi'].iloc[-1] if (
+            'rsi' in indicators and not indicators['rsi'].empty) else 0
+        latest_macd = indicators['macd'].iloc[-1] if (
+            'macd' in indicators and not indicators['macd'].empty) else 0
+        latest_macd_signal = indicators['macd_signal'].iloc[-1] if (
+            'macd_signal' in indicators and not indicators['macd_signal'].empty) else 0
+
         # Value & Momentum Strategy specific indicators
-        latest_ma4 = indicators['ma4'].iloc[-1] if ('ma4' in indicators and not indicators['ma4'].empty) else 0
-        latest_ma40 = indicators['ma40'].iloc[-1] if ('ma40' in indicators and not indicators['ma40'].empty) else 0
-        
+        latest_ma4 = indicators['ma4'].iloc[-1] if (
+            'ma4' in indicators and not indicators['ma4'].empty) else 0
+        latest_ma40 = indicators['ma40'].iloc[-1] if (
+            'ma40' in indicators and not indicators['ma40'].empty) else 0
+
         # ------- Primary Value & Momentum Strategy Signals -------
-        
+
         # 1. Primary Trend: Using MA40 (40-week moving average)
         signals['above_ma40'] = latest_price > latest_ma40 if latest_ma40 > 0 else None
-        
+
         # 2. Short-Term Momentum: Using MA4 (4-week moving average)
         signals['above_ma4'] = latest_price > latest_ma4 if latest_ma4 > 0 else None
-        
+
         # 3. RSI Momentum
         if latest_rsi is not None and not pd.isna(latest_rsi):
             signals['rsi_above_50'] = latest_rsi > 50
@@ -356,27 +367,27 @@ def generate_technical_signals(indicators):
             signals['rsi_overbought'] = None
             signals['rsi_oversold'] = None
             signals['rsi_value'] = None
-        
+
         # 4. Higher Lows Pattern (uptrend structure)
         if 'price_pattern' in indicators:
             pattern = indicators['price_pattern']
             signals['higher_lows'] = pattern.get('higher_lows', None)
-        
+
         # 5. Near 52-Week High
         signals['near_52w_high'] = indicators.get('near_52w_high', None)
-        
+
         # 6. Breakouts
         if 'breakout' in indicators:
             breakout = indicators['breakout']
             signals['breakout_up'] = breakout.get('breakout_up', None)
-        
+
         # ------- Standard Technical Signals (for compatibility) -------
-        
+
         # Price vs. Moving Averages
         signals['price_above_sma_short'] = latest_price > latest_sma_short if latest_sma_short > 0 else None
         signals['price_above_sma_medium'] = latest_price > latest_sma_medium if latest_sma_medium > 0 else None
         signals['price_above_sma_long'] = latest_price > latest_sma_long if latest_sma_long > 0 else None
-        
+
         # MACD Signals
         if latest_macd is not None and latest_macd_signal is not None and not pd.isna(latest_macd) and not pd.isna(latest_macd_signal):
             signals['macd_bullish_cross'] = (latest_macd > latest_macd_signal)
@@ -384,23 +395,27 @@ def generate_technical_signals(indicators):
         else:
             signals['macd_bullish_cross'] = None
             signals['macd_bearish_cross'] = None
-        
+
         # ------- Calculate Tech Score (0-100) -------
-        
+
         # Key technical factors for Value & Momentum Strategy
         tech_factors = [
             signals.get('above_ma40', False),          # Primary trend positive
-            signals.get('above_ma4', False),           # Short-term momentum positive
+            # Short-term momentum positive
+            signals.get('above_ma4', False),
             signals.get('rsi_above_50', False),        # RSI momentum positive
-            signals.get('higher_lows', False),         # Price structure strengthening
+            # Price structure strengthening
+            signals.get('higher_lows', False),
             signals.get('near_52w_high', False),       # Near 52-week high
             signals.get('breakout_up', False),         # Recent breakout
-            signals.get('price_above_sma_medium', False) # Above 50-day SMA (additional confirmation)
+            # Above 50-day SMA (additional confirmation)
+            signals.get('price_above_sma_medium', False)
         ]
-        
+
         # Calculate tech score (0-100)
-        valid_factors = [factor for factor in tech_factors if factor is not None]
-        
+        valid_factors = [
+            factor for factor in tech_factors if factor is not None]
+
         # Make sure we have at least some valid factors, otherwise use a default score
         if not valid_factors:
             # Default to neutral score when no factors are available
@@ -409,10 +424,10 @@ def generate_technical_signals(indicators):
             total_factors = len(valid_factors)
             positive_factors = sum(1 for factor in valid_factors if factor)
             tech_score = int((positive_factors / total_factors) * 100)
-            
+
         # Make sure score is at least 1, never zero
         tech_score = max(1, tech_score)
-        
+
         # Signal Classification based on Tech Score and Primary Trend
         if tech_score >= 70 and signals.get('above_ma40', False):
             overall_signal = "BUY"  # Strong technical score and above primary trend
@@ -420,13 +435,21 @@ def generate_technical_signals(indicators):
             overall_signal = "SELL"  # Weak technical score OR below primary trend
         else:
             overall_signal = "HOLD"  # Average technical score
-            
+
         signals['tech_score'] = tech_score
         signals['overall_signal'] = overall_signal
-        signals['signal_strength'] = tech_score  # For compatibility with existing code
-        
+        # For compatibility with existing code
+        signals['signal_strength'] = tech_score
+
         return signals
-    
+
     except Exception as e:
         print(f"Error generating signals: {e}")
-        return {}
+        return {
+            'tech_score': 50,  # Default neutral score
+            'overall_signal': "HOLD",  # Default to hold when errors occur
+            'signal_strength': 0.5,
+            'error': str(e)
+        }
+
+
