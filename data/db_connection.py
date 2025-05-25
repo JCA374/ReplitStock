@@ -4,6 +4,7 @@ import psycopg2
 import sqlite3
 import pandas as pd
 import json
+from contextlib import contextmanager
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
@@ -240,6 +241,32 @@ def get_db_session():
 def get_db_engine():
     """Get the SQLAlchemy engine"""
     return get_db_connection().get_engine()
+
+
+@contextmanager
+def get_db_session_context():
+    """
+    Context manager for safe database session handling.
+    
+    Automatically handles commit, rollback, and closing the session.
+    
+    Example:
+        with get_db_session_context() as session:
+            # Do database operations
+            session.query(...)
+            
+        # Session is automatically committed and closed when exiting the block
+        # If an exception occurs, the session is rolled back and closed
+    """
+    session = get_db_session()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 def get_connection_type():

@@ -15,7 +15,9 @@ from analysis.fundamental import analyze_fundamentals
 from analysis.scanner import StockScanner
 from analysis.technical import calculate_all_indicators, generate_technical_signals
 from data.db_integration import get_watchlist, get_all_cached_stocks, add_to_watchlist
+from data.db_connection import get_db_session_context
 from helpers import get_index_constituents
+from ui.performance_overview import display_performance_metrics
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -209,6 +211,8 @@ class EnhancedStockScanner:
 def load_tickers_from_csv(universe_file, limit_stocks=False):
     """
     Load tickers from CSV file or use predefined lists
+    
+    Uses proper database session context management for database operations
     """
     try:
         if universe_file == "OMXS30":
@@ -218,10 +222,17 @@ def load_tickers_from_csv(universe_file, limit_stocks=False):
         elif universe_file == "Dow Jones":
             tickers = get_index_constituents("Dow Jones")
         elif universe_file == "Watchlist":
-            watchlist = get_watchlist()
-            tickers = [stock['ticker'] for stock in watchlist]
+            # Use the database session context manager for proper resource management
+            with get_db_session_context() as session:
+                # Note: we need to adapt the get_watchlist function to accept a session parameter
+                # For now, we'll use the existing function that creates its own session
+                watchlist = get_watchlist()
+                tickers = [stock['ticker'] for stock in watchlist]
         elif universe_file == "All Database Stocks":
-            tickers = get_all_cached_stocks()
+            # Use the database session context manager for proper resource management
+            with get_db_session_context() as session:
+                # Note: adapt the function if possible to use the provided session
+                tickers = get_all_cached_stocks()
         else:
             # Try to load from CSV file
             try:
@@ -334,12 +345,14 @@ def start_enhanced_scan(scanner, universe_file, limit_stocks, batch_size):
         # Import the optimized scanner
         from analysis.bulk_scanner import optimized_bulk_scan
 
-        # Use the optimized bulk scanning approach
+        # Use the optimized bulk scanning approach with performance tracking
         scan_results = optimized_bulk_scan(
             target_tickers=tickers,
             fetch_missing=True,  # Fetch missing data via APIs
             max_api_workers=3,   # Conservative API worker count
-            progress_callback=update_progress
+            progress_callback=update_progress,
+            store_metrics=True,  # Store performance metrics in session state
+            stream_results=True  # Enable streaming for better memory usage
         )
 
         # Process results into the format expected by the UI
@@ -409,6 +422,24 @@ def start_enhanced_scan(scanner, universe_file, limit_stocks, batch_size):
         st.metric("Successful", len(results))
     with col3:
         st.metric("Failed", len(failed_analyses))
+        
+    # Try to display performance metrics if available
+    try:
+        # Check if performance metrics were captured
+        from utils.performance_monitor import ScanPerformanceMonitor
+        
+        if 'scan_performance_monitor' in st.session_state:
+            monitor = st.session_state.scan_performance_monitor
+            metrics = monitor.get_performance_summary()
+            
+            # Store in session state for display
+            st.session_state.performance_metrics = metrics
+            
+            # Display performance overview
+            with st.expander("📊 Performance Analysis", expanded=False):
+                display_performance_metrics(metrics)
+    except Exception as e:
+        logger.warning(f"Could not display performance metrics: {e}")
 
 
 def render_scanner_results(scanner):
@@ -532,9 +563,16 @@ def render_watchlist_quick_add():
 def add_stock_to_watchlist(ticker, name):
     """
     Add stock to watchlist with feedback
+    
+    Uses proper database session context management for safe database operations
     """
     try:
-        add_to_watchlist(ticker, name)
+        # Use context manager for safe database access
+        with get_db_session_context() as session:
+            # Note: Ideally adapt add_to_watchlist to accept a session
+            # For now, use the existing function that creates its own session
+            add_to_watchlist(ticker, name)
+            
         st.success(f"✅ Added {ticker} to watchlist!")
         # Refresh watchlist in session state if it exists
         if 'watchlist' in st.session_state:

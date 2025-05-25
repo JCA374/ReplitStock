@@ -19,6 +19,8 @@ from data.db_integration import (
 from data.stock_data import StockDataFetcher
 from helpers import create_results_table
 from utils.ticker_mapping import normalize_ticker
+from ui.performance_overview import display_performance_metrics
+from data.db_connection import get_db_session_context
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -247,6 +249,100 @@ class BatchAnalyzer:
         return results
 
 
+def start_optimized_batch_analysis(tickers, progress_callback=None):
+    """
+    Run optimized batch analysis using the new bulk scanner
+    
+    This function:
+    1. Loads all available data from databases in bulk operations
+    2. Fetches missing data from APIs in efficient batches
+    3. Analyzes stocks in parallel using the preloaded data
+    
+    Args:
+        tickers: List of ticker symbols to analyze
+        progress_callback: Optional callback function for progress updates
+        
+    Returns:
+        List of analysis results for each stock
+    """
+    st.info("🚀 Starting optimized bulk analysis...")
+    
+    try:
+        # Import the optimized bulk scanner
+        from analysis.bulk_scanner import optimized_bulk_scan
+        from config import get_bulk_scanner_config
+        
+        # Get current configuration
+        config = get_bulk_scanner_config()
+        
+        # Start the optimized bulk scan with memory optimization and performance tracking
+        results = optimized_bulk_scan(
+            target_tickers=tickers,
+            fetch_missing=True,
+            max_api_workers=3,  # Conservative API worker count
+            progress_callback=progress_callback,
+            stream_results=config.get('enable_result_streaming', True),  # Enable streaming for large datasets
+            store_metrics=True  # Store performance metrics in session state
+        )
+        
+        # Transform results to match batch_analyze format if needed
+        transformed_results = []
+        
+        for result in results:
+            # Create a new result object to avoid modifying the original
+            transformed = result.copy()
+            
+            # Add any fields expected by the UI that might be missing
+            if "name" not in transformed and "ticker" in transformed:
+                transformed["name"] = transformed["ticker"]
+                
+            # Convert Value & Momentum signal to Swedish
+            if "value_momentum_signal" in transformed:
+                signal = transformed["value_momentum_signal"]
+                if signal == "BUY":
+                    transformed["signal"] = "KÖP"
+                elif signal == "SELL":
+                    transformed["signal"] = "SÄLJ"
+                else:
+                    transformed["signal"] = "HÅLL"
+            
+            # Rename last_price to price for UI consistency
+            if "last_price" in transformed and "price" not in transformed:
+                transformed["price"] = transformed["last_price"]
+                
+            # Make sure date is present
+            if "date" not in transformed:
+                transformed["date"] = datetime.now().strftime("%Y-%m-%d")
+                
+            transformed_results.append(transformed)
+        
+        logger.info(f"Optimized analysis complete for {len(transformed_results)} stocks")
+        
+        # Try to get performance stats if available
+        try:
+            from utils.performance_monitor import ScanPerformanceMonitor
+            if hasattr(results, 'performance_stats'):
+                logger.info(f"Performance stats: {results.performance_stats}")
+        except:
+            pass
+        
+        return transformed_results
+        
+    except ImportError as e:
+        # Fallback to standard batch analysis if bulk scanner not available
+        logger.warning(f"Bulk scanner not available ({e}), falling back to standard analysis")
+        analyzer = BatchAnalyzer()
+        return analyzer.batch_analyze(tickers, progress_callback)
+    except Exception as e:
+        logger.error(f"Error in optimized batch analysis: {e}")
+        st.error(f"Error in optimized batch analysis: {str(e)}")
+        
+        # Fallback to standard batch analysis
+        logger.info("Falling back to standard batch analysis")
+        analyzer = BatchAnalyzer()
+        return analyzer.batch_analyze(tickers, progress_callback)
+
+
 def display_batch_analysis():
     """Main batch analysis interface"""
     st.header("Batch Analysis")
@@ -421,6 +517,24 @@ def display_batch_analysis():
             st.metric("Successful", success_count)
         with col3:
             st.metric("Failed", error_count)
+            
+        # Try to display performance metrics if available
+        try:
+            # Check if performance metrics were captured
+            from utils.performance_monitor import ScanPerformanceMonitor
+            
+            if 'scan_performance_monitor' in st.session_state:
+                monitor = st.session_state.scan_performance_monitor
+                metrics = monitor.get_performance_summary()
+                
+                # Store in session state for display
+                st.session_state.performance_metrics = metrics
+                
+                # Display performance overview
+                with st.expander("📊 Performance Analysis", expanded=False):
+                    display_performance_metrics(metrics)
+        except Exception as e:
+            logger.warning(f"Could not display performance metrics: {e}")
 
     # Display results if available
     if 'batch_analysis_results' in st.session_state:
