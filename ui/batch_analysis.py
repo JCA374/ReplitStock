@@ -395,8 +395,18 @@ def display_batch_analysis():
                 st.subheader(
                     f"📈 Analysis Results ({len(success_results)} successful)")
 
+                # Debug: Show raw results for troubleshooting
+                st.write("Debug Info:")
+                st.write(f"Number of success results: {len(success_results)}")
+                if success_results:
+                    st.write("Sample result keys:", list(success_results[0].keys()))
+                    st.write("Sample result:", success_results[0])
+
                 # Create results table
                 results_df = create_results_table(success_results)
+                st.write(f"Results DataFrame shape: {results_df.shape}")
+                if not results_df.empty:
+                    st.write("DataFrame columns:", results_df.columns.tolist())
 
                 if not results_df.empty:
                     # Add filtering options
@@ -418,10 +428,12 @@ def display_batch_analysis():
                         )
 
                     with col3:
+                        # Get actual data source values from the results
+                        available_sources = results_df["Data Source"].unique().tolist() if "Data Source" in results_df.columns else []
                         data_source_filter = st.multiselect(
                             "Data Source:",
-                            ["database", "alphavantage", "yahoo"],
-                            default=["database", "alphavantage", "yahoo"],
+                            available_sources,
+                            default=available_sources,
                             key="batch_source_filter"
                         )
 
