@@ -75,12 +75,13 @@ SCANNER_CRITERIA = {
 }
 
 
-# Performance optimization settings
-SCANNER_PERFORMANCE = {
-    # Number of parallel workers (adjust based on your CPU cores)
-    'max_workers': 4,
-    'batch_size': 50,           # Number of stocks to process in each batch
-    'enable_parallel': True     # Enable parallel processing
+
+# Performance Monitoring
+PERFORMANCE_LOGGING = {
+    'enable_timing_logs': True,     # Log detailed timing information
+    'enable_memory_tracking': False,  # Track memory usage (adds overhead)
+    'log_batch_progress': True,     # Log progress for each batch
+    'enable_db_stats': True,        # Log database operation statistics
 }
 
 # Add these settings to config.py
@@ -127,8 +128,6 @@ PERFORMANCE_LOGGING = {
     'enable_db_stats': True,        # Log database operation statistics
 }
 
-# Add this helper function to config.py
-
 
 def get_bulk_scanner_config():
     """Get bulk scanner configuration with environment overrides"""
@@ -145,5 +144,3 @@ def get_bulk_scanner_config():
         os.getenv('BULK_ANALYSIS_BATCH_SIZE', config['analysis_batch_size']))
 
     return config
-
-

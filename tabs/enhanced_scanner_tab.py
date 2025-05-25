@@ -345,14 +345,12 @@ def start_enhanced_scan(scanner, universe_file, limit_stocks, batch_size):
         # Import the optimized scanner
         from analysis.bulk_scanner import optimized_bulk_scan
 
-        # Use the optimized bulk scanning approach with performance tracking
+        # Use the optimized bulk scanning approach
         scan_results = optimized_bulk_scan(
             target_tickers=tickers,
             fetch_missing=True,  # Fetch missing data via APIs
             max_api_workers=3,   # Conservative API worker count
-            progress_callback=update_progress,
-            store_metrics=True,  # Store performance metrics in session state
-            stream_results=True  # Enable streaming for better memory usage
+            progress_callback=update_progress
         )
 
         # Process results into the format expected by the UI
@@ -422,25 +420,6 @@ def start_enhanced_scan(scanner, universe_file, limit_stocks, batch_size):
         st.metric("Successful", len(results))
     with col3:
         st.metric("Failed", len(failed_analyses))
-        
-    # Try to display performance metrics if available
-    try:
-        # Check if performance metrics were captured
-        from utils.performance_monitor import ScanPerformanceMonitor
-        
-        if 'scan_performance_monitor' in st.session_state:
-            monitor = st.session_state.scan_performance_monitor
-            metrics = monitor.get_performance_summary()
-            
-            # Store in session state for display
-            st.session_state.performance_metrics = metrics
-            
-            # Display performance overview
-            with st.expander("📊 Performance Analysis", expanded=False):
-                display_performance_metrics(metrics)
-    except Exception as e:
-        logger.warning(f"Could not display performance metrics: {e}")
-
 
 def render_scanner_results(scanner):
     """
