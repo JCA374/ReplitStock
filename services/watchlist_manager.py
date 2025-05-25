@@ -207,3 +207,47 @@ class WatchlistManager:
             st.session_state.active_watchlist_index = index
             return True
         return False
+
+    def rename_watchlist(self, index, new_name):
+        """
+        Rename a watchlist.
+
+        Args:
+            index (int): Index of the watchlist to rename
+            new_name (str): New name for the watchlist
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        if index < 0 or index >= len(st.session_state.watchlists):
+            return False
+
+        # Check if the new name is empty or already exists
+        if not new_name or new_name in [wl["name"] for wl in st.session_state.watchlists]:
+            return False
+
+        # Rename watchlist
+        st.session_state.watchlists[index]["name"] = new_name
+        return True
+
+    def delete_watchlist(self, index):
+        """
+        Delete a watchlist.
+        
+        Args:
+            index (int): Index of the watchlist to delete
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        if index < 0 or index >= len(st.session_state.watchlists):
+            return False
+            
+        # Don't delete the default watchlist
+        if index == 0:
+            return False
+            
+        # Delete watchlist
+        st.session_state.watchlists.pop(index)
+        return True
+
