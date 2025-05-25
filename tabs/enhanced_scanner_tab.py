@@ -305,38 +305,47 @@ def render_scanner_controls(scanner):
         st.subheader("📝 Quick Add to Watchlist")
         render_watchlist_quick_add()
 
+
 def start_enhanced_scan(scanner, universe_file, limit_stocks, batch_size):
     """
-    Start the enhanced scanning process
+    Start the enhanced scanning process using optimized bulk scanning
     """
     # Load tickers from selected universe
     tickers = load_tickers_from_csv(universe_file, limit_stocks)
-    
+
     if not tickers:
         st.error("No tickers found to scan")
         return
-    
+
+    # Show info about the scan
+    st.info(f"🚀 Starting optimized bulk scan of {len(tickers)} stocks")
+    st.info("📊 **Process**: Database bulk load → Batch API calls → Parallel analysis")
+
     # Show progress
     progress_bar = st.progress(0)
     status_text = st.empty()
-    
+
     def update_progress(progress, message):
         progress_bar.progress(progress)
         status_text.text(message)
-    
-    # Run scan using unified StockScanner
-    with st.spinner("Running enhanced stock scan..."):
-        # Define a progress callback for the scanner
-        def progress_callback(progress, message):
-            update_progress(progress, message)
-        
-        # Use the unified scanner's scan method
-        scan_results = scanner.scan(None, tickers, progress_callback)
-        
+
+    # Run optimized bulk scan
+    with st.spinner("Running optimized bulk scan..."):
+        # Import the optimized scanner
+        from analysis.bulk_scanner import optimized_bulk_scan
+
+        # Use the optimized bulk scanning approach
+        scan_results = optimized_bulk_scan(
+            target_tickers=tickers,
+            fetch_missing=True,  # Fetch missing data via APIs
+            max_api_workers=3,   # Conservative API worker count
+            progress_callback=update_progress
+        )
+
         # Process results into the format expected by the UI
         results = []
         failed_analyses = []
-        
+
         # Process each analysis result
         for analysis in scan_results:
             if "error" in analysis and analysis["error"]:
@@ -346,20 +355,23 @@ def start_enhanced_scan(scanner, universe_file, limit_stocks, batch_size):
                     "error_message": analysis.get("error_message", "Unknown error")
                 })
                 continue
-            
+
             # Calculate comprehensive score using EnhancedStockScorer
             scorer = EnhancedStockScorer(st.session_state.get('strategy'))
-            comprehensive_score = scorer.calculate_comprehensive_score(analysis)
-            
+            comprehensive_score = scorer.calculate_comprehensive_score(
+                analysis)
+
             # Create enhanced result
             result = {
                 "Rank": 0,  # Will be set after sorting
                 "Ticker": analysis["ticker"],
                 "Name": analysis.get("name", analysis["ticker"]),
-                "Price": analysis.get("price", 0),
+                # Note: different field name from bulk scanner
+                "Price": analysis.get("last_price", 0),
                 "Score": round(comprehensive_score, 1),
                 "Tech Score": analysis.get("tech_score", 0),
-                "Signal": analysis.get("signal", "HÅLL"),
+                # Note: different field name
+                "Signal": analysis.get("value_momentum_signal", "HOLD"),
                 "Above MA40": "✓" if analysis.get("above_ma40", False) else "✗",
                 "Above MA4": "✓" if analysis.get("above_ma4", False) else "✗",
                 "RSI > 50": "✓" if analysis.get("rsi_above_50", False) else "✗",
@@ -369,25 +381,35 @@ def start_enhanced_scan(scanner, universe_file, limit_stocks, batch_size):
                 "Data Source": analysis.get("data_source", "unknown").title(),
                 "_analysis": analysis  # Keep full analysis for detailed view
             }
-            
+
             results.append(result)
-        
+
         # Sort by comprehensive score and assign ranks
         results.sort(key=lambda x: x["Score"], reverse=True)
         for i, result in enumerate(results):
             result["Rank"] = i + 1
-        
+
         # Store failed analyses
         st.session_state.failed_analyses = failed_analyses
-    
+
     # Store results
     st.session_state.scan_results = results
-    
+
     # Clear progress
     progress_bar.empty()
     status_text.empty()
-    
-    st.success(f"✅ Scan complete! Analyzed {len(results)} stocks.")
+
+    # Show performance summary
+    st.success(f"✅ Optimized scan complete!")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Analyzed", len(results))
+    with col2:
+        st.metric("Successful", len(results))
+    with col3:
+        st.metric("Failed", len(failed_analyses))
+
 
 def render_scanner_results(scanner):
     """

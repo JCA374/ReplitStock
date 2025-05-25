@@ -82,3 +82,68 @@ SCANNER_PERFORMANCE = {
     'batch_size': 50,           # Number of stocks to process in each batch
     'enable_parallel': True     # Enable parallel processing
 }
+
+# Add these settings to config.py
+
+# Bulk Scanner Performance Settings
+BULK_SCANNER_CONFIG = {
+    # API Rate Limiting
+    # Number of parallel API workers (3-5 recommended)
+    'max_api_workers': 3,
+    # Stocks per API batch (conservative for rate limits)
+    'api_batch_size': 10,
+    'api_batch_delay': 1.0,         # Seconds between API batches
+    'single_request_delay': 0.1,    # Seconds between individual API requests
+
+    # Database Performance
+    'db_bulk_load_timeout': 30,     # Timeout for bulk database operations
+    # Whether to load from multiple DB sources in parallel
+    'enable_db_parallel_load': True,
+
+    # Analysis Performance
+    'analysis_batch_size': 20,      # Stocks per analysis batch
+    'max_analysis_workers': 4,      # Number of parallel analysis workers
+
+    # Memory Management
+    'max_stocks_in_memory': 1000,   # Maximum stocks to process at once
+    'enable_result_streaming': True,  # Stream results instead of holding all in memory
+
+    # Caching Strategy
+    'cache_fetched_data': True,     # Whether to cache API results
+    'prioritize_fresh_data': False,  # Whether to prefer API data over cache
+
+    # Error Handling
+    'max_api_retries': 2,           # Number of API retry attempts
+    'continue_on_api_failure': True,  # Whether to continue scan if some APIs fail
+    # Stop scan if error rate exceeds this (30%)
+    'error_threshold': 0.3,
+}
+
+# Performance Monitoring
+PERFORMANCE_LOGGING = {
+    'enable_timing_logs': True,     # Log detailed timing information
+    'enable_memory_tracking': False,  # Track memory usage (adds overhead)
+    'log_batch_progress': True,     # Log progress for each batch
+    'enable_db_stats': True,        # Log database operation statistics
+}
+
+# Add this helper function to config.py
+
+
+def get_bulk_scanner_config():
+    """Get bulk scanner configuration with environment overrides"""
+    import os
+
+    config = BULK_SCANNER_CONFIG.copy()
+
+    # Allow environment variable overrides for key settings
+    config['max_api_workers'] = int(
+        os.getenv('BULK_MAX_API_WORKERS', config['max_api_workers']))
+    config['api_batch_size'] = int(
+        os.getenv('BULK_API_BATCH_SIZE', config['api_batch_size']))
+    config['analysis_batch_size'] = int(
+        os.getenv('BULK_ANALYSIS_BATCH_SIZE', config['analysis_batch_size']))
+
+    return config
+
+

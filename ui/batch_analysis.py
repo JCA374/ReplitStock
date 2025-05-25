@@ -396,9 +396,10 @@ def display_batch_analysis():
             progress_bar.progress(progress)
             status_text.text(text)
 
-        # Run analysis
-        with st.spinner(f"Analyzing {len(selected_tickers)} stocks..."):
-            results = analyzer.batch_analyze(selected_tickers, update_progress)
+        # Run optimized analysis instead of the old method
+        with st.spinner(f"Running optimized analysis on {len(selected_tickers)} stocks..."):
+            results = start_optimized_batch_analysis(
+                selected_tickers, update_progress)
 
         # Clear progress indicators
         progress_bar.empty()
@@ -407,7 +408,19 @@ def display_batch_analysis():
         # Store results in session state
         st.session_state.batch_analysis_results = results
 
-        st.success(f"✅ Analysis complete! Processed {len(results)} stocks.")
+        # Show performance summary
+        success_count = len([r for r in results if "error" not in r])
+        error_count = len([r for r in results if "error" in r])
+
+        st.success(f"✅ Optimized analysis complete!")
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Processed", len(results))
+        with col2:
+            st.metric("Successful", success_count)
+        with col3:
+            st.metric("Failed", error_count)
 
     # Display results if available
     if 'batch_analysis_results' in st.session_state:
