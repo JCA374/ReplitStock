@@ -39,18 +39,29 @@ def create_results_table(analysis_results):
 
         # Handle different signal field names and formats
         signal = result.get("signal", result.get("Signal", ""))
-        if not signal:
-            # Check for value_momentum_signal from bulk scanner
-            vm_signal = result.get("value_momentum_signal", "")
+
+        # Check for value_momentum_signal from bulk scanner first
+        vm_signal = result.get("value_momentum_signal", "")
+        if vm_signal:
             if vm_signal == "BUY":
                 signal = "KÖP"
             elif vm_signal == "SELL":
                 signal = "SÄLJ"
             elif vm_signal == "HOLD":
                 signal = "HÅLL"
-            else:
-                # Fallback to buy/sell signals
-                signal = "KÖP" if buy_signal else "SÄLJ" if sell_signal else "HÅLL"
+
+        # If we have a signal but it's in English, convert it
+        elif signal:
+            if signal.upper() == "BUY":
+                signal = "KÖP"
+            elif signal.upper() == "SELL":
+                signal = "SÄLJ"
+            elif signal.upper() == "HOLD":
+                signal = "HÅLL"
+
+        # Final fallback to buy/sell signals
+        if not signal or signal not in ["KÖP", "HÅLL", "SÄLJ"]:
+            signal = "KÖP" if buy_signal else "SÄLJ" if sell_signal else "HÅLL"
 
         # Get tech score
         tech_score = result.get("tech_score", result.get("Tech Score", 0))

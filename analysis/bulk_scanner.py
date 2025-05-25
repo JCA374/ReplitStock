@@ -51,9 +51,27 @@ class BulkDatabaseLoader:
         # Step 2: Get all fundamentals in one query
         logger.info("Loading all fundamentals...")
         all_fundamentals = get_all_fundamentals()
-        self.fundamentals_by_ticker = {
-            f['ticker']: f for f in all_fundamentals}
+
+        # FIXED: Properly map fundamentals by ticker
+        self.fundamentals_by_ticker = {}
+        for f in all_fundamentals:
+            ticker = f.get('ticker')
+            if ticker:
+                self.fundamentals_by_ticker[ticker] = f
+
         logger.info(f"Loaded {len(all_fundamentals)} fundamental records")
+        logger.info(
+            f"Mapped fundamentals for {len(self.fundamentals_by_ticker)} tickers")
+
+        # DEBUG: Show what fundamental data we have
+        sample_tickers = list(self.fundamentals_by_ticker.keys())[:3]
+        for ticker in sample_tickers:
+            fund_data = self.fundamentals_by_ticker[ticker]
+            logger.info(f"Sample fundamental data for {ticker}:")
+            logger.info(f"  PE Ratio: {fund_data.get('pe_ratio', 'N/A')}")
+            logger.info(
+                f"  Profit Margin: {fund_data.get('profit_margin', 'N/A')}")
+            logger.info(f"  Keys: {list(fund_data.keys())}")
 
         # Step 3: Determine which stocks to process
         if target_tickers:
@@ -92,6 +110,18 @@ class BulkDatabaseLoader:
         logger.info(
             f"Loaded data for {loaded_count} stocks, {len(self.missing_data_tickers)} need API calls")
 
+        # DEBUG: Check if fundamentals are loaded for our loaded stocks
+        stocks_with_fundamentals = 0
+        for ticker in list(self.stock_data_by_ticker.keys())[:5]:
+            if ticker in self.fundamentals_by_ticker:
+                stocks_with_fundamentals += 1
+                fund = self.fundamentals_by_ticker[ticker]
+                logger.info(
+                    f"Fundamental check for {ticker}: PE={fund.get('pe_ratio', 'N/A')}")
+
+        logger.info(
+            f"Stocks with fundamental data: {stocks_with_fundamentals}")
+
         return {
             'loaded_tickers': list(self.stock_data_by_ticker.keys()),
             'missing_tickers': self.missing_data_tickers,
@@ -103,10 +133,16 @@ class BulkDatabaseLoader:
         """Get stock data for a ticker (from pre-loaded cache)"""
         return self.stock_data_by_ticker.get(ticker)
 
+
     def get_fundamentals(self, ticker: str) -> Optional[Dict]:
         """Get fundamentals for a ticker (from pre-loaded cache)"""
-        return self.fundamentals_by_ticker.get(ticker)
-
+        fund_data = self.fundamentals_by_ticker.get(ticker)
+        if fund_data:
+            logger.info(
+                f"Found fundamentals for {ticker}: PE={fund_data.get('pe_ratio', 'N/A')}")
+        else:
+            logger.warning(f"No fundamentals found for {ticker}")
+        return fund_data
 
 class BulkAPIFetcher:
     """
@@ -267,11 +303,19 @@ class OptimizedBulkScanner:
         total_time = time.time() - total_start_time
         logger.info(
             f"Optimized scan completed in {total_time:.2f}s for {len(results)} stocks")
-        logger.info(f"Average time per stock: {total_time/len(results):.3f}s")
+        if len(results) > 0:
+            avg_time = total_time / len(results)
+            logger.info(f"Average time per stock: {avg_time:.3f}s")
+        else:
+            logger.warning("No results returned from scan")
 
         if progress_callback:
-            progress_callback(
-                1.0, f"Scan complete! Analyzed {len(results)} stocks in {total_time:.1f}s")
+            # Safe division - avoid division by zero
+            if len(results) > 0:
+                avg_time = total_time / len(results)
+                logger.info(f"Average time per stock: {avg_time:.3f}s")
+            else:
+                logger.warning("No results returned from scan")
 
         return results
 

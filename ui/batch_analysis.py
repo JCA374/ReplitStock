@@ -487,6 +487,49 @@ def display_batch_analysis():
         results = st.session_state.batch_analysis_results
 
         # DEBUG: Show what we have
+        # DEBUG: Check if fundamental data exists in database
+        if st.button("🔍 Debug: Check Fundamental Data in Database"):
+            st.write("**Checking fundamental data availability...**")
+
+            try:
+                from data.db_integration import get_all_fundamentals
+                all_fundamentals = get_all_fundamentals()
+
+                st.write(
+                    f"📊 Found {len(all_fundamentals)} fundamental records in database")
+
+                if len(all_fundamentals) > 0:
+                    # Show sample of fundamental data
+                    st.write("**Sample fundamental data:**")
+                    for i, fund in enumerate(all_fundamentals[:3]):
+                        st.write(f"**{i+1}. {fund.get('ticker', 'Unknown')}:**")
+                        st.write(f"  - PE Ratio: {fund.get('pe_ratio', 'N/A')}")
+                        st.write(
+                            f"  - Profit Margin: {fund.get('profit_margin', 'N/A')}")
+                        st.write(
+                            f"  - Revenue Growth: {fund.get('revenue_growth', 'N/A')}")
+                else:
+                    st.warning("⚠️ No fundamental data found in database!")
+                    st.write("**This explains why all P/E ratios show as N/A.**")
+                    st.write(
+                        "**Solution:** Analyze a few individual stocks first to populate fundamental data.")
+
+            except Exception as e:
+                st.error(f"Error checking fundamental data: {e}")
+
+
+        st.write("🔍 DEBUG: Fundamental fields in first result:")
+        fundamental_fields = []
+        first_result = results[0] if results else {}
+        for key, value in first_result.items():
+            if any(fund_key in key.lower() for fund_key in ['pe', 'ratio', 'margin', 'growth', 'profit', 'revenue']):
+                fundamental_fields.append(f"{key}: {value}")
+
+        if fundamental_fields:
+            for field in fundamental_fields:
+                st.write(f"  - {field}")
+        else:
+            st.write("  - No fundamental fields found with common names")
         st.write(
             f"🔍 DEBUG: Found {len(results) if results else 0} results in session_state")
 
@@ -567,10 +610,25 @@ def display_batch_analysis():
                             filtered_df = filtered_df[filtered_df["Data Source"].isin(
                                 data_source_filter)]
 
-                        # Sort by Tech Score
-                        if "Tech Score" in filtered_df.columns:
+                        # Sort by Signal priority (KÖP > HÅLL > SÄLJ), then by Tech Score
+                        if "Signal" in filtered_df.columns and "Tech Score" in filtered_df.columns:
+                            # Create a signal priority column for sorting
+                            signal_priority = {"KÖP": 1, "HÅLL": 2, "SÄLJ": 3}
+                            filtered_df["_signal_priority"] = filtered_df["Signal"].map(
+                                signal_priority).fillna(4)
+
+                            # Sort by signal priority first, then by tech score
                             filtered_df = filtered_df.sort_values(
-                                "Tech Score", ascending=False)
+                                ["_signal_priority", "Tech Score"],
+                                ascending=[True, False]  # KÖP first (1), highest tech score first
+                            )
+
+                            # Remove the helper column
+                            filtered_df = filtered_df.drop("_signal_priority", axis=1)
+                        elif "Tech Score" in filtered_df.columns:
+                            # Fallback to tech score only
+                            filtered_df = filtered_df.sort_values("Tech Score", ascending=False)
+
 
                         st.write(
                             f"🔍 DEBUG: Filtered DataFrame shape: {filtered_df.shape}")
