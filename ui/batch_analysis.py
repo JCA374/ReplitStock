@@ -481,7 +481,8 @@ def display_batch_analysis():
         with col3:
             st.metric("Failed", error_count)
 
-    # Display results if available - REST OF THE EXISTING CODE
+
+    # Display results if available - FIXED VERSION
     if 'batch_analysis_results' in st.session_state:
         results = st.session_state.batch_analysis_results
 
@@ -597,7 +598,7 @@ def display_batch_analysis():
                 else:
                     st.warning("No results to display after filtering.")
 
-            # Show errors if any
+            # Show errors if any - FIXED: Now error_results is properly defined
             if error_results:
                 with st.expander(f"❌ Failed Analyses ({len(error_results)} stocks)", expanded=False):
                     for error in error_results:
@@ -607,6 +608,9 @@ def display_batch_analysis():
     elif not selected_tickers:
         st.info(
             "👆 Select stocks to analyze using the options above, then click 'Run Batch Analysis'.")
+
+
+
 
 if __name__ == "__main__":
     display_batch_analysis()
