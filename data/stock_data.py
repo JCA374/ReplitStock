@@ -15,9 +15,6 @@ from config import (
     STOCKHOLM_EXCHANGE_SUFFIX
 )
 
-# Import the market hours checker
-from utils.market_hours import MarketHoursChecker
-
 # Use the database integration layer to get data from both SQLite and Supabase
 from data.db_integration import (
     cache_stock_data,
@@ -35,7 +32,6 @@ class StockDataFetcher:
     def __init__(self):
         self.alpha_vantage_api_key = ALPHA_VANTAGE_API_KEY
         self.yahoo_finance_enabled = YAHOO_FINANCE_ENABLED
-        self.market_checker = MarketHoursChecker()
 
         # Initialize Alpha Vantage client if API key is available
         if self.alpha_vantage_api_key:
@@ -47,58 +43,25 @@ class StockDataFetcher:
             logger.warning(
                 "Alpha Vantage API key not provided. Fallback source unavailable.")
 
-    def _get_cache_timestamp(self, ticker, timeframe, period, source):
-        """Get the timestamp of cached data"""
-        from data.db_integration import get_db_connection
-        try:
-            # This is a simplified approach - in a real implementation,
-            # you'd want to check the actual cache timestamp from the database
-            current_time = time.time()
-            return current_time - 3600  # Assume data is 1 hour old for demo
-        except:
-            return None
-
     def get_stock_data(self, ticker, timeframe='1d', period='1y', attempt_fallback=True):
         """
-        Get stock price data with market hours awareness
-
+        Get stock price data with priority: Database -> Alpha Vantage -> Yahoo Finance
+        
         Args:
             ticker (str): Stock ticker symbol
             timeframe (str): Timeframe for data (1d, 1wk, 1mo)
             period (str): Period to fetch (1mo, 3mo, 6mo, 1y, etc.)
             attempt_fallback (bool): Whether to try fallback sources
-
+            
         Returns:
             pandas.DataFrame: Stock price data
         """
-        logger.info(f"Fetching data for {ticker} (timeframe: {timeframe}, period: {period})")
+        logger.info(
+            f"Fetching data for {ticker} (timeframe: {timeframe}, period: {period})")
 
-        # Determine which exchange this ticker is from
-        exchange = 'STOCKHOLM' if ticker.endswith('.ST') else 'NYSE'
-
-        # Step 1: Check database cache first
-        cached_data = get_cached_stock_data(ticker, timeframe, period, "alphavantage")
-        if cached_data is not None and not cached_data.empty:
-            # Check if we should just use this cached data
-            cache_timestamp = self._get_cache_timestamp(ticker, timeframe, period, "alphavantage")
-            if self.market_checker.should_use_cached_data(cache_timestamp, exchange):
-                logger.info(f"Using cached data for {ticker} - market is closed and data is fresh")
-                return cached_data
-
-        # Step 2: If market is closed and we have ANY cached data, use it
-        if not self.market_checker.is_market_open(exchange):
-            if cached_data is not None and not cached_data.empty:
-                logger.info(f"Market closed - using existing cached data for {ticker}")
-                return cached_data
-
-            # Also check Yahoo cache
-            cached_data = get_cached_stock_data(ticker, timeframe, period, "yahoo")
-            if cached_data is not None and not cached_data.empty:
-                logger.info(f"Market closed - using Yahoo cached data for {ticker}")
-                return cached_data
-
-        # Step 3: Market is open or no cache - proceed with API calls
-        cached_data = get_cached_stock_data(ticker, timeframe, period, "alphavantage")
+        # Step 1: Check database cache first (both sources)
+        cached_data = get_cached_stock_data(
+            ticker, timeframe, period, "alphavantage")
         if cached_data is not None and not cached_data.empty:
             logger.info(f"Retrieved {ticker} from Alpha Vantage cache")
             return cached_data
@@ -108,20 +71,23 @@ class StockDataFetcher:
             logger.info(f"Retrieved {ticker} from Yahoo cache")
             return cached_data
 
-        # Step 4: Try Alpha Vantage API if available
+        # Step 2: Try Alpha Vantage API if available
         if self.alpha_vantage_api_key and attempt_fallback:
             try:
                 logger.info(f"Fetching {ticker} from Alpha Vantage API")
-                data = self._get_data_from_alpha_vantage(ticker, timeframe, period)
+                data = self._get_data_from_alpha_vantage(
+                    ticker, timeframe, period)
                 if data is not None and not data.empty:
                     # Cache the data
-                    cache_stock_data(ticker, timeframe, period, data, "alphavantage")
-                    logger.info(f"Successfully fetched {ticker} from Alpha Vantage")
+                    cache_stock_data(ticker, timeframe, period,
+                                     data, "alphavantage")
+                    logger.info(
+                        f"Successfully fetched {ticker} from Alpha Vantage")
                     return data
             except Exception as e:
                 logger.warning(f"Alpha Vantage failed for {ticker}: {e}")
 
-        # Step 5: Try Yahoo Finance as fallback
+        # Step 3: Try Yahoo Finance as fallback
         if self.yahoo_finance_enabled and attempt_fallback:
             try:
                 logger.info(f"Fetching {ticker} from Yahoo Finance (fallback)")
@@ -129,12 +95,13 @@ class StockDataFetcher:
                 if data is not None and not data.empty:
                     # Cache the data
                     cache_stock_data(ticker, timeframe, period, data, "yahoo")
-                    logger.info(f"Successfully fetched {ticker} from Yahoo Finance")
+                    logger.info(
+                        f"Successfully fetched {ticker} from Yahoo Finance")
                     return data
             except Exception as e:
                 logger.error(f"Yahoo Finance failed for {ticker}: {e}")
 
-        # Step 6: Return empty DataFrame if all sources failed
+        # Step 4: Return empty DataFrame if all sources failed
         logger.error(f"All data sources failed for {ticker}")
         return pd.DataFrame()
 
@@ -195,8 +162,8 @@ class StockDataFetcher:
             # Get appropriate function based on timeframe
             av_timeframe = av_timeframe_map.get(timeframe, 'daily')
 
-            # Add smaller delay for API rate limits
-            time.sleep(1)  # Reduced delay since we're using more caching
+            # Add delay to respect API rate limits
+            time.sleep(12)  # Alpha Vantage free tier: 5 calls per minute
 
             if av_timeframe == 'daily':
                 data, meta_data = self.alpha_vantage.get_daily(

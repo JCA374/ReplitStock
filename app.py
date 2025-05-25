@@ -28,37 +28,6 @@ from data.db_models import Base
 logger = get_logger(__name__)
 
 
-def display_market_status():
-    """Display current market status in the UI"""
-    try:
-        from utils.market_hours import MarketHoursChecker
-        
-        checker = MarketHoursChecker()
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            nyse_open = checker.is_market_open('NYSE')
-            if nyse_open:
-                st.success("🟢 US Markets Open")
-            else:
-                st.info("🔴 US Markets Closed")
-                
-        with col2:
-            stockholm_open = checker.is_market_open('STOCKHOLM')
-            if stockholm_open:
-                st.success("🟢 Stockholm Open")
-            else:
-                st.info("🔴 Stockholm Closed")
-                
-        # Show data freshness info
-        if not nyse_open and not stockholm_open:
-            st.info("ℹ️ Markets are closed. Showing cached data from last trading session.")
-    except Exception as e:
-        st.warning(f"Could not check market status: {e}")
-        st.info("ℹ️ Using cached data when available.")
-
-
 def initialize_tables(engine):
     """Initialize database tables using SQLAlchemy models"""
     try:
@@ -117,11 +86,6 @@ def main():
                 st.warning("⚠️ Using local SQLite database")
                 st.info(
                     "Database features will work, but data won't be shared across sessions.")
-
-        # Display market status
-        st.markdown("---")
-        display_market_status()
-        st.markdown("---")
 
         # Initialize strategy and watchlist manager in session state
         if 'strategy' not in st.session_state:
