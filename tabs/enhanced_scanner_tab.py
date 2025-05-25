@@ -12,7 +12,7 @@ import streamlit as st
 
 # Local application imports
 from analysis.fundamental import analyze_fundamentals
-from analysis.scanner import EnhancedScanner
+from analysis.scanner import StockScanner
 from analysis.technical import calculate_all_indicators, generate_technical_signals
 from data.db_integration import get_watchlist, get_all_cached_stocks, add_to_watchlist
 from helpers import get_index_constituents
@@ -133,6 +133,8 @@ class EnhancedStockScorer:
             
         return min(100, score)
 
+# NOTE: This class is being replaced by StockScanner from analysis.scanner module
+# Keeping it here temporarily for reference during migration
 class EnhancedStockScanner:
     """
     Enhanced stock scanner with comprehensive ranking and easy watchlist management
@@ -250,9 +252,9 @@ def render_enhanced_scanner_ui():
     st.header("📊 Enhanced Stock Scanner")
     st.markdown("*Comprehensive stock ranking with easy watchlist management*")
     
-    # Initialize scanner
+    # Initialize scanner - using StockScanner instead of EnhancedStockScanner
     if 'enhanced_scanner' not in st.session_state:
-        st.session_state.enhanced_scanner = EnhancedStockScanner()
+        st.session_state.enhanced_scanner = StockScanner()
     
     scanner = st.session_state.enhanced_scanner
     
@@ -322,9 +324,61 @@ def start_enhanced_scan(scanner, universe_file, limit_stocks, batch_size):
         progress_bar.progress(progress)
         status_text.text(message)
     
-    # Run scan
+    # Run scan using unified StockScanner
     with st.spinner("Running enhanced stock scan..."):
-        results = scanner.scan_and_rank_stocks(tickers, update_progress)
+        # Define a progress callback for the scanner
+        def progress_callback(progress, message):
+            update_progress(progress, message)
+        
+        # Use the unified scanner's scan method
+        scan_results = scanner.scan(None, tickers, progress_callback)
+        
+        # Process results into the format expected by the UI
+        results = []
+        failed_analyses = []
+        
+        # Process each analysis result
+        for analysis in scan_results:
+            if "error" in analysis and analysis["error"]:
+                failed_analyses.append({
+                    "ticker": analysis.get("ticker", "Unknown"),
+                    "error": analysis["error"],
+                    "error_message": analysis.get("error_message", "Unknown error")
+                })
+                continue
+            
+            # Calculate comprehensive score using EnhancedStockScorer
+            scorer = EnhancedStockScorer(st.session_state.get('strategy'))
+            comprehensive_score = scorer.calculate_comprehensive_score(analysis)
+            
+            # Create enhanced result
+            result = {
+                "Rank": 0,  # Will be set after sorting
+                "Ticker": analysis["ticker"],
+                "Name": analysis.get("name", analysis["ticker"]),
+                "Price": analysis.get("price", 0),
+                "Score": round(comprehensive_score, 1),
+                "Tech Score": analysis.get("tech_score", 0),
+                "Signal": analysis.get("signal", "HÅLL"),
+                "Above MA40": "✓" if analysis.get("above_ma40", False) else "✗",
+                "Above MA4": "✓" if analysis.get("above_ma4", False) else "✗",
+                "RSI > 50": "✓" if analysis.get("rsi_above_50", False) else "✗",
+                "Near 52w High": "✓" if analysis.get("near_52w_high", False) else "✗",
+                "Profitable": "✓" if analysis.get("is_profitable", False) else "✗",
+                "P/E": round(analysis.get("pe_ratio", 0), 1) if analysis.get("pe_ratio") else "N/A",
+                "Data Source": analysis.get("data_source", "unknown").title(),
+                "_analysis": analysis  # Keep full analysis for detailed view
+            }
+            
+            results.append(result)
+        
+        # Sort by comprehensive score and assign ranks
+        results.sort(key=lambda x: x["Score"], reverse=True)
+        for i, result in enumerate(results):
+            result["Rank"] = i + 1
+        
+        # Store failed analyses
+        st.session_state.failed_analyses = failed_analyses
     
     # Store results
     st.session_state.scan_results = results

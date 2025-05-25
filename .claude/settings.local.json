@@ -11,7 +11,8 @@
       "Bash([ -f \"supabase_tables.sql\" ])",
       "Bash([ -f \"ui/fix_indicators.py\" ])",
       "Bash(mkdir:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }
