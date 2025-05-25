@@ -73,3 +73,29 @@ SCANNER_CRITERIA = {
     'price_near_52w_high': 'Price Near 52-Week High',
     'price_near_52w_low': 'Price Near 52-Week Low'
 }
+
+
+# Performance optimization settings
+SCANNER_PERFORMANCE = {
+    # Number of parallel workers (adjust based on your CPU cores)
+    'max_workers': 4,
+    'batch_size': 50,           # Number of stocks to process in each batch
+    'enable_parallel': True,    # Enable parallel processing
+    'preload_data': True,       # Enable bulk data preloading
+    'memory_efficient': True    # Use memory-efficient processing for large datasets
+}
+
+# Cache optimization for scanner
+SCANNER_CACHE_SETTINGS = {
+    'preload_fundamentals': True,    # Preload all fundamentals data
+    'preload_stock_data': True,      # Preload stock price data
+    'use_memory_cache': True,        # Keep data in memory during scan
+    'cache_batch_size': 100          # Number of records to cache at once
+}
+
+# Timeout settings for scanner operations
+SCANNER_TIMEOUTS = {
+    'stock_analysis_timeout': 30,    # Max time per stock analysis (seconds)
+    'batch_timeout': 300,            # Max time per batch (seconds)
+    'total_scan_timeout': 1800       # Max total scan time (seconds)
+}
