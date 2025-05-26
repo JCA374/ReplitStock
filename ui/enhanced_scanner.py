@@ -15,7 +15,6 @@ from analysis.fundamental import analyze_fundamentals
 from analysis.scanner import StockScanner
 from analysis.technical import calculate_all_indicators, generate_technical_signals
 from data.db_integration import get_watchlist, get_all_cached_stocks, add_to_watchlist
-from data.db_connection import get_db_session_context
 from helpers import get_index_constituents
 from ui.performance_overview import display_performance_metrics
 
@@ -510,9 +509,8 @@ def add_stock_to_watchlist_with_feedback(ticker, name):
     Add stock to watchlist with immediate user feedback
     """
     try:
-        # Use context manager for safe database access
-        with get_db_session_context() as session:
-            success = add_to_watchlist(ticker, name)
+        # Call add_to_watchlist directly - it manages its own database connections
+        success = add_to_watchlist(ticker, name, "", "")
 
         if success:
             st.success(f"✅ Added {ticker} to watchlist!", icon="✅")
@@ -561,11 +559,8 @@ def add_stock_to_watchlist(ticker, name):
     Uses proper database session context management for safe database operations
     """
     try:
-        # Use context manager for safe database access
-        with get_db_session_context() as session:
-            # Note: Ideally adapt add_to_watchlist to accept a session
-            # For now, use the existing function that creates its own session
-            success = add_to_watchlist(ticker, name)
+        # Call add_to_watchlist directly - it manages its own database connections
+        success = add_to_watchlist(ticker, name, "", "")
 
         if success:
             st.success(f"✅ Added {ticker} to watchlist!")

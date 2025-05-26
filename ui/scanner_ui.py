@@ -7,7 +7,6 @@ from data.db_manager import get_watchlist, get_all_cached_stocks
 from analysis.scanner import scan_stocks
 from config import SCANNER_CRITERIA
 from data.db_integration import add_to_watchlist
-from data.db_connection import get_db_session_context
 import time
 
 
@@ -101,9 +100,8 @@ def add_stock_to_watchlist_with_feedback(ticker, name):
             st.warning("⚠️ Invalid ticker provided", icon="⚠️")
             return
 
-        # Use context manager for safe database access
-        with get_db_session_context() as session:
-            success = add_to_watchlist(ticker, name)
+        # Call add_to_watchlist directly - it manages its own database connections
+        success = add_to_watchlist(ticker, name, "", "")
 
         if success:
             st.success(f"✅ Added {ticker} to watchlist!", icon="✅")

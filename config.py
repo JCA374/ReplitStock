@@ -1,3 +1,5 @@
+# config.py - OPTIMIZED VERSION with reduced delays
+
 import os
 
 # API configurations
@@ -9,14 +11,13 @@ DEFAULT_DATA_SOURCE_PRIORITY = ['database', 'alphavantage', 'yahoo']
 PREFERRED_API_SOURCE = 'alphavantage'  # Alpha Vantage as preferred API
 
 # Database configuration
-import os
 # Use SQLite as reliable fallback when Supabase is unavailable
 DB_PATH = "stock_data.db"  # Fallback local database
 DATABASE_URL = os.getenv("DATABASE_URL", "")  # Cloud database URL
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")  # Supabase API key
 
-# Data refresh settings (in seconds)
-DATA_REFRESH_INTERVAL = 14400  # 4 hours
+# OPTIMIZED Data refresh settings (in seconds) - More aggressive caching
+DATA_REFRESH_INTERVAL = 21600  # 6 hours instead of 4 hours for better caching
 
 # Technical analysis parameters
 DEFAULT_SHORT_WINDOW = 20
@@ -55,8 +56,8 @@ PERIOD_OPTIONS = {
 # Stockholm exchange prefix
 STOCKHOLM_EXCHANGE_SUFFIX = ".ST"
 
-# Cache expiration in seconds
-CACHE_EXPIRATION = 86400  # 24 hours
+# OPTIMIZED Cache expiration - More aggressive caching
+CACHE_EXPIRATION = 172800  # 48 hours instead of 24 hours
 
 # Scanner criteria options
 SCANNER_CRITERIA = {
@@ -74,63 +75,82 @@ SCANNER_CRITERIA = {
     'price_near_52w_low': 'Price Near 52-Week Low'
 }
 
-
-
-# Performance Monitoring
-PERFORMANCE_LOGGING = {
-    'enable_timing_logs': True,     # Log detailed timing information
-    'enable_memory_tracking': False,  # Track memory usage (adds overhead)
-    'log_batch_progress': True,     # Log progress for each batch
-    'enable_db_stats': True,        # Log database operation statistics
-}
-
-# Add these settings to config.py
-
-# Bulk Scanner Performance Settings
+# ULTRA-OPTIMIZED Bulk Scanner Performance Settings
 BULK_SCANNER_CONFIG = {
-    # API Rate Limiting
-    # Number of parallel API workers (3-5 recommended)
-    'max_api_workers': 3,
-    # Stocks per API batch (conservative for rate limits)
-    'api_batch_size': 10,
-    'api_batch_delay': 1.0,         # Seconds between API batches
-    'single_request_delay': 0.1,    # Seconds between individual API requests
+    # OPTIMIZED API Rate Limiting - Reduced delays for faster processing
+    'max_api_workers': 6,           # Increased from 3 to 6 for faster API calls
+    'api_batch_size': 15,           # Increased from 10 to 15 for bigger batches
+    'api_batch_delay': 0.5,         # Reduced from 1.0s to 0.5s between batches
+    'single_request_delay': 0.05,   # Reduced from 0.1s to 0.05s between requests
 
-    # Database Performance
-    'db_bulk_load_timeout': 30,     # Timeout for bulk database operations
-    # Whether to load from multiple DB sources in parallel
+    # OPTIMIZED Database Performance
+    'db_bulk_load_timeout': 60,     # Increased timeout for large datasets
     'enable_db_parallel_load': True,
+    'db_connection_pool_size': 10,  # Connection pooling for faster DB access
 
-    # Analysis Performance
-    'analysis_batch_size': 20,      # Stocks per analysis batch
-    'max_analysis_workers': 4,      # Number of parallel analysis workers
+    # OPTIMIZED Analysis Performance
+    'analysis_batch_size': 30,      # Increased from 20 to 30 for bigger batches
+    'max_analysis_workers': 8,      # Increased from 4 to 8 for more parallelism
 
-    # Memory Management
-    'max_stocks_in_memory': 1000,   # Maximum stocks to process at once
-    'enable_result_streaming': True,  # Stream results instead of holding all in memory
+    # OPTIMIZED Memory Management
+    'max_stocks_in_memory': 2000,   # Increased from 1000 to 2000
+    'enable_result_streaming': True,
+    'enable_memory_optimization': True,  # Enable memory optimization techniques
 
-    # Caching Strategy
-    'cache_fetched_data': True,     # Whether to cache API results
-    'prioritize_fresh_data': False,  # Whether to prefer API data over cache
+    # OPTIMIZED Caching Strategy
+    'cache_fetched_data': True,
+    'prioritize_fresh_data': False,
+    'aggressive_caching': True,      # Enable aggressive caching for speed
+    'cache_compression': True,       # Compress cached data to save space
 
-    # Error Handling
-    'max_api_retries': 2,           # Number of API retry attempts
-    'continue_on_api_failure': True,  # Whether to continue scan if some APIs fail
-    # Stop scan if error rate exceeds this (30%)
-    'error_threshold': 0.3,
+    # OPTIMIZED Error Handling
+    'max_api_retries': 1,           # Reduced from 2 to 1 for faster failure handling
+    'continue_on_api_failure': True,
+    'error_threshold': 0.2,         # Reduced from 0.3 to 0.2 for stricter error handling
+    'timeout_per_stock': 10,        # 10 second timeout per stock analysis
 }
 
-# Performance Monitoring
+# OPTIMIZED Performance Monitoring
 PERFORMANCE_LOGGING = {
-    'enable_timing_logs': True,     # Log detailed timing information
-    'enable_memory_tracking': False,  # Track memory usage (adds overhead)
-    'log_batch_progress': True,     # Log progress for each batch
-    'enable_db_stats': True,        # Log database operation statistics
+    'enable_timing_logs': True,
+    'enable_memory_tracking': False,  # Disabled for better performance
+    'log_batch_progress': True,
+    'enable_db_stats': True,
+    'enable_performance_metrics': True,  # Enable performance metrics collection
+}
+
+# OPTIMIZED API Delay Settings - Significantly reduced delays
+API_DELAYS = {
+    # Reduced from 12s to 6s (still respects rate limits)
+    'alpha_vantage_delay': 6,
+    'yahoo_finance_delay': 0.05,   # Reduced from 1s to 0.05s
+    'general_api_delay': 0.02,      # Very small delay for general API calls
+    'batch_api_delay': 0.3,         # Delay between API batches
+}
+
+# OPTIMIZED Cache Settings for Different Data Types
+CACHE_SETTINGS = {
+    # 48 hours for fundamentals (changes slowly)
+    'fundamentals_cache_hours': 48,
+    'price_data_cache_hours': 6,        # 6 hours for price data
+    'intraday_cache_hours': 1,          # 1 hour for intraday data
+    'technical_indicators_cache_hours': 3,  # 3 hours for technical indicators
+    'enable_smart_cache_invalidation': True,  # Smart cache invalidation
+}
+
+# ZERO-DELAY UI Settings
+UI_SETTINGS = {
+    # Remove time.sleep from success messages
+    'remove_success_message_delays': True,
+    'enable_instant_feedback': True,          # Instant UI feedback
+    'optimize_button_responses': True,        # Optimize button response times
+    'reduce_rerun_delays': True,              # Reduce st.rerun delays
+    'enable_async_ui_updates': False,         # Async UI updates (experimental)
 }
 
 
-def get_bulk_scanner_config():
-    """Get bulk scanner configuration with environment overrides"""
+def get_optimized_bulk_scanner_config():
+    """Get optimized bulk scanner configuration with environment overrides"""
     import os
 
     config = BULK_SCANNER_CONFIG.copy()
@@ -142,5 +162,22 @@ def get_bulk_scanner_config():
         os.getenv('BULK_API_BATCH_SIZE', config['api_batch_size']))
     config['analysis_batch_size'] = int(
         os.getenv('BULK_ANALYSIS_BATCH_SIZE', config['analysis_batch_size']))
+    config['max_analysis_workers'] = int(
+        os.getenv('BULK_MAX_ANALYSIS_WORKERS', config['max_analysis_workers']))
 
     return config
+
+
+def get_api_delay_config():
+    """Get API delay configuration"""
+    return API_DELAYS
+
+
+def get_cache_config():
+    """Get cache configuration"""
+    return CACHE_SETTINGS
+
+
+def get_ui_config():
+    """Get UI optimization configuration"""
+    return UI_SETTINGS

@@ -7,6 +7,41 @@ from analysis.technical import calculate_all_indicators, generate_technical_sign
 from analysis.fundamental import analyze_fundamentals
 from utils.ticker_mapping import normalize_ticker
 
+def refresh_watchlist_data():
+    """
+    Refresh watchlist data by reloading from database and updating session state
+    """
+    try:
+        # Clear any cached watchlist data in session state
+        if 'watchlists' in st.session_state:
+            del st.session_state['watchlists']
+        
+        # Get fresh data from database
+        from data.db_integration import get_watchlist
+        db_watchlist = get_watchlist()
+        
+        # Recreate the default watchlists structure
+        default_watchlists = [
+            {"name": "My Watchlist", "stocks": []},
+            {"name": "Potential Buys", "stocks": []},
+            {"name": "Portfolio", "stocks": []}
+        ]
+        
+        # If we have database data, populate the main watchlist
+        if db_watchlist:
+            all_stocks = [item['ticker'] for item in db_watchlist]
+            default_watchlists[0]["stocks"] = all_stocks
+        
+        # Update session state with fresh data
+        st.session_state.watchlists = default_watchlists
+        
+        # Reset active watchlist index if needed
+        if 'active_watchlist_index' not in st.session_state:
+            st.session_state.active_watchlist_index = 0
+            
+    except Exception as e:
+        st.error(f"Error refreshing watchlist: {e}")
+
 def display_watchlist():
     st.header("Watchlists")
 
@@ -18,7 +53,7 @@ def display_watchlist():
     current_index = watchlist_manager.get_active_watchlist_index()
 
     # Watchlist selection
-    col1, col2 = st.columns([3, 1])
+    col1, col2, col3 = st.columns([3, 1, 1])
     with col1:
         selected_watchlist = st.selectbox(
             "Select Watchlist",
@@ -31,6 +66,13 @@ def display_watchlist():
         if st.button("+ New Watchlist"):
             new_name = f"Watchlist {len(all_watchlists) + 1}"
             watchlist_manager.add_watchlist(new_name)
+            st.rerun()
+
+    with col3:
+        if st.button("🔄 Refresh"):
+            # Force refresh of watchlist data from database
+            refresh_watchlist_data()
+            st.success("Watchlist refreshed!")
             st.rerun()
 
     # Manage selected watchlist
@@ -82,6 +124,13 @@ def display_watchlist():
             st.error(f"Could not find information for {ticker}")
 
     # Display stocks in current watchlist
+    col_header, col_refresh = st.columns([3, 1])
+    with col_header:
+        st.subheader(f"{current_watchlist['name']} ({len(current_watchlist['stocks'])} stocks)")
+    with col_refresh:
+        if st.button("🔄 Refresh Prices", help="Refresh stock prices and data"):
+            st.rerun()
+
     stocks = current_watchlist["stocks"]
 
     if not stocks:

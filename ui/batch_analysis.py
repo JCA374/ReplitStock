@@ -22,7 +22,6 @@ from data.stock_data import StockDataFetcher
 from helpers import create_results_table
 from utils.ticker_mapping import normalize_ticker
 from ui.performance_overview import display_performance_metrics
-from data.db_connection import get_db_session_context
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -272,12 +271,15 @@ def render_results_with_watchlist_icons(filtered_df):
 
             # Watchlist icon column
             with col_icon:
-                if st.button("➕", key=f"batch_watchlist_{row.get('Ticker', idx)}_{idx}",
-                             help=f"Add {row.get('Ticker', 'Unknown')} to watchlist"):
-                    add_stock_to_watchlist_with_feedback(
-                        row.get('Ticker', ''),
-                        row.get('Namn', row.get('Ticker', ''))
-                    )
+                ticker = row.get('Ticker', '')
+                name = row.get('Namn', ticker)
+                if st.button("➕", key=f"batch_watchlist_{ticker}_{idx}",
+                             help=f"Add {ticker} to watchlist"):
+                    if ticker:
+                        add_stock_to_watchlist_with_feedback(ticker, name)
+                        st.rerun()  # Force rerun to refresh the UI
+                    else:
+                        st.error("❌ No ticker found for this stock")
 
             # Ticker
             with col_ticker:
@@ -328,13 +330,12 @@ def add_stock_to_watchlist_with_feedback(ticker, name):
             st.warning("⚠️ Invalid ticker provided", icon="⚠️")
             return
 
-        # Use context manager for safe database access
-        with get_db_session_context() as session:
-            success = add_to_watchlist(ticker, name)
+        # Call add_to_watchlist directly - it manages its own database connections
+        success = add_to_watchlist(ticker, name, "", "")
 
         if success:
             st.success(f"✅ Added {ticker} to watchlist!", icon="✅")
-            # Brief pause to show the success message
+            # Brief pause to show the success message  
             time.sleep(0.5)
         else:
             st.warning(f"⚠️ {ticker} is already in your watchlist!", icon="⚠️")
@@ -757,7 +758,7 @@ def display_batch_analysis():
                                             name = stock.get('Namn', ticker)
                                             if ticker:
                                                 success = add_to_watchlist(
-                                                    ticker, name)
+                                                    ticker, name, "", "")
                                                 if success:
                                                     added_count += 1
                                         except Exception as e:
