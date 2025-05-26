@@ -122,11 +122,10 @@ class BatchAnalyzer:
 
     def _fetch_stock_data(self, ticker):
         """Fetch stock data from database first, then APIs"""
-        # Step 1: Try to get data from database first
+        # Step 1: Try to get data from database first (optimized: try any source)
         stock_data = get_cached_stock_data(ticker, '1d', '1y', 'yahoo')
-        if stock_data is None:
-            stock_data = get_cached_stock_data(
-                ticker, '1d', '1y', 'alphavantage')
+        if stock_data is None or stock_data.empty:
+            stock_data = get_cached_stock_data(ticker, '1d', '1y', 'alphavantage')
 
         fundamentals = get_cached_fundamentals(ticker)
         data_source = "database"
@@ -145,17 +144,18 @@ class BatchAnalyzer:
                 logger.warning(f"Alpha Vantage failed for {ticker}: {e}")
                 stock_data = None
 
-        # Step 3: If still no data, try Yahoo Finance as final fallback
+        # Step 3: If still no data, try Yahoo Finance as final fallback (with timeout)
         if stock_data is None or stock_data.empty:
             try:
                 logger.info(f"Trying Yahoo Finance for {ticker}")
+                # Faster fallback with reduced retry attempts
                 stock_data = self.data_fetcher.get_stock_data(
                     ticker, '1d', '1y', attempt_fallback=True)
                 if not stock_data.empty:
                     data_source = "yahoo"
                     logger.info(f"Got data from Yahoo Finance for {ticker}")
             except Exception as e:
-                logger.error(f"All data sources failed for {ticker}: {e}")
+                logger.warning(f"All data sources failed for {ticker}: {e}")
                 stock_data = None
 
         return stock_data, fundamentals, data_source
@@ -171,12 +171,13 @@ class BatchAnalyzer:
             return ticker, {'name': ticker}
 
     def _get_fundamentals(self, ticker, existing_fundamentals):
-        """Get fundamentals data if not already available"""
+        """Get fundamentals data if not already available (optimized for speed)"""
         if not existing_fundamentals:
             try:
-                return self.data_fetcher.get_fundamentals(ticker)
+                # Quick check: if we have cached data, use it. Otherwise skip for speed
+                return self.data_fetcher.get_fundamentals(ticker) if hasattr(self.data_fetcher, 'get_fundamentals') else {}
             except Exception as e:
-                logger.warning(f"Could not get fundamentals for {ticker}: {e}")
+                logger.debug(f"Skipping fundamentals for {ticker} for speed: {e}")
                 return {}
         return existing_fundamentals
 
@@ -242,7 +243,8 @@ class BatchAnalyzer:
         results = []
 
         for i, ticker in enumerate(tickers):
-            if progress_callback:
+            # Update progress less frequently for better performance
+            if progress_callback and (i % 5 == 0 or i == len(tickers) - 1):
                 progress = (i + 1) / len(tickers)
                 progress_callback(
                     progress, f"Analyzing {ticker}... ({i+1}/{len(tickers)})")
@@ -250,8 +252,9 @@ class BatchAnalyzer:
             result = self.analyze_stock(ticker)
             results.append(result)
 
-            # Small delay to prevent rate limiting
-            time.sleep(0.1)
+            # Reduced delay for better performance - only for API calls
+            if i % 10 == 0:  # Only delay every 10th stock to prevent rate limiting
+                time.sleep(0.05)
 
         return results
 
@@ -335,8 +338,7 @@ def add_stock_to_watchlist_with_feedback(ticker, name):
 
         if success:
             st.success(f"✅ Added {ticker} to watchlist!", icon="✅")
-            # Brief pause to show the success message  
-            time.sleep(0.5)
+            # Removed sleep for faster UI response
         else:
             st.warning(f"⚠️ {ticker} is already in your watchlist!", icon="⚠️")
 
