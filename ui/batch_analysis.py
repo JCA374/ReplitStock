@@ -509,7 +509,17 @@ def display_batch_analysis():
         try:
             mid_cap_df = pd.read_csv('data/csv/updated_mid.csv')
             mid_cap_tickers = mid_cap_df['YahooTicker'].tolist()
-            selected_tickers = [t for t in mid_cap_tickers if pd.notna(t)]
+            
+            # Fix common ticker format issues in midcap CSV
+            fixed_tickers = []
+            for ticker in mid_cap_tickers:
+                if pd.notna(ticker):
+                    # Fix tickers missing .ST suffix
+                    if ticker.endswith('ST') and not ticker.endswith('.ST'):
+                        ticker = ticker[:-2] + '.ST'
+                    fixed_tickers.append(ticker)
+            
+            selected_tickers = fixed_tickers
             st.success(
                 f"Ready to analyze all {len(selected_tickers)} stocks from Mid Cap list")
         except Exception as e:
@@ -559,9 +569,19 @@ def display_batch_analysis():
             try:
                 mid_cap_df = pd.read_csv('data/csv/updated_mid.csv')
                 mid_cap_tickers = mid_cap_df['YahooTicker'].tolist()
+                
+                # Fix ticker format issues for selection
+                fixed_options = []
+                for ticker in mid_cap_tickers:
+                    if pd.notna(ticker):
+                        # Fix tickers missing .ST suffix
+                        if ticker.endswith('ST') and not ticker.endswith('.ST'):
+                            ticker = ticker[:-2] + '.ST'
+                        fixed_options.append(ticker)
+                
                 selected_tickers = st.multiselect(
                     "Select stocks from Mid Cap list:",
-                    options=[t for t in mid_cap_tickers if pd.notna(t)],
+                    options=fixed_options,
                     key="batch_mid_cap_select"
                 )
             except Exception as e:
