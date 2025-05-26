@@ -249,26 +249,74 @@ class BatchAnalyzer:
 
 def start_optimized_batch_analysis(tickers, progress_callback=None):
     """
-    Start optimized batch analysis using bulk scanning approach
+    Start optimized batch analysis with fallback for empty databases (deployment scenario)
     """
     if not tickers:
         return []
 
-    # Use the optimized bulk scanner
-    from analysis.bulk_scanner import optimized_bulk_scan
+    # Check if we have any cached data in the database
+    try:
+        from data.db_integration import get_all_cached_stocks
+        cached_stocks = get_all_cached_stocks()
 
-    # Run optimized scan
-    results = optimized_bulk_scan(
-        target_tickers=tickers,
-        fetch_missing=True,
-        max_api_workers=3,
-        progress_callback=progress_callback
-    )
+        # If database is empty (deployment scenario), use traditional analysis
+        if len(cached_stocks) == 0:
+            logger.info(
+                "Database appears empty (deployment scenario) - using traditional batch analysis")
+            return start_traditional_batch_analysis(tickers, progress_callback)
 
-    # Convert to format expected by batch analysis UI
+        # If we have some cached data, try optimized approach first
+        logger.info(
+            f"Found {len(cached_stocks)} cached stocks - attempting optimized analysis")
+
+        # Use the optimized bulk scanner
+        from analysis.bulk_scanner import optimized_bulk_scan
+
+        # Run optimized scan with missing data fetching enabled
+        results = optimized_bulk_scan(
+            target_tickers=tickers,
+            fetch_missing=True,  # Important: fetch missing data from APIs
+            max_api_workers=3,
+            progress_callback=progress_callback
+        )
+
+        # If we got good results, use them
+        if results and len(results) > 0:
+            logger.info(f"Optimized scan returned {len(results)} results")
+            return format_results_for_ui(results)
+        else:
+            logger.warning(
+                "Optimized scan returned no results - falling back to traditional analysis")
+            return start_traditional_batch_analysis(tickers, progress_callback)
+
+    except Exception as e:
+        logger.error(
+            f"Optimized analysis failed: {e} - falling back to traditional analysis")
+        return start_traditional_batch_analysis(tickers, progress_callback)
+
+def start_traditional_batch_analysis(tickers, progress_callback=None):
+    """
+    Traditional batch analysis that fetches fresh data (for deployment scenarios)
+    """
+    logger.info(
+        f"Starting traditional batch analysis for {len(tickers)} stocks")
+
+    # Initialize the traditional batch analyzer
+    analyzer = BatchAnalyzer()
+
+    # Use the traditional batch analysis approach
+    results = analyzer.batch_analyze(tickers, progress_callback)
+
+    logger.info(f"Traditional analysis completed with {len(results)} results")
+    return results
+
+def format_results_for_ui(optimized_results):
+    """
+    Convert optimized bulk scan results to the format expected by the UI
+    """
     formatted_results = []
 
-    for analysis in results:
+    for analysis in optimized_results:
         if "error" in analysis and analysis["error"]:
             formatted_results.append({
                 "ticker": analysis.get("ticker", "Unknown"),
@@ -280,14 +328,14 @@ def start_optimized_batch_analysis(tickers, progress_callback=None):
         # Convert to expected format
         result = {
             "ticker": analysis["ticker"],
-            "name": analysis["ticker"],  # Use ticker as name if not available
+            "name": analysis.get("name", analysis["ticker"]),
             "price": analysis.get("last_price", 0),
             "date": datetime.now().strftime("%Y-%m-%d"),
             "tech_score": analysis.get("tech_score", 0),
             "signal": analysis.get("value_momentum_signal", "HOLD"),
             "buy_signal": analysis.get("value_momentum_signal") == "BUY",
             "sell_signal": analysis.get("value_momentum_signal") == "SELL",
-            "data_source": analysis.get("data_source", "optimized_bulk"),
+            "data_source": analysis.get("data_source", "api"),
 
             # Technical indicators
             "above_ma40": analysis.get("above_ma40", False),

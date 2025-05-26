@@ -22,8 +22,9 @@ from ui.watchlist import display_watchlist
 from services.company_explorer import CompanyExplorer
 from services.watchlist_manager import WatchlistManager
 from tabs.analysis_tab import render_analysis_tab
-from tabs.enhanced_scanner_tab import render_enhanced_scanner_ui
-from tabs.strategy import ValueMomentumStrategy
+from ui.enhanced_scanner import render_enhanced_scanner_ui
+from ui.enhanced_scanner import render_enhanced_scanner_ui
+from analysis.strategy import ValueMomentumStrategy
 
 # Setup logging
 logger = get_logger(__name__)
