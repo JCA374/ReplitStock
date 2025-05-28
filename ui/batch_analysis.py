@@ -684,10 +684,23 @@ def display_batch_analysis():
                         # Quick bulk add to watchlist
                         st.subheader("📝 Bulk Add to Watchlist")
 
+                        # Add debugging information
+                        if not filtered_df.empty:
+                            with st.expander("🔧 Debug Info", expanded=False):
+                                st.write(f"**Available columns:** {list(filtered_df.columns)}")
+                                if "Signal" in filtered_df.columns:
+                                    signal_counts = filtered_df['Signal'].value_counts()
+                                    st.write(f"**Signal distribution:** {signal_counts.to_dict()}")
+
                         col1, col2 = st.columns([3, 1])
                         with col1:
-                            top_buy_signals = filtered_df[filtered_df["Signal"] == "KÖP"].head(
-                                10) if "Signal" in filtered_df.columns else pd.DataFrame()
+                            # Improved signal filtering to handle both Swedish and English
+                            top_buy_signals = pd.DataFrame()
+                            if "Signal" in filtered_df.columns:
+                                top_buy_signals = filtered_df[
+                                    (filtered_df["Signal"] == "KÖP") | 
+                                    (filtered_df["Signal"] == "BUY")
+                                ].head(10)
 
                             if not top_buy_signals.empty:
                                 st.write("**Top BUY signals for bulk add:**")
@@ -702,22 +715,39 @@ def display_batch_analysis():
                             if not top_buy_signals.empty:
                                 if st.button("➕ Add All BUY Signals", type="primary"):
                                     added_count = 0
+                                    failed_count = 0
+                                    
+                                    st.write("**Adding stocks to watchlist:**")
                                     for _, stock in top_buy_signals.iterrows():
                                         try:
                                             ticker = stock.get('Ticker', '')
-                                            name = stock.get('Namn', ticker)
+                                            # Try multiple possible column names for company name
+                                            name = stock.get('Namn', stock.get('Name', ticker))
+                                            
                                             if ticker:
+                                                st.write(f"Adding: {ticker} ({name})")
                                                 success = add_to_watchlist(
                                                     ticker, name, "", "")
                                                 if success:
                                                     added_count += 1
+                                                else:
+                                                    st.warning(f"• {ticker} already in watchlist")
+                                            else:
+                                                st.error(f"• Invalid ticker for stock")
+                                                failed_count += 1
+                                                
                                         except Exception as e:
-                                            st.error(
-                                                f"Failed to add {ticker}: {e}")
+                                            st.error(f"• Failed to add {ticker}: {e}")
+                                            failed_count += 1
 
+                                    # Summary feedback
                                     if added_count > 0:
                                         st.success(
                                             f"✅ Added {added_count} stocks to watchlist!")
+                                    if failed_count > 0:
+                                        st.warning(f"⚠️ {failed_count} stocks failed to add")
+                                    if added_count == 0 and failed_count == 0:
+                                        st.info("ℹ️ No new stocks were added (all may already be in watchlist)")
 
                 except Exception as e:
                     st.error(f"Error displaying results: {e}")
