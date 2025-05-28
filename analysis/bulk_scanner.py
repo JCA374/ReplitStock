@@ -450,55 +450,133 @@ class BulkAPIFetcher:
 
 
 class BulkAPIFetcher:
-    """Handles batch API calls for missing data with rate limiting"""
+    """True batch API fetcher with intelligent batching"""
 
     def __init__(self, max_workers: int = 3):
         self.max_workers = max_workers
         self.data_fetcher = StockDataFetcher()
-
-    def batch_fetch_missing_data(self, missing_tickers: List[str],
-                                 progress_callback=None) -> Dict[str, pd.DataFrame]:
-        """Fetch missing stock data with better error handling"""
+        
+    def batch_fetch_missing_data(self, missing_tickers: List[str], progress_callback=None) -> Dict[str, pd.DataFrame]:
+        """ENHANCED: True batch API calls"""
         if not missing_tickers:
             return {}
 
-        logger.info(f"Batch fetching data for {len(missing_tickers)} tickers")
+        logger.info(f"🚀 BATCH API: Fetching {len(missing_tickers)} tickers in batches")
         fetched_data = {}
 
-        # Process each ticker directly (no parallelism for API calls to avoid rate limits)
-        for i, ticker in enumerate(missing_tickers):
-            try:
-                # Small delay between API calls
-                time.sleep(0.1)
+        # Create optimized batches (Yahoo Finance can handle multiple tickers)
+        from config import API_DELAYS
+        batch_size = API_DELAYS.get('batch_size_yahoo', 50)  # Use config setting
+        batches = [missing_tickers[i:i + batch_size] for i in range(0, len(missing_tickers), batch_size)]
 
-                # ENHANCEMENT: Try harder with fallbacks
-                # First try Yahoo Finance
-                stock_data = self.data_fetcher.get_stock_data(
-                    ticker, '1d', '1y', attempt_fallback=True)
+        for batch_idx, batch in enumerate(batches):
+            if progress_callback:
+                progress = batch_idx / len(batches)
+                progress_callback(progress, f"🌐 Batch API {batch_idx + 1}/{len(batches)} ({len(batch)} stocks)")
 
-                if stock_data is not None and not stock_data.empty:
-                    fetched_data[ticker] = stock_data
-                    # Cache the fetched data
-                    try:
-                        cache_stock_data(ticker, '1d', '1y',
-                                         stock_data, 'yahoo')
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to cache data for {ticker}: {e}")
-                else:
-                    # Even if we get no data, add an empty DataFrame to indicate we tried
-                    logger.warning(f"No data found for {ticker}")
-                    # Include empty dataframe to mark as processed
-                    fetched_data[ticker] = pd.DataFrame()
-            except Exception as e:
-                logger.warning(f"Failed to fetch data for {ticker}: {e}")
-                # ENHANCEMENT: Include empty dataframe to mark as processed
-                fetched_data[ticker] = pd.DataFrame()
+            # Process batch with true batching
+            batch_results = self._fetch_batch_true_batch(batch)
+            fetched_data.update(batch_results)
 
-        success_count = sum(1 for df in fetched_data.values() if not df.empty)
-        logger.info(
-            f"Successfully fetched data for {success_count}/{len(missing_tickers)} stocks")
+            # Respectful delay between batches only
+            if batch_idx < len(batches) - 1:
+                batch_delay = API_DELAYS.get('yahoo_batch_delay', 1.0)
+                time.sleep(batch_delay)  # Only delay between batches, not individual stocks
+
+        logger.info(f"✅ Batch API complete: {len(fetched_data)}/{len(missing_tickers)} successful")
         return fetched_data
+
+    def _fetch_batch_true_batch(self, batch_tickers: List[str]) -> Dict[str, pd.DataFrame]:
+        """TRUE BATCH: Multiple tickers in single API calls"""
+        results = {}
+        
+        # Yahoo Finance batch approach
+        try:
+            import yfinance as yf
+            
+            # Create ticker string for batch download
+            tickers_string = " ".join(batch_tickers)
+            
+            # Single API call for all tickers in batch
+            logger.info(f"🌐 Batch downloading: {tickers_string}")
+            batch_data = yf.download(
+                tickers_string,
+                period="1y",
+                interval="1d",
+                group_by='ticker',
+                auto_adjust=True,
+                prepost=True,
+                threads=True,  # Enable threading within yfinance
+                progress=False  # Disable progress bar
+            )
+            
+            # Process batch results
+            if len(batch_tickers) == 1:
+                # Single ticker case
+                ticker = batch_tickers[0]
+                if not batch_data.empty:
+                    # Rename columns to match expected format
+                    df = batch_data.copy()
+                    df.columns = [col.lower() for col in df.columns]
+                    results[ticker] = df
+                    
+                    # Cache immediately
+                    try:
+                        from data.db_integration import cache_stock_data
+                        cache_stock_data(ticker, '1d', '1y', df, 'yahoo')
+                    except:
+                        pass
+            else:
+                # Multiple tickers case
+                for ticker in batch_tickers:
+                    try:
+                        if ticker in batch_data.columns.levels[0]:
+                            ticker_data = batch_data[ticker].dropna()
+                            if not ticker_data.empty:
+                                # Rename columns to match expected format
+                                df = ticker_data.copy()
+                                df.columns = [col.lower() for col in df.columns]
+                                results[ticker] = df
+                                
+                                # Cache immediately
+                                try:
+                                    from data.db_integration import cache_stock_data
+                                    cache_stock_data(ticker, '1d', '1y', df, 'yahoo')
+                                except:
+                                    pass
+                    except Exception as e:
+                        logger.debug(f"Failed to process {ticker} from batch: {e}")
+                        
+        except Exception as e:
+            logger.warning(f"Batch download failed, falling back to individual: {e}")
+            # Fallback to individual calls if batch fails
+            return self._fetch_batch_individual_fallback(batch_tickers)
+            
+        return results
+    
+    def _fetch_batch_individual_fallback(self, batch_tickers: List[str]) -> Dict[str, pd.DataFrame]:
+        """Fallback to individual calls if batch fails"""
+        results = {}
+        
+        for ticker in batch_tickers:
+            try:
+                stock_data = self.data_fetcher.get_stock_data(ticker, '1d', '1y', attempt_fallback=True)
+                if stock_data is not None and not stock_data.empty:
+                    results[ticker] = stock_data
+                    # Cache immediately
+                    try:
+                        from data.db_integration import cache_stock_data
+                        cache_stock_data(ticker, '1d', '1y', stock_data, 'yahoo')
+                    except:
+                        pass
+                        
+                # Small delay for individual calls
+                time.sleep(0.1)
+                
+            except Exception as e:
+                logger.debug(f"Individual fetch failed for {ticker}: {e}")
+                
+        return results
 
 
 def optimized_bulk_scan(target_tickers: List[str] = None,

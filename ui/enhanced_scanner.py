@@ -505,22 +505,20 @@ def render_results_with_watchlist_icons(filtered_df):
 
 
 def add_stock_to_watchlist_with_feedback(ticker, name):
-    """
-    Add stock to watchlist with immediate user feedback
-    """
+    """Add stock to watchlist with immediate user feedback"""
     try:
-        # Call add_to_watchlist directly - it manages its own database connections
         success = add_to_watchlist(ticker, name, "", "")
 
         if success:
             st.success(f"✅ Added {ticker} to watchlist!", icon="✅")
-            # Force a rerun to update the UI
-            time.sleep(0.5)  # Brief pause to show the success message
+            return True
         else:
-            st.warning(f"⚠️ {ticker} is already in your watchlist!", icon="⚠️")
+            st.info(f"ℹ️ {ticker} is already in your watchlist!", icon="ℹ️")
+            return False
 
     except Exception as e:
         st.error(f"❌ Failed to add {ticker}: {str(e)}", icon="❌")
+        return False
 
 
 def render_watchlist_quick_add():

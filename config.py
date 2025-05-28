@@ -77,11 +77,12 @@ SCANNER_CRITERIA = {
 
 # ULTRA-OPTIMIZED Bulk Scanner Performance Settings
 BULK_SCANNER_CONFIG = {
-    # MAXIMUM SPEED API Settings
-    'max_api_workers': 8,           # Increased from 6 to 8
-    'api_batch_size': 20,           # Increased from 15 to 20
-    'api_batch_delay': 0.2,         # Reduced from 0.5s to 0.2s
-    'single_request_delay': 0.01,   # Reduced from 0.05s to 0.01s
+    # TRUE BATCH API Settings
+    'max_api_workers': 3,           # Reduced - batch calls need fewer workers
+    'api_batch_size': 50,           # Increased - batch more tickers per call
+    'api_batch_delay': 1.0,         # Only delay between batches
+    'enable_true_batch_calls': True, # Enable batch API calls
+    'single_request_delay': 0.01,   # Fallback individual delay
 
     # MAXIMUM SPEED Database Performance
     'db_bulk_load_timeout': 30,     # Reduced timeout for faster failure
@@ -105,12 +106,13 @@ BULK_SCANNER_CONFIG = {
     'timeout_per_stock': 5,         # Reduced from 10s to 5s
 }
 
-# MAXIMUM SPEED API Delays
+# TRUE BATCH API Delays
 API_DELAYS = {
+    'yahoo_batch_delay': 1.0,       # Delay between batch calls
+    'individual_api_delay': 0.1,    # Fallback individual delay
+    'batch_size_yahoo': 50,         # Tickers per batch call
     'alpha_vantage_delay': 3,       # Reduced from 6s to 3s (aggressive)
-    'yahoo_finance_delay': 0.01,    # Reduced from 0.05s to 0.01s
     'general_api_delay': 0.005,     # Reduced from 0.02s to 0.005s
-    'batch_api_delay': 0.1,         # Reduced from 0.3s to 0.1s
 }
 
 # OPTIMIZED Cache Settings for Different Data Types

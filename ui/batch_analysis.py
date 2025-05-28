@@ -377,13 +377,24 @@ def render_results_with_watchlist_icons(filtered_df):
             with col_icon:
                 ticker = row.get('Ticker', '')
                 name = row.get('Namn', ticker)
-                if st.button("➕", key=f"batch_watchlist_{ticker}_{idx}",
-                             help=f"Add {ticker} to watchlist"):
-                    if ticker:
-                        add_stock_to_watchlist_with_feedback(ticker, name)
-                        st.rerun()
-                    else:
-                        st.error("❌ No ticker found for this stock")
+                
+                # Use callback to avoid rerun timing issues
+                def add_single_callback():
+                    st.session_state[f'add_single_{ticker}_{idx}'] = True
+                
+                if st.button(
+                    "➕", 
+                    key=f"batch_add_{ticker}_{idx}",
+                    help=f"Add {ticker} to watchlist",
+                    on_click=add_single_callback
+                ):
+                    pass  # Callback handles the logic
+                
+                # Handle the add operation after button click
+                if st.session_state.get(f'add_single_{ticker}_{idx}', False):
+                    st.session_state[f'add_single_{ticker}_{idx}'] = False  # Reset
+                    if add_stock_to_watchlist_with_feedback(ticker, name):
+                        st.rerun()  # Refresh UI only on successful add
 
             with col_ticker:
                 st.write(f"**{row.get('Ticker', 'N/A')}**")
@@ -427,21 +438,26 @@ def render_results_with_watchlist_icons(filtered_df):
 
 
 def add_stock_to_watchlist_with_feedback(ticker, name):
-    """Add stock to watchlist with immediate feedback"""
+    """Add stock to watchlist with proper feedback and UI refresh"""
     try:
         if not ticker:
-            st.warning("⚠️ Invalid ticker provided", icon="⚠️")
-            return
+            st.error("❌ Invalid ticker provided", icon="❌")
+            return False
 
         success = add_to_watchlist(ticker, name, "", "")
 
         if success:
             st.success(f"✅ Added {ticker} to watchlist!", icon="✅")
+            # Force UI refresh by triggering rerun
+            time.sleep(0.5)  # Brief pause to show success message
+            return True
         else:
-            st.warning(f"⚠️ {ticker} is already in your watchlist!", icon="⚠️")
+            st.info(f"ℹ️ {ticker} is already in your watchlist!", icon="ℹ️")
+            return False
 
     except Exception as e:
         st.error(f"❌ Failed to add {ticker}: {str(e)}", icon="❌")
+        return False
 
 
 def display_batch_analysis():
@@ -527,18 +543,35 @@ def display_batch_analysis():
             mid_cap_df = pd.read_csv('data/csv/updated_mid.csv')
             mid_cap_tickers = mid_cap_df['YahooTicker'].tolist()
 
-            # Fix common ticker format issues in midcap CSV
+            # ENHANCED ticker format fixing for mid-cap CSV
             fixed_tickers = []
             for ticker in mid_cap_tickers:
                 if pd.notna(ticker):
-                    # Fix tickers missing .ST suffix
+                    ticker = str(ticker).strip()
+                    
+                    # Fix tickers that end with 'ST' but don't have '.ST'
                     if ticker.endswith('ST') and not ticker.endswith('.ST'):
-                        ticker = ticker[:-2] + '.ST'
+                        # Handle cases like 'ACADST' -> 'ACAD.ST'
+                        if len(ticker) > 2:
+                            ticker = ticker[:-2] + '.ST'
+                    
+                    # Handle tickers that are missing .ST entirely
+                    elif not ticker.endswith('.ST') and not ticker.endswith('ST'):
+                        # Add .ST suffix for Swedish stocks
+                        ticker = ticker + '.ST'
+                    
                     fixed_tickers.append(ticker)
 
             selected_tickers = fixed_tickers
-            st.success(
-                f"Ready to analyze all {len(selected_tickers)} stocks from Mid Cap list")
+            
+            # Debug info to verify the fix
+            st.success(f"Ready to analyze all {len(selected_tickers)} stocks from Mid Cap list")
+            
+            # Show sample of fixed tickers for verification
+            if len(selected_tickers) > 0:
+                sample_tickers = selected_tickers[:5]
+                st.info(f"Sample fixed tickers: {', '.join(sample_tickers)}")
+                
         except Exception as e:
             st.error(f"Failed to load Mid Cap CSV file: {str(e)}")
 
@@ -587,12 +620,21 @@ def display_batch_analysis():
                 mid_cap_df = pd.read_csv('data/csv/updated_mid.csv')
                 mid_cap_tickers = mid_cap_df['YahooTicker'].tolist()
 
-                # Fix ticker format issues for selection
+                # ENHANCED ticker format fixing for selection
                 fixed_options = []
                 for ticker in mid_cap_tickers:
                     if pd.notna(ticker):
+                        ticker = str(ticker).strip()
+                        
+                        # Fix tickers that end with 'ST' but don't have '.ST'
                         if ticker.endswith('ST') and not ticker.endswith('.ST'):
-                            ticker = ticker[:-2] + '.ST'
+                            if len(ticker) > 2:
+                                ticker = ticker[:-2] + '.ST'
+                        
+                        # Handle tickers missing .ST entirely
+                        elif not ticker.endswith('.ST') and not ticker.endswith('ST'):
+                            ticker = ticker + '.ST'
+                            
                         fixed_options.append(ticker)
 
                 selected_tickers = st.multiselect(
@@ -762,73 +804,90 @@ def display_batch_analysis():
                             mime="text/csv"
                         )
 
-                        # Quick bulk add to watchlist
+                        # Quick bulk add to watchlist - FIXED VERSION
                         st.subheader("📝 Bulk Add to Watchlist")
 
-                        # Add debugging information
+                        # Improved signal filtering to handle both Swedish and English
                         if not filtered_df.empty:
-                            with st.expander("🔧 Debug Info", expanded=False):
-                                st.write(f"**Available columns:** {list(filtered_df.columns)}")
-                                if "Signal" in filtered_df.columns:
-                                    signal_counts = filtered_df['Signal'].value_counts()
-                                    st.write(f"**Signal distribution:** {signal_counts.to_dict()}")
-
-                        col1, col2 = st.columns([3, 1])
-                        with col1:
-                            # Improved signal filtering to handle both Swedish and English
-                            top_buy_signals = pd.DataFrame()
-                            if "Signal" in filtered_df.columns:
-                                top_buy_signals = filtered_df[
-                                    (filtered_df["Signal"] == "KÖP") | 
-                                    (filtered_df["Signal"] == "BUY")
-                                ].head(10)
-
-                            if not top_buy_signals.empty:
-                                st.write("**Top BUY signals for bulk add:**")
-                                for _, stock in top_buy_signals.iterrows():
-                                    st.write(
-                                        f"• {stock.get('Ticker', 'N/A')} - Score: {stock.get('Tech Score', 'N/A')} - {stock.get('Signal', 'N/A')}")
-                            else:
-                                st.info(
-                                    "No BUY signals found in current results")
-
-                        with col2:
-                            if not top_buy_signals.empty:
-                                if st.button("➕ Add All BUY Signals", type="primary"):
-                                    added_count = 0
-                                    failed_count = 0
-                                    
-                                    st.write("**Adding stocks to watchlist:**")
+                            # Get buy signals more reliably
+                            buy_signals_mask = (
+                                (filtered_df.get("Signal", pd.Series()).isin(["KÖP", "BUY"])) |
+                                (filtered_df.get("value_momentum_signal", pd.Series()) == "BUY")
+                            )
+                            
+                            top_buy_signals = filtered_df[buy_signals_mask].head(10)
+                            
+                            col1, col2 = st.columns([3, 1])
+                            
+                            with col1:
+                                if not top_buy_signals.empty:
+                                    st.write("**Top BUY signals for bulk add:**")
                                     for _, stock in top_buy_signals.iterrows():
-                                        try:
-                                            ticker = stock.get('Ticker', '')
-                                            # Try multiple possible column names for company name
+                                        ticker = stock.get('Ticker', 'N/A')
+                                        score = stock.get('Tech Score', 'N/A')
+                                        signal = stock.get('Signal', 'N/A')
+                                        st.write(f"• {ticker} - Score: {score} - {signal}")
+                                else:
+                                    st.info("No BUY signals found in current results")
+                            
+                            with col2:
+                                if not top_buy_signals.empty:
+                                    # Use callback for bulk add to avoid rerun issues
+                                    def bulk_add_callback():
+                                        st.session_state.bulk_add_triggered = True
+                                    
+                                    st.button(
+                                        "➕ Add All BUY Signals", 
+                                        type="primary",
+                                        on_click=bulk_add_callback,
+                                        key="bulk_add_buy_signals"
+                                    )
+                                    
+                                    # Handle bulk add after button click
+                                    if st.session_state.get('bulk_add_triggered', False):
+                                        st.session_state.bulk_add_triggered = False  # Reset flag
+                                        
+                                        added_count = 0
+                                        already_exists_count = 0
+                                        failed_count = 0
+                                        
+                                        progress_bar = st.progress(0)
+                                        status_text = st.empty()
+                                        
+                                        for i, (_, stock) in enumerate(top_buy_signals.iterrows()):
+                                            ticker = stock.get('Ticker', '').strip()
                                             name = stock.get('Namn', stock.get('Name', ticker))
                                             
-                                            if ticker:
-                                                st.write(f"Adding: {ticker} ({name})")
-                                                success = add_to_watchlist(
-                                                    ticker, name, "", "")
-                                                if success:
-                                                    added_count += 1
-                                                else:
-                                                    st.warning(f"• {ticker} already in watchlist")
-                                            else:
-                                                st.error(f"• Invalid ticker for stock")
-                                                failed_count += 1
+                                            if ticker and ticker != 'N/A':
+                                                status_text.text(f"Adding {ticker}...")
+                                                progress_bar.progress((i + 1) / len(top_buy_signals))
                                                 
-                                        except Exception as e:
-                                            st.error(f"• Failed to add {ticker}: {e}")
-                                            failed_count += 1
-
-                                    # Summary feedback
-                                    if added_count > 0:
-                                        st.success(
-                                            f"✅ Added {added_count} stocks to watchlist!")
-                                    if failed_count > 0:
-                                        st.warning(f"⚠️ {failed_count} stocks failed to add")
-                                    if added_count == 0 and failed_count == 0:
-                                        st.info("ℹ️ No new stocks were added (all may already be in watchlist)")
+                                                try:
+                                                    success = add_to_watchlist(ticker, name, "", "")
+                                                    if success:
+                                                        added_count += 1
+                                                    else:
+                                                        already_exists_count += 1
+                                                except Exception as e:
+                                                    failed_count += 1
+                                                    st.error(f"Failed to add {ticker}: {e}")
+                                            else:
+                                                failed_count += 1
+                                        
+                                        # Clear progress indicators
+                                        progress_bar.empty()
+                                        status_text.empty()
+                                        
+                                        # Show summary
+                                        if added_count > 0:
+                                            st.success(f"✅ Added {added_count} new stocks to watchlist!")
+                                        if already_exists_count > 0:
+                                            st.info(f"ℹ️ {already_exists_count} stocks were already in watchlist")
+                                        if failed_count > 0:
+                                            st.warning(f"⚠️ {failed_count} stocks failed to add")
+                                        
+                                        # Force UI refresh
+                                        st.rerun()
 
                 except Exception as e:
                     st.error(f"Error displaying results: {e}")

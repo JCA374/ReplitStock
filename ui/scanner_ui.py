@@ -92,26 +92,24 @@ def render_scanner_results_with_icons(results):
 
 
 def add_stock_to_watchlist_with_feedback(ticker, name):
-    """
-    Add stock to watchlist with immediate user feedback
-    """
+    """Add stock to watchlist with immediate user feedback"""
     try:
         if not ticker:
-            st.warning("⚠️ Invalid ticker provided", icon="⚠️")
-            return
+            st.error("❌ Invalid ticker provided", icon="❌")
+            return False
 
-        # Call add_to_watchlist directly - it manages its own database connections
         success = add_to_watchlist(ticker, name, "", "")
 
         if success:
             st.success(f"✅ Added {ticker} to watchlist!", icon="✅")
-            # Brief pause to show the success message
-            time.sleep(0.5)
+            return True
         else:
-            st.warning(f"⚠️ {ticker} is already in your watchlist!", icon="⚠️")
+            st.info(f"ℹ️ {ticker} is already in your watchlist!", icon="ℹ️")
+            return False
 
     except Exception as e:
         st.error(f"❌ Failed to add {ticker}: {str(e)}", icon="❌")
+        return False
 
 
 def display_scanner():
