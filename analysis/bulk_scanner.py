@@ -76,13 +76,14 @@ class BulkDatabaseLoader:
 
         # Step 3: Determine which stocks to process
         if target_tickers:
-            # Filter to only requested tickers that exist in cache
-            available_tickers = [
-                t for t in target_tickers if t in all_cached_stocks]
-            missing_from_cache = [
-                t for t in target_tickers if t not in all_cached_stocks]
+            # FIXED: Process ALL requested tickers, not just cached ones
+            available_tickers = target_tickers  # Process ALL requested tickers
+            cached_tickers = [t for t in target_tickers if t in all_cached_stocks]
+            missing_from_cache = [t for t in target_tickers if t not in all_cached_stocks]
+            
+            logger.info(f"Requested: {len(target_tickers)}, Cached: {len(cached_tickers)}, Missing: {len(missing_from_cache)}")
             if missing_from_cache:
-                logger.warning(f"Tickers not in cache: {missing_from_cache}")
+                logger.warning(f"Will fetch from APIs: {missing_from_cache[:5]}..." if len(missing_from_cache) > 5 else f"Will fetch from APIs: {missing_from_cache}")
         else:
             # Use all available stocks
             available_tickers = all_cached_stocks
@@ -126,6 +127,7 @@ class BulkDatabaseLoader:
         return {
             'loaded_tickers': list(self.stock_data_by_ticker.keys()),
             'missing_tickers': self.missing_data_tickers,
+            'all_requested_tickers': available_tickers,  # Add this line
             'fundamentals_count': len(self.fundamentals_by_ticker),
             'stock_data_count': len(self.stock_data_by_ticker)
         }
@@ -167,6 +169,7 @@ class OptimizedBulkScanner:
             load_stats = self.db_loader.bulk_load_all_data(target_tickers)
             loaded_tickers = load_stats['loaded_tickers']
             missing_tickers = load_stats['missing_tickers']
+            all_requested = load_stats.get('all_requested_tickers', target_tickers or [])
 
             logger.info(
                 f"⚡ Database load: {len(loaded_tickers)} cached, {len(missing_tickers)} missing")
@@ -185,6 +188,7 @@ class OptimizedBulkScanner:
 
             # Then fetch missing data if needed
             if fetch_missing and missing_tickers:
+                logger.info(f"🚀 FETCHING MISSING: {len(missing_tickers)} stocks from APIs")
                 if progress_callback:
                     progress_callback(
                         0.20, f"🌐 Fetching {len(missing_tickers)} stocks from APIs...")

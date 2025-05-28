@@ -150,8 +150,7 @@ def main():
         # Main pages
         page = st.sidebar.radio(
             "Select a page:",
-            ["Single Stock Analysis", "Batch Analysis",
-                "Enhanced Stock Scanner", "Watchlist"]
+            ["Single Stock Analysis", "Batch Analysis", "Watchlist"]
         )
 
         # Store the selected page in session state if needed
@@ -166,16 +165,6 @@ def main():
             st.sidebar.subheader("Batch Analysis Settings")
             # The batch analysis settings will be handled within the display_batch_analysis() function
             # This is just a placeholder to show where they appear in the sidebar
-
-        # Development section at the bottom with expander
-        st.sidebar.markdown("---")
-        with st.sidebar.expander("Development", expanded=False):
-            dev_pages = ["Company Explorer",
-                         "Database Viewer"]
-            for dev_page in dev_pages:
-                if st.button(dev_page, key=f"dev_{dev_page}", use_container_width=True):
-                    page = dev_page
-                    st.session_state.selected_page = dev_page
 
         # Display the selected page
         page = st.session_state.get('selected_page', page)
@@ -215,6 +204,16 @@ def main():
                 else:
                     st.error(
                         "Database connection failed. Check your configuration.")
+
+        # Development section at the bottom with expander
+        st.sidebar.markdown("---")
+        with st.sidebar.expander("Development", expanded=False):
+            dev_pages = ["Enhanced Stock Scanner", "Company Explorer",
+                         "Database Viewer"]
+            for dev_page in dev_pages:
+                if st.button(dev_page, key=f"dev_{dev_page}", use_container_width=True):
+                    page = dev_page
+                    st.session_state.selected_page = dev_page
 
     except Exception as e:
         st.error(f"Application error: {e}")
