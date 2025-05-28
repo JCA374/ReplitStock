@@ -22,6 +22,7 @@ from data.stock_data import StockDataFetcher
 from helpers import create_results_table
 from utils.ticker_mapping import normalize_ticker
 from ui.performance_overview import display_performance_metrics
+from services.watchlist_manager import EnhancedWatchlistManager
 
 
 def check_and_restore_results():
@@ -768,8 +769,14 @@ def display_batch_analysis():
                             mime="text/csv"
                         )
 
-                        # Quick bulk add to watchlist
-                        st.subheader("📝 Bulk Add to Watchlist")
+                        # Enhanced bulk add to watchlist
+                        st.subheader("📝 Bulk Add to Enhanced Watchlist")
+
+                        # Initialize enhanced watchlist manager
+                        if 'enhanced_watchlist_batch' not in st.session_state:
+                            st.session_state.enhanced_watchlist_batch = EnhancedWatchlistManager()
+                        
+                        enhanced_manager = st.session_state.enhanced_watchlist_batch
 
                         # Add debugging information
                         if not filtered_df.empty:
@@ -778,6 +785,37 @@ def display_batch_analysis():
                                 if "Signal" in filtered_df.columns:
                                     signal_counts = filtered_df['Signal'].value_counts()
                                     st.write(f"**Signal distribution:** {signal_counts.to_dict()}")
+
+                        # Get categories for selection
+                        categories = enhanced_manager.get_categories()
+                        
+                        # Category and tags selection
+                        col1, col2 = st.columns([2, 1])
+                        with col1:
+                            if categories:
+                                selected_category = st.selectbox(
+                                    "📁 Select Category for Bulk Add:",
+                                    categories,
+                                    format_func=lambda x: f"{x['icon']} {x['name']} - {x['description']}",
+                                    key="bulk_add_category"
+                                )
+                            else:
+                                st.error("No categories available. Please create categories first in Enhanced Watchlist.")
+                                selected_category = None
+                                
+                        with col2:
+                            bulk_tags = st.text_input(
+                                "🏷️ Tags (comma-separated):",
+                                placeholder="batch, analysis, buy-signal",
+                                key="bulk_add_tags"
+                            )
+
+                        # Notes for all stocks
+                        bulk_notes = st.text_area(
+                            "📝 Notes (applied to all stocks):",
+                            placeholder="Added from batch analysis on " + datetime.now().strftime("%Y-%m-%d"),
+                            key="bulk_add_notes"
+                        )
 
                         col1, col2 = st.columns([3, 1])
                         with col1:
@@ -799,26 +837,35 @@ def display_batch_analysis():
                                     "No BUY signals found in current results")
 
                         with col2:
-                            if not top_buy_signals.empty:
-                                if st.button("➕ Add All BUY Signals", type="primary"):
+                            if not top_buy_signals.empty and selected_category:
+                                if st.button("➕ Add All BUY Signals", type="primary", key="bulk_add_button"):
                                     added_count = 0
                                     failed_count = 0
                                     
-                                    st.write("**Adding stocks to watchlist:**")
+                                    # Parse tags
+                                    tag_list = [t.strip() for t in bulk_tags.split(",")] if bulk_tags else []
+                                    
+                                    st.write(f"**Adding {len(top_buy_signals)} stocks to {selected_category['icon']} {selected_category['name']}:**")
+                                    
                                     for _, stock in top_buy_signals.iterrows():
                                         try:
                                             ticker = stock.get('Ticker', '')
-                                            # Try multiple possible column names for company name
-                                            name = stock.get('Namn', stock.get('Name', ticker))
                                             
                                             if ticker:
-                                                st.write(f"Adding: {ticker} ({name})")
-                                                success = add_to_watchlist(
-                                                    ticker, name, "", "")
+                                                st.write(f"Adding: {ticker}")
+                                                success = enhanced_manager.add_stock_enhanced(
+                                                    ticker=ticker,
+                                                    category_id=selected_category['id'],
+                                                    tags=tag_list,
+                                                    notes=bulk_notes,
+                                                    target_price=None,  # Can be set later in Enhanced Watchlist
+                                                    stop_loss=None
+                                                )
                                                 if success:
                                                     added_count += 1
+                                                    st.success(f"✅ {ticker}")
                                                 else:
-                                                    st.warning(f"• {ticker} already in watchlist")
+                                                    st.warning(f"⚠️ {ticker} already in this category")
                                             else:
                                                 st.error(f"• Invalid ticker for stock")
                                                 failed_count += 1
@@ -828,13 +875,53 @@ def display_batch_analysis():
                                             failed_count += 1
 
                                     # Summary feedback
+                                    st.markdown("---")
                                     if added_count > 0:
                                         st.success(
-                                            f"✅ Added {added_count} stocks to watchlist!")
+                                            f"✅ **Successfully added {added_count} stocks to {selected_category['name']}!**")
+                                        st.info(f"💡 View them in the Enhanced Watchlist → {selected_category['icon']} {selected_category['name']}")
                                     if failed_count > 0:
                                         st.warning(f"⚠️ {failed_count} stocks failed to add")
                                     if added_count == 0 and failed_count == 0:
-                                        st.info("ℹ️ No new stocks were added (all may already be in watchlist)")
+                                        st.info("ℹ️ No new stocks were added (all may already be in this category)")
+                                        
+                            elif not selected_category:
+                                st.info("Please select a category to add stocks.")
+                            
+                        # Legacy watchlist fallback
+                        if st.checkbox("🔄 Also add to Legacy Watchlist", key="legacy_fallback"):
+                            st.caption("This will add stocks to the original watchlist for backward compatibility.")
+                            
+                            if not top_buy_signals.empty:
+                                if st.button("➕ Add to Legacy Watchlist", key="legacy_add_button"):
+                                    legacy_added = 0
+                                    legacy_failed = 0
+                                    
+                                    st.write("**Adding to legacy watchlist:**")
+                                    for _, stock in top_buy_signals.iterrows():
+                                        try:
+                                            ticker = stock.get('Ticker', '')
+                                            name = stock.get('Namn', stock.get('Name', ticker))
+                                            
+                                            if ticker:
+                                                success = add_to_watchlist(ticker, name, "", "")
+                                                if success:
+                                                    legacy_added += 1
+                                                    st.success(f"✅ {ticker} (Legacy)")
+                                                else:
+                                                    st.warning(f"⚠️ {ticker} already in legacy watchlist")
+                                            else:
+                                                legacy_failed += 1
+                                                
+                                        except Exception as e:
+                                            st.error(f"• Failed to add {ticker} to legacy: {e}")
+                                            legacy_failed += 1
+                                    
+                                    # Legacy summary
+                                    if legacy_added > 0:
+                                        st.success(f"✅ Added {legacy_added} stocks to legacy watchlist!")
+                                    if legacy_failed > 0:
+                                        st.warning(f"⚠️ {legacy_failed} stocks failed to add to legacy")
 
                 except Exception as e:
                     st.error(f"Error displaying results: {e}")
