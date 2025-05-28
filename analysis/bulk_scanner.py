@@ -231,60 +231,53 @@ class BulkAPIFetcher:
             logger.warning(f"Error fetching {ticker}: {e}")
             return None
 
+# analysis/bulk_scanner.py - SPEED ENHANCEMENTS
 
 class OptimizedBulkScanner:
-    """
-    High-performance scanner that combines bulk database loading with batch API calls
-    """
+    """SPEED OPTIMIZED scanner with better progress tracking"""
 
-    def __init__(self, max_api_workers: int = 3):
+    def __init__(self, max_api_workers: int = 8):  # Increased default
         self.db_loader = BulkDatabaseLoader()
         self.api_fetcher = BulkAPIFetcher(max_api_workers)
 
     def scan_stocks_optimized(self, target_tickers: List[str] = None,
                               fetch_missing: bool = True,
                               progress_callback=None) -> List[Dict]:
-        """
-        Optimized scanning with bulk database load + batch API calls
-        
-        Args:
-            target_tickers: Specific tickers to scan, or None for all
-            fetch_missing: Whether to fetch missing data via API
-            progress_callback: Progress reporting function
-            
-        Returns:
-            List of analysis results
-        """
+        """SPEED OPTIMIZED scanning with better progress reporting"""
         total_start_time = time.time()
+        total_tickers = len(target_tickers) if target_tickers else 0
 
-        # Step 1: Bulk load all database data (FAST)
+        # Step 1: Bulk load (should be very fast)
         if progress_callback:
-            progress_callback(0.1, "Loading all data from databases...")
+            progress_callback(0.05, "🗃️ Loading all database data...")
 
         load_stats = self.db_loader.bulk_load_all_data(target_tickers)
         loaded_tickers = load_stats['loaded_tickers']
         missing_tickers = load_stats['missing_tickers']
 
-        logger.info(
-            f"Database load: {len(loaded_tickers)} loaded, {len(missing_tickers)} missing")
+        logger.info(f"⚡ Database load: {len(loaded_tickers)} cached, {len(missing_tickers)} missing")
 
-        # Step 2: Batch fetch missing data if requested (SLOWER)
+        # Progress: Database load complete
+        if progress_callback:
+            progress_callback(0.15, f"📁 Loaded {len(loaded_tickers)} from database")
+
+        # Step 2: Batch fetch missing data (this is the slow part)
         all_stock_data = {}
-
+        
         if fetch_missing and missing_tickers:
             if progress_callback:
-                progress_callback(
-                    0.2, f"Batch fetching {len(missing_tickers)} missing stocks...")
+                progress_callback(0.20, f"🌐 Fetching {len(missing_tickers)} stocks from APIs...")
 
             def api_progress(api_prog, api_msg):
-                # Scale API progress to 20%-50% of total progress
-                total_prog = 0.2 + (api_prog * 0.3)
-                progress_callback(total_prog, api_msg)
+                # Scale API progress to 20%-70% of total progress
+                total_prog = 0.20 + (api_prog * 0.50)
+                progress_callback(total_prog, f"🌐 API: {api_msg}")
 
+            # SPEED OPTIMIZED: Use faster API fetching
             fetched_data = self.api_fetcher.batch_fetch_missing_data(
                 missing_tickers, api_progress)
 
-            # Combine loaded and fetched data
+            # Combine all data
             for ticker in loaded_tickers:
                 all_stock_data[ticker] = self.db_loader.get_stock_data(ticker)
             all_stock_data.update(fetched_data)
@@ -293,58 +286,51 @@ class OptimizedBulkScanner:
             for ticker in loaded_tickers:
                 all_stock_data[ticker] = self.db_loader.get_stock_data(ticker)
 
-        # Step 3: Process all stocks in parallel (FAST)
+        # Progress: Data collection complete
         if progress_callback:
-            progress_callback(0.5, "Processing analysis for all stocks...")
+            progress_callback(0.75, f"🔄 Processing {len(all_stock_data)} stocks...")
 
-        results = self._parallel_analyze_all_stocks(
+        # Step 3: SPEED OPTIMIZED parallel processing
+        results = self._parallel_analyze_all_stocks_fast(
             all_stock_data, progress_callback)
 
         total_time = time.time() - total_start_time
-        logger.info(
-            f"Optimized scan completed in {total_time:.2f}s for {len(results)} stocks")
+        
+        # Performance metrics
         if len(results) > 0:
             avg_time = total_time / len(results)
-            logger.info(f"Average time per stock: {avg_time:.3f}s")
-        else:
-            logger.warning("No results returned from scan")
-
+            stocks_per_second = len(results) / total_time
+            logger.info(f"⚡ SPEED METRICS: {total_time:.1f}s total, {avg_time:.3f}s/stock, {stocks_per_second:.1f} stocks/sec")
+        
         if progress_callback:
-            # Safe division - avoid division by zero
-            if len(results) > 0:
-                avg_time = total_time / len(results)
-                logger.info(f"Average time per stock: {avg_time:.3f}s")
-            else:
-                logger.warning("No results returned from scan")
+            progress_callback(1.0, f"✅ Complete! {len(results)} stocks in {total_time:.1f}s")
 
         return results
 
-    def _parallel_analyze_all_stocks(self, all_stock_data: Dict[str, pd.DataFrame],
-                                     progress_callback=None) -> List[Dict]:
-        """Process all stocks in parallel using pre-loaded data"""
+    def _parallel_analyze_all_stocks_fast(self, all_stock_data: Dict[str, pd.DataFrame],
+                                          progress_callback=None) -> List[Dict]:
+        """SPEED OPTIMIZED parallel processing with larger batches"""
         results = []
         tickers = list(all_stock_data.keys())
 
         if not tickers:
             return results
 
-        # Process in parallel batches
-        batch_size = 20
-        batches = [tickers[i:i + batch_size]
-                   for i in range(0, len(tickers), batch_size)]
+        # SPEED OPTIMIZED: Use larger batches
+        batch_size = 50  # Increased from 20
+        batches = [tickers[i:i + batch_size] for i in range(0, len(tickers), batch_size)]
 
         processed_count = 0
 
         for batch_idx, batch in enumerate(batches):
             if progress_callback:
-                base_progress = 0.5  # Start from 50%
-                batch_progress = (processed_count / len(tickers)
-                                  ) * 0.5  # Scale to remaining 50%
+                base_progress = 0.75  # Start from 75%
+                batch_progress = (processed_count / len(tickers)) * 0.24  # Scale to remaining 24%
                 progress_callback(base_progress + batch_progress,
-                                  f"Processing batch {batch_idx + 1}/{len(batches)}")
+                                  f"⚡ Batch {batch_idx + 1}/{len(batches)} ({len(batch)} stocks)")
 
-            # Process batch in parallel
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            # SPEED OPTIMIZED: Use more workers
+            with ThreadPoolExecutor(max_workers=12) as executor:  # Increased from 4
                 future_to_ticker = {
                     executor.submit(self._analyze_single_stock_fast, ticker, all_stock_data[ticker]): ticker
                     for ticker in batch
@@ -353,16 +339,17 @@ class OptimizedBulkScanner:
                 for future in as_completed(future_to_ticker):
                     ticker = future_to_ticker[future]
                     try:
-                        result = future.result()
+                        result = future.result(timeout=3)  # 3 second timeout per stock
                         if result:
                             results.append(result)
                     except Exception as e:
-                        logger.error(f"Error analyzing {ticker}: {e}")
-                        # Add error result
+                        logger.warning(f"⚠️ Fast analysis timeout for {ticker}: {e}")
+                        # Add minimal error result
                         results.append({
                             "ticker": ticker,
-                            "error": str(e),
-                            "error_message": f"Analysis failed: {str(e)}"
+                            "error": "timeout",
+                            "tech_score": 0,
+                            "value_momentum_signal": "HOLD"
                         })
 
             processed_count += len(batch)
@@ -371,67 +358,84 @@ class OptimizedBulkScanner:
         results.sort(key=lambda x: x.get('tech_score', 0), reverse=True)
         return results
 
-    def _analyze_single_stock_fast(self, ticker: str, stock_data: pd.DataFrame) -> Optional[Dict]:
-        """Fast analysis using pre-loaded data (no I/O operations)"""
+
+# SPEED OPTIMIZED API Fetcher
+class BulkAPIFetcher:
+    """SPEED OPTIMIZED API fetcher with minimal delays"""
+
+    def __init__(self, max_workers: int = 8):  # Increased default
+        self.max_workers = max_workers
+        self.data_fetcher = StockDataFetcher()
+
+    def batch_fetch_missing_data(self, missing_tickers: List[str],
+                                 progress_callback=None) -> Dict[str, pd.DataFrame]:
+        """SPEED OPTIMIZED batch fetching with minimal delays"""
+        if not missing_tickers:
+            return {}
+
+        logger.info(f"⚡ SPEED MODE: Batch fetching {len(missing_tickers)} tickers with {self.max_workers} workers")
+        fetched_data = {}
+
+        # SPEED OPTIMIZED: Larger batches, less delay
+        batch_size = 20  # Increased from 10
+        batches = [missing_tickers[i:i + batch_size] for i in range(0, len(missing_tickers), batch_size)]
+
+        total_processed = 0
+
+        for batch_idx, batch in enumerate(batches):
+            if progress_callback:
+                progress = total_processed / len(missing_tickers)
+                progress_callback(progress, f"⚡ API batch {batch_idx + 1}/{len(batches)}")
+
+            # Process batch with more workers
+            batch_results = self._fetch_batch_parallel_fast(batch)
+            fetched_data.update(batch_results)
+            total_processed += len(batch)
+
+            # SPEED OPTIMIZED: Minimal delay between batches
+            if batch_idx < len(batches) - 1:
+                time.sleep(0.1)  # Reduced from 1s to 0.1s
+
+        logger.info(f"⚡ API fetch complete: {len(fetched_data)}/{len(missing_tickers)} successful")
+        return fetched_data
+
+    def _fetch_batch_parallel_fast(self, batch_tickers: List[str]) -> Dict[str, pd.DataFrame]:
+        """SPEED OPTIMIZED parallel fetching with timeout"""
+        results = {}
+
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            # Submit all fetch jobs with timeout
+            future_to_ticker = {
+                executor.submit(self._fetch_single_stock_fast, ticker): ticker
+                for ticker in batch_tickers
+            }
+
+            # Collect results with timeout
+            for future in as_completed(future_to_ticker, timeout=30):  # 30s batch timeout
+                ticker = future_to_ticker[future]
+                try:
+                    stock_data = future.result(timeout=5)  # 5s per stock timeout
+                    if stock_data is not None and not stock_data.empty:
+                        results[ticker] = stock_data
+                        # Cache immediately
+                        try:
+                            cache_stock_data(ticker, '1d', '1y', stock_data, 'yahoo')
+                        except:
+                            pass  # Don't let caching failures slow us down
+                except Exception as e:
+                    logger.debug(f"⚡ Skipped {ticker}: {e}")
+
+        return results
+
+    def _fetch_single_stock_fast(self, ticker: str) -> Optional[pd.DataFrame]:
+        """SPEED OPTIMIZED single stock fetch with minimal delay"""
         try:
-            if stock_data is None or stock_data.empty:
-                return {
-                    "ticker": ticker,
-                    "error": "No stock data",
-                    "error_message": f"No data available for {ticker}"
-                }
-
-            # Get pre-loaded fundamentals (no database call)
-            fundamentals = self.db_loader.get_fundamentals(ticker)
-
-            # Calculate technical indicators (pure computation)
-            indicators = calculate_all_indicators(stock_data)
-            signals = generate_technical_signals(indicators)
-
-            # Analyze fundamentals (pure computation)
-            fundamental_analysis = analyze_fundamentals(fundamentals or {})
-
-            # Extract key values
-            current_price = stock_data['close'].iloc[-1]
-            tech_score = signals.get('tech_score', 0)
-            fundamental_pass = fundamental_analysis['overall'].get(
-                'value_momentum_pass', False)
-
-            # Determine signals
-            if tech_score >= 70 and fundamental_pass:
-                signal = "BUY"
-            elif tech_score < 40 or not signals.get('above_ma40', False):
-                signal = "SELL"
-            else:
-                signal = "HOLD"
-
-            return {
-                'ticker': ticker,
-                'last_price': current_price,
-                'pe_ratio': fundamentals.get('pe_ratio') if fundamentals else None,
-                'profit_margin': fundamentals.get('profit_margin') if fundamentals else None,
-                'revenue_growth': fundamentals.get('revenue_growth') if fundamentals else None,
-                'tech_score': tech_score,
-                'above_ma40': signals.get('above_ma40', False),
-                'above_ma4': signals.get('above_ma4', False),
-                'rsi_above_50': signals.get('rsi_above_50', False),
-                'near_52w_high': signals.get('near_52w_high', False),
-                'is_profitable': fundamental_analysis['overall'].get('is_profitable', False),
-                'reasonable_pe': fundamental_analysis['overall'].get('reasonable_pe', True),
-                'fundamental_pass': fundamental_pass,
-                'value_momentum_signal': signal,
-                'data_source': "optimized_bulk"
-            }
-
+            # SPEED OPTIMIZED: No delay between individual requests
+            return self.data_fetcher.get_stock_data(ticker, '1d', '1y', attempt_fallback=True)
         except Exception as e:
-            logger.error(f"Error in fast analysis for {ticker}: {e}")
-            return {
-                "ticker": ticker,
-                "error": str(e),
-                "error_message": f"Fast analysis failed: {str(e)}"
-            }
+            logger.debug(f"⚡ Failed {ticker}: {e}")
+            return None
 
-# Integration function for existing code
 
 
 def optimized_bulk_scan(target_tickers: List[str] = None,

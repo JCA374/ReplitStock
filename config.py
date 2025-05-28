@@ -1,4 +1,4 @@
-# config.py - OPTIMIZED VERSION with reduced delays
+# config.py - COMPLETE VERSION with all required constants
 
 import os
 
@@ -28,7 +28,7 @@ DEFAULT_MACD_FAST = 12
 DEFAULT_MACD_SLOW = 26
 DEFAULT_MACD_SIGNAL = 9
 
-# Fundamental analysis thresholds
+# MISSING CONSTANTS - Fundamental analysis thresholds (REQUIRED by analysis/fundamental.py)
 PE_LOW_THRESHOLD = 15
 PE_HIGH_THRESHOLD = 30
 PROFIT_MARGIN_THRESHOLD = 0.10  # 10%
@@ -77,55 +77,40 @@ SCANNER_CRITERIA = {
 
 # ULTRA-OPTIMIZED Bulk Scanner Performance Settings
 BULK_SCANNER_CONFIG = {
-    # OPTIMIZED API Rate Limiting - Reduced delays for faster processing
-    'max_api_workers': 6,           # Increased from 3 to 6 for faster API calls
-    'api_batch_size': 15,           # Increased from 10 to 15 for bigger batches
-    'api_batch_delay': 0.5,         # Reduced from 1.0s to 0.5s between batches
-    'single_request_delay': 0.05,   # Reduced from 0.1s to 0.05s between requests
+    # MAXIMUM SPEED API Settings
+    'max_api_workers': 8,           # Increased from 6 to 8
+    'api_batch_size': 20,           # Increased from 15 to 20
+    'api_batch_delay': 0.2,         # Reduced from 0.5s to 0.2s
+    'single_request_delay': 0.01,   # Reduced from 0.05s to 0.01s
 
-    # OPTIMIZED Database Performance
-    'db_bulk_load_timeout': 60,     # Increased timeout for large datasets
+    # MAXIMUM SPEED Database Performance
+    'db_bulk_load_timeout': 30,     # Reduced timeout for faster failure
     'enable_db_parallel_load': True,
-    'db_connection_pool_size': 10,  # Connection pooling for faster DB access
+    'db_connection_pool_size': 15,  # Increased pool size
 
-    # OPTIMIZED Analysis Performance
-    'analysis_batch_size': 30,      # Increased from 20 to 30 for bigger batches
-    'max_analysis_workers': 8,      # Increased from 4 to 8 for more parallelism
+    # MAXIMUM SPEED Analysis Performance
+    'analysis_batch_size': 50,      # Increased from 30 to 50
+    'max_analysis_workers': 12,     # Increased from 8 to 12
 
-    # OPTIMIZED Memory Management
-    'max_stocks_in_memory': 2000,   # Increased from 1000 to 2000
+    # MAXIMUM SPEED Memory Management
+    'max_stocks_in_memory': 5000,   # Increased from 2000
     'enable_result_streaming': True,
-    'enable_memory_optimization': True,  # Enable memory optimization techniques
+    'enable_memory_optimization': True,
+    'cache_compression': False,      # Disabled for speed (uses more memory)
 
-    # OPTIMIZED Caching Strategy
-    'cache_fetched_data': True,
-    'prioritize_fresh_data': False,
-    'aggressive_caching': True,      # Enable aggressive caching for speed
-    'cache_compression': True,       # Compress cached data to save space
-
-    # OPTIMIZED Error Handling
-    'max_api_retries': 1,           # Reduced from 2 to 1 for faster failure handling
+    # MAXIMUM SPEED Error Handling
+    'max_api_retries': 1,           # Keep at 1 for fast failure
     'continue_on_api_failure': True,
-    'error_threshold': 0.2,         # Reduced from 0.3 to 0.2 for stricter error handling
-    'timeout_per_stock': 10,        # 10 second timeout per stock analysis
+    'error_threshold': 0.15,        # Even stricter error handling
+    'timeout_per_stock': 5,         # Reduced from 10s to 5s
 }
 
-# OPTIMIZED Performance Monitoring
-PERFORMANCE_LOGGING = {
-    'enable_timing_logs': True,
-    'enable_memory_tracking': False,  # Disabled for better performance
-    'log_batch_progress': True,
-    'enable_db_stats': True,
-    'enable_performance_metrics': True,  # Enable performance metrics collection
-}
-
-# OPTIMIZED API Delay Settings - Significantly reduced delays
+# MAXIMUM SPEED API Delays
 API_DELAYS = {
-    # Reduced from 12s to 6s (still respects rate limits)
-    'alpha_vantage_delay': 6,
-    'yahoo_finance_delay': 0.05,   # Reduced from 1s to 0.05s
-    'general_api_delay': 0.02,      # Very small delay for general API calls
-    'batch_api_delay': 0.3,         # Delay between API batches
+    'alpha_vantage_delay': 3,       # Reduced from 6s to 3s (aggressive)
+    'yahoo_finance_delay': 0.01,    # Reduced from 0.05s to 0.01s
+    'general_api_delay': 0.005,     # Reduced from 0.02s to 0.005s
+    'batch_api_delay': 0.1,         # Reduced from 0.3s to 0.1s
 }
 
 # OPTIMIZED Cache Settings for Different Data Types
@@ -140,12 +125,22 @@ CACHE_SETTINGS = {
 
 # ZERO-DELAY UI Settings
 UI_SETTINGS = {
-    # Remove time.sleep from success messages
     'remove_success_message_delays': True,
-    'enable_instant_feedback': True,          # Instant UI feedback
-    'optimize_button_responses': True,        # Optimize button response times
-    'reduce_rerun_delays': True,              # Reduce st.rerun delays
-    'enable_async_ui_updates': False,         # Async UI updates (experimental)
+    'enable_instant_feedback': True,
+    'optimize_button_responses': True,
+    'reduce_rerun_delays': True,
+    'enable_async_ui_updates': True,  # Enable experimental async updates
+    'disable_progress_animations': True,  # Disable for speed
+    'minimal_ui_updates': True,      # Minimize UI update frequency
+}
+
+# OPTIMIZED Performance Monitoring
+PERFORMANCE_LOGGING = {
+    'enable_timing_logs': True,
+    'enable_memory_tracking': False,  # Disabled for better performance
+    'log_batch_progress': True,
+    'enable_db_stats': True,
+    'enable_performance_metrics': True,  # Enable performance metrics collection
 }
 
 

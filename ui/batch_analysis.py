@@ -1,4 +1,4 @@
-# ui/batch_analysis.py - COMPLETE FILE with clickable watchlist icons
+# ui/batch_analysis.py - COMPLETE FILE with display_batch_analysis function
 
 # Standard library imports
 import logging
@@ -122,40 +122,26 @@ class BatchAnalyzer:
 
     def _fetch_stock_data(self, ticker):
         """Fetch stock data from database first, then APIs"""
-        # Step 1: Try to get data from database first (optimized: try any source)
+        # Step 1: Try to get data from database first
         stock_data = get_cached_stock_data(ticker, '1d', '1y', 'yahoo')
         if stock_data is None or stock_data.empty:
-            stock_data = get_cached_stock_data(ticker, '1d', '1y', 'alphavantage')
+            stock_data = get_cached_stock_data(
+                ticker, '1d', '1y', 'alphavantage')
 
         fundamentals = get_cached_fundamentals(ticker)
         data_source = "database"
 
-        # Step 2: If no cached data, try Alpha Vantage API
+        # Step 2: If no cached data, try APIs
         if stock_data is None or stock_data.empty:
             try:
-                logger.info(
-                    f"No cached data for {ticker}, trying Alpha Vantage API")
-                stock_data = self.data_fetcher.get_stock_data(
-                    ticker, '1d', '1y', attempt_fallback=False)
-                if not stock_data.empty:
-                    data_source = "alphavantage"
-                    logger.info(f"Got data from Alpha Vantage for {ticker}")
-            except Exception as e:
-                logger.warning(f"Alpha Vantage failed for {ticker}: {e}")
-                stock_data = None
-
-        # Step 3: If still no data, try Yahoo Finance as final fallback (with timeout)
-        if stock_data is None or stock_data.empty:
-            try:
-                logger.info(f"Trying Yahoo Finance for {ticker}")
-                # Faster fallback with reduced retry attempts
+                logger.info(f"No cached data for {ticker}, trying APIs")
                 stock_data = self.data_fetcher.get_stock_data(
                     ticker, '1d', '1y', attempt_fallback=True)
                 if not stock_data.empty:
-                    data_source = "yahoo"
-                    logger.info(f"Got data from Yahoo Finance for {ticker}")
+                    data_source = "api"
+                    logger.info(f"Got data from API for {ticker}")
             except Exception as e:
-                logger.warning(f"All data sources failed for {ticker}: {e}")
+                logger.warning(f"API failed for {ticker}: {e}")
                 stock_data = None
 
         return stock_data, fundamentals, data_source
@@ -171,13 +157,12 @@ class BatchAnalyzer:
             return ticker, {'name': ticker}
 
     def _get_fundamentals(self, ticker, existing_fundamentals):
-        """Get fundamentals data if not already available (optimized for speed)"""
+        """Get fundamentals data if not already available"""
         if not existing_fundamentals:
             try:
-                # Quick check: if we have cached data, use it. Otherwise skip for speed
-                return self.data_fetcher.get_fundamentals(ticker) if hasattr(self.data_fetcher, 'get_fundamentals') else {}
+                return self.data_fetcher.get_fundamentals(ticker)
             except Exception as e:
-                logger.debug(f"Skipping fundamentals for {ticker} for speed: {e}")
+                logger.debug(f"Skipping fundamentals for {ticker}: {e}")
                 return {}
         return existing_fundamentals
 
@@ -190,7 +175,6 @@ class BatchAnalyzer:
                     f"Could not calculate technical indicators for {ticker}")
                 indicators = {}
 
-            # Generate technical signals
             signals = generate_technical_signals(indicators)
             if not signals:
                 logger.warning(f"Could not generate signals for {ticker}")
@@ -199,11 +183,7 @@ class BatchAnalyzer:
             return indicators, signals
         except Exception as e:
             logger.warning(f"Error calculating indicators for {ticker}: {e}")
-            return {}, {
-                'tech_score': 50,
-                'overall_signal': 'HOLD',
-                'error': str(e)
-            }
+            return {}, {'tech_score': 50, 'overall_signal': 'HOLD', 'error': str(e)}
 
     def _analyze_fundamentals(self, ticker, fundamentals):
         """Analyze fundamentals with error handling"""
@@ -224,16 +204,11 @@ class BatchAnalyzer:
     def _calculate_signals(self, signals, fundamental_analysis):
         """Calculate technical score and buy/sell signals"""
         tech_score = signals.get('tech_score', 0)
-
-        # Check fundamental criteria
         fundamental_pass = fundamental_analysis['overall'].get(
             'value_momentum_pass', False)
 
-        # Determine buy/sell signals
         buy_signal = tech_score >= 70 and fundamental_pass
         sell_signal = tech_score < 40 or not signals.get('above_ma40', False)
-
-        # Convert to human-readable signal
         signal = "KÖP" if buy_signal else "SÄLJ" if sell_signal else "HÅLL"
 
         return tech_score, buy_signal, sell_signal, signal
@@ -243,8 +218,7 @@ class BatchAnalyzer:
         results = []
 
         for i, ticker in enumerate(tickers):
-            # Update progress less frequently for better performance
-            if progress_callback and (i % 5 == 0 or i == len(tickers) - 1):
+            if progress_callback and (i % 10 == 0 or i == len(tickers) - 1):
                 progress = (i + 1) / len(tickers)
                 progress_callback(
                     progress, f"Analyzing {ticker}... ({i+1}/{len(tickers)})")
@@ -252,169 +226,57 @@ class BatchAnalyzer:
             result = self.analyze_stock(ticker)
             results.append(result)
 
-            # Reduced delay for better performance - only for API calls
-            if i % 10 == 0:  # Only delay every 10th stock to prevent rate limiting
-                time.sleep(0.05)
+            # Minimal delay for rate limiting
+            if i % 20 == 0 and i > 0:
+                time.sleep(0.02)
 
         return results
 
 
-def render_results_with_watchlist_icons(filtered_df):
-    """
-    Render batch analysis results table with clickable watchlist icons for each row
-    """
-    st.subheader("📊 Analysis Results with Quick Add")
-
-    # Create a container for each row with watchlist icon
-    for idx, row in filtered_df.iterrows():
-        with st.container():
-            # Create columns for the table layout
-            col_icon, col_ticker, col_name, col_price, col_signal, col_tech, col_pe = st.columns([
-                                                                                                 0.5, 1, 2.5, 1, 1, 1, 1])
-
-            # Watchlist icon column
-            with col_icon:
-                ticker = row.get('Ticker', '')
-                name = row.get('Namn', ticker)
-                if st.button("➕", key=f"batch_watchlist_{ticker}_{idx}",
-                             help=f"Add {ticker} to watchlist"):
-                    if ticker:
-                        add_stock_to_watchlist_with_feedback(ticker, name)
-                        st.rerun()  # Force rerun to refresh the UI
-                    else:
-                        st.error("❌ No ticker found for this stock")
-
-            # Ticker
-            with col_ticker:
-                st.write(f"**{row.get('Ticker', 'N/A')}**")
-
-            # Company Name
-            with col_name:
-                st.write(row.get('Namn', 'N/A'))
-
-            # Price
-            with col_price:
-                price_str = row.get('Pris', 'N/A')
-                st.write(price_str)
-
-            # Signal with color coding
-            with col_signal:
-                signal = row.get('Signal', 'HÅLL')
-                if signal == 'KÖP':
-                    st.success(f"🟢 {signal}")
-                elif signal == 'SÄLJ':
-                    st.error(f"🔴 {signal}")
-                else:
-                    st.info(f"🟡 {signal}")
-
-            # Tech Score
-            with col_tech:
-                tech_score = row.get('Tech Score', 0)
-                if isinstance(tech_score, (int, float)):
-                    st.metric("Tech", f"{tech_score}")
-                else:
-                    st.write(tech_score)
-
-            # P/E Ratio
-            with col_pe:
-                pe = row.get('P/E', 'N/A')
-                st.write(f"P/E: {pe}")
-
-        # Add a subtle divider
-        st.divider()
-
-
-def add_stock_to_watchlist_with_feedback(ticker, name):
-    """
-    Add stock to watchlist with immediate user feedback
-    """
-    try:
-        if not ticker:
-            st.warning("⚠️ Invalid ticker provided", icon="⚠️")
-            return
-
-        # Call add_to_watchlist directly - it manages its own database connections
-        success = add_to_watchlist(ticker, name, "", "")
-
-        if success:
-            st.success(f"✅ Added {ticker} to watchlist!", icon="✅")
-            # Removed sleep for faster UI response
-        else:
-            st.warning(f"⚠️ {ticker} is already in your watchlist!", icon="⚠️")
-
-    except Exception as e:
-        st.error(f"❌ Failed to add {ticker}: {str(e)}", icon="❌")
-
-
 def start_optimized_batch_analysis(tickers, progress_callback=None):
     """
-    Start optimized batch analysis with fallback for empty databases (deployment scenario)
+    Start optimized batch analysis - always try bulk scanner first
     """
     if not tickers:
         return []
 
-    # Check if we have any cached data in the database
+    logger.info(f"🚀 Starting optimized analysis for {len(tickers)} stocks")
+
     try:
-        from data.db_integration import get_all_cached_stocks
-        cached_stocks = get_all_cached_stocks()
-
-        # If database is empty (deployment scenario), use traditional analysis
-        if len(cached_stocks) == 0:
-            logger.info(
-                "Database appears empty (deployment scenario) - using traditional batch analysis")
-            return start_traditional_batch_analysis(tickers, progress_callback)
-
-        # If we have some cached data, try optimized approach first
-        logger.info(
-            f"Found {len(cached_stocks)} cached stocks - attempting optimized analysis")
-
-        # Use the optimized bulk scanner
+        # Always try optimized approach first
         from analysis.bulk_scanner import optimized_bulk_scan
 
-        # Run optimized scan with missing data fetching enabled
         results = optimized_bulk_scan(
             target_tickers=tickers,
-            fetch_missing=True,  # Important: fetch missing data from APIs
-            max_api_workers=3,
+            fetch_missing=True,
+            max_api_workers=6,
             progress_callback=progress_callback
         )
 
-        # If we got good results, use them
         if results and len(results) > 0:
-            logger.info(f"Optimized scan returned {len(results)} results")
+            logger.info(f"✅ Bulk scan completed: {len(results)} results")
             return format_results_for_ui(results)
         else:
-            logger.warning(
-                "Optimized scan returned no results - falling back to traditional analysis")
+            logger.warning("⚠️ Bulk scan returned empty - trying traditional")
             return start_traditional_batch_analysis(tickers, progress_callback)
 
     except Exception as e:
-        logger.error(
-            f"Optimized analysis failed: {e} - falling back to traditional analysis")
+        logger.error(f"❌ Optimized analysis failed: {e} - using traditional")
         return start_traditional_batch_analysis(tickers, progress_callback)
 
 
 def start_traditional_batch_analysis(tickers, progress_callback=None):
-    """
-    Traditional batch analysis that fetches fresh data (for deployment scenarios)
-    """
+    """Traditional batch analysis fallback"""
     logger.info(
         f"Starting traditional batch analysis for {len(tickers)} stocks")
-
-    # Initialize the traditional batch analyzer
     analyzer = BatchAnalyzer()
-
-    # Use the traditional batch analysis approach
     results = analyzer.batch_analyze(tickers, progress_callback)
-
     logger.info(f"Traditional analysis completed with {len(results)} results")
     return results
 
 
 def format_results_for_ui(optimized_results):
-    """
-    Convert optimized bulk scan results to the format expected by the UI
-    """
+    """Convert optimized bulk scan results to UI format"""
     formatted_results = []
 
     for analysis in optimized_results:
@@ -426,7 +288,6 @@ def format_results_for_ui(optimized_results):
             })
             continue
 
-        # Convert to expected format
         result = {
             "ticker": analysis["ticker"],
             "name": analysis.get("name", analysis["ticker"]),
@@ -437,24 +298,90 @@ def format_results_for_ui(optimized_results):
             "buy_signal": analysis.get("value_momentum_signal") == "BUY",
             "sell_signal": analysis.get("value_momentum_signal") == "SELL",
             "data_source": analysis.get("data_source", "api"),
-
-            # Technical indicators
             "above_ma40": analysis.get("above_ma40", False),
             "above_ma4": analysis.get("above_ma4", False),
             "rsi_above_50": analysis.get("rsi_above_50", False),
             "near_52w_high": analysis.get("near_52w_high", False),
-
-            # Fundamental indicators
             "pe_ratio": analysis.get("pe_ratio"),
             "profit_margin": analysis.get("profit_margin"),
             "revenue_growth": analysis.get("revenue_growth"),
             "is_profitable": analysis.get("is_profitable", False),
             "fundamental_check": analysis.get("fundamental_pass", False)
         }
-
         formatted_results.append(result)
 
     return formatted_results
+
+
+def render_results_with_watchlist_icons(filtered_df):
+    """Render results table with clickable watchlist icons"""
+    st.subheader("📊 Analysis Results with Quick Add")
+
+    for idx, row in filtered_df.iterrows():
+        with st.container():
+            col_icon, col_ticker, col_name, col_price, col_signal, col_tech, col_pe = st.columns([
+                0.5, 1, 2.5, 1, 1, 1, 1])
+
+            with col_icon:
+                ticker = row.get('Ticker', '')
+                name = row.get('Namn', ticker)
+                if st.button("➕", key=f"batch_watchlist_{ticker}_{idx}",
+                             help=f"Add {ticker} to watchlist"):
+                    if ticker:
+                        add_stock_to_watchlist_with_feedback(ticker, name)
+                        st.rerun()
+                    else:
+                        st.error("❌ No ticker found for this stock")
+
+            with col_ticker:
+                st.write(f"**{row.get('Ticker', 'N/A')}**")
+
+            with col_name:
+                st.write(row.get('Namn', 'N/A'))
+
+            with col_price:
+                price_str = row.get('Pris', 'N/A')
+                st.write(price_str)
+
+            with col_signal:
+                signal = row.get('Signal', 'HÅLL')
+                if signal == 'KÖP':
+                    st.success(f"🟢 {signal}")
+                elif signal == 'SÄLJ':
+                    st.error(f"🔴 {signal}")
+                else:
+                    st.info(f"🟡 {signal}")
+
+            with col_tech:
+                tech_score = row.get('Tech Score', 0)
+                if isinstance(tech_score, (int, float)):
+                    st.metric("Tech", f"{tech_score}")
+                else:
+                    st.write(tech_score)
+
+            with col_pe:
+                pe = row.get('P/E', 'N/A')
+                st.write(f"P/E: {pe}")
+
+        st.divider()
+
+
+def add_stock_to_watchlist_with_feedback(ticker, name):
+    """Add stock to watchlist with immediate feedback"""
+    try:
+        if not ticker:
+            st.warning("⚠️ Invalid ticker provided", icon="⚠️")
+            return
+
+        success = add_to_watchlist(ticker, name, "", "")
+
+        if success:
+            st.success(f"✅ Added {ticker} to watchlist!", icon="✅")
+        else:
+            st.warning(f"⚠️ {ticker} is already in your watchlist!", icon="⚠️")
+
+    except Exception as e:
+        st.error(f"❌ Failed to add {ticker}: {str(e)}", icon="❌")
 
 
 def display_batch_analysis():
@@ -509,7 +436,7 @@ def display_batch_analysis():
         try:
             mid_cap_df = pd.read_csv('data/csv/updated_mid.csv')
             mid_cap_tickers = mid_cap_df['YahooTicker'].tolist()
-            
+
             # Fix common ticker format issues in midcap CSV
             fixed_tickers = []
             for ticker in mid_cap_tickers:
@@ -518,7 +445,7 @@ def display_batch_analysis():
                     if ticker.endswith('ST') and not ticker.endswith('.ST'):
                         ticker = ticker[:-2] + '.ST'
                     fixed_tickers.append(ticker)
-            
+
             selected_tickers = fixed_tickers
             st.success(
                 f"Ready to analyze all {len(selected_tickers)} stocks from Mid Cap list")
@@ -569,16 +496,15 @@ def display_batch_analysis():
             try:
                 mid_cap_df = pd.read_csv('data/csv/updated_mid.csv')
                 mid_cap_tickers = mid_cap_df['YahooTicker'].tolist()
-                
+
                 # Fix ticker format issues for selection
                 fixed_options = []
                 for ticker in mid_cap_tickers:
                     if pd.notna(ticker):
-                        # Fix tickers missing .ST suffix
                         if ticker.endswith('ST') and not ticker.endswith('.ST'):
                             ticker = ticker[:-2] + '.ST'
                         fixed_options.append(ticker)
-                
+
                 selected_tickers = st.multiselect(
                     "Select stocks from Mid Cap list:",
                     options=fixed_options,
@@ -651,12 +577,11 @@ def display_batch_analysis():
         with col3:
             st.metric("Failed", error_count)
 
-    # Display results if available - WITH CLICKABLE ICONS
+    # Display results if available
     if 'batch_analysis_results' in st.session_state:
         results = st.session_state.batch_analysis_results
 
         if results:
-            # Filter successful analyses
             success_results = [r for r in results if "error" not in r]
             error_results = [r for r in results if "error" in r]
 
@@ -687,7 +612,6 @@ def display_batch_analysis():
                             )
 
                         with col3:
-                            # Get actual data source values from the results
                             available_sources = results_df["Data Source"].unique(
                             ).tolist() if "Data Source" in results_df.columns else []
                             data_source_filter = st.multiselect(
@@ -712,32 +636,23 @@ def display_batch_analysis():
                             filtered_df = filtered_df[filtered_df["Data Source"].isin(
                                 data_source_filter)]
 
-                        # Sort by Signal priority (KÖP > HÅLL > SÄLJ), then by Tech Score
+                        # Sort by Signal priority then Tech Score
                         if "Signal" in filtered_df.columns and "Tech Score" in filtered_df.columns:
-                            # Create a signal priority column for sorting
                             signal_priority = {"KÖP": 1, "HÅLL": 2, "SÄLJ": 3}
                             filtered_df["_signal_priority"] = filtered_df["Signal"].map(
                                 signal_priority).fillna(4)
-
-                            # Sort by signal priority first, then by tech score
                             filtered_df = filtered_df.sort_values(
-                                ["_signal_priority", "Tech Score"],
-                                # KÖP first (1), highest tech score first
-                                ascending=[True, False]
-                            )
-
-                            # Remove the helper column
+                                ["_signal_priority", "Tech Score"], ascending=[True, False])
                             filtered_df = filtered_df.drop(
                                 "_signal_priority", axis=1)
                         elif "Tech Score" in filtered_df.columns:
-                            # Fallback to tech score only
                             filtered_df = filtered_df.sort_values(
                                 "Tech Score", ascending=False)
 
-                        # NEW: Render results with clickable watchlist icons
+                        # Render results with clickable watchlist icons
                         render_results_with_watchlist_icons(filtered_df)
 
-                        # Also show traditional dataframe for reference
+                        # Traditional dataframe view
                         with st.expander("📊 Traditional Table View", expanded=False):
                             st.dataframe(
                                 filtered_df, use_container_width=True, hide_index=True)
@@ -757,7 +672,6 @@ def display_batch_analysis():
 
                         col1, col2 = st.columns([3, 1])
                         with col1:
-                            # Select which results to add (top performers by default)
                             top_buy_signals = filtered_df[filtered_df["Signal"] == "KÖP"].head(
                                 10) if "Signal" in filtered_df.columns else pd.DataFrame()
 
@@ -784,10 +698,18 @@ def display_batch_analysis():
                                                 if success:
                                                     added_count += 1
                                         except Exception as e:
-                                            st.error(f"Failed to add {ticker}: {e}")
-                                        except Exception as e:
                                             st.error(
                                                 f"Failed to add {ticker}: {e}")
 
+                                    if added_count > 0:
+                                        st.success(
+                                            f"✅ Added {added_count} stocks to watchlist!")
+
                 except Exception as e:
                     st.error(f"Error displaying results: {e}")
+
+            # Show error results if any
+            if error_results:
+                with st.expander(f"⚠️ Failed Analyses ({len(error_results)})", expanded=False):
+                    error_df = pd.DataFrame(error_results)
+                    st.dataframe(error_df, use_container_width=True)
