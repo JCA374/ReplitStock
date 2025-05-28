@@ -17,6 +17,7 @@ from ui.batch_analysis import display_batch_analysis
 from ui.company_explorer import display_company_explorer
 from ui.database_viewer import display_database_viewer
 from ui.watchlist import display_watchlist
+from ui.watchlist_enhanced import display_enhanced_watchlist
 
 # Analysis components and services
 from services.company_explorer import CompanyExplorer
@@ -150,7 +151,7 @@ def main():
         # Main pages
         page = st.sidebar.radio(
             "Select a page:",
-            ["Single Stock Analysis", "Batch Analysis", "Watchlist"]
+            ["Single Stock Analysis", "Batch Analysis", "Watchlist", "Enhanced Watchlist"]
         )
 
         # Store the selected page in session state if needed
@@ -188,6 +189,8 @@ def main():
             render_enhanced_scanner_ui()
         elif page == "Watchlist":
             display_watchlist()
+        elif page == "Enhanced Watchlist":
+            display_enhanced_watchlist()
         elif page == "Company Explorer":
             display_company_explorer()
         elif page == "Database Viewer":

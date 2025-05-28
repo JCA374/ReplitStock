@@ -1,3 +1,66 @@
+Looking at your code, I can see that the watchlist management system is functional but could be significantly improved. Let me analyze the current state and suggest improvements.
+
+## Current Issues with Watchlist Management:
+
+1. **Scattered Implementation**: Watchlist management code is spread across multiple files (`services/watchlist_manager.py`, `ui/watchlist.py`, `data/db_manager.py`)
+2. **Limited Features**: Only basic add/remove functionality
+3. **No Categories/Tags**: Can't organize stocks by strategy, sector, or custom tags
+4. **No Performance Tracking**: Can't see how watchlist stocks are performing
+5. **Poor UI/UX**: The watchlist UI is basic and requires multiple clicks for simple operations
+
+## Suggested Improved Watchlist Management System:
+
+### 1. **Enhanced Data Model**
+Add these new tables to your database:
+
+```python
+# data/db_models.py - ADD these new models
+
+class WatchlistCategory(Base):
+    __tablename__ = 'watchlist_categories'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True)
+    color = Column(String(7))  # Hex color for UI
+    icon = Column(String(20))  # Emoji or icon name
+    description = Column(String(200))
+    created_date = Column(String(20))
+    
+class WatchlistItem(Base):
+    __tablename__ = 'watchlist_items_v2'
+    
+    id = Column(Integer, primary_key=True)
+    ticker = Column(String(20))
+    category_id = Column(Integer)  # Foreign key to categories
+    tags = Column(Text)  # JSON array of tags
+    notes = Column(Text)  # User notes
+    target_price = Column(Float)  # Price alerts
+    stop_loss = Column(Float)
+    added_date = Column(String(20))
+    added_price = Column(Float)  # Track performance
+    
+    __table_args__ = (
+        UniqueConstraint('ticker', 'category_id', name='unique_ticker_category'),
+    )
+
+class WatchlistAlert(Base):
+    __tablename__ = 'watchlist_alerts'
+    
+    id = Column(Integer, primary_key=True)
+    ticker = Column(String(20))
+    alert_type = Column(String(20))  # 'price_above', 'price_below', 'tech_signal'
+    threshold = Column(Float)
+    message = Column(String(200))
+    is_active = Column(Boolean, default=True)
+    created_date = Column(String(20))
+    triggered_date = Column(String(20))
+```
+
+### 2. **Enhanced Watchlist Manager**
+
+**REPLACE** the current `services/watchlist_manager.py` with:
+
+```python
 # services/watchlist_manager.py - COMPLETE REPLACEMENT
 
 import streamlit as st
@@ -315,169 +378,243 @@ class EnhancedWatchlistManager:
             'best_performers': best.to_dict('records'),
             'worst_performers': worst.to_dict('records')
         }
+```
 
-# Legacy WatchlistManager for backward compatibility
-class WatchlistManager:
-    """
-    Legacy manager for watchlist operations.
-    Maintains backward compatibility with existing code.
-    """
+### 3. **New Enhanced Watchlist UI**
+
+**CREATE** a new file `ui/watchlist_enhanced.py`:
+
+```python
+# ui/watchlist_enhanced.py - NEW FILE
+
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+from datetime import datetime
+
+def display_enhanced_watchlist():
+    """Display the enhanced watchlist with categories and performance tracking"""
+    st.header("📊 Enhanced Watchlist Manager")
     
-    def __init__(self):
-        """
-        Initialize the watchlist manager with SQLite storage.
-        """
-        self.logger = logging.getLogger(__name__)
+    # Initialize enhanced manager
+    if 'enhanced_watchlist' not in st.session_state:
+        from services.watchlist_manager import EnhancedWatchlistManager
+        st.session_state.enhanced_watchlist = EnhancedWatchlistManager()
+    
+    manager = st.session_state.enhanced_watchlist
+    
+    # Sidebar for categories
+    with st.sidebar:
+        st.subheader("📁 Categories")
         
-        # Default watchlists
-        self.default_watchlists = [
-            {"name": "My Watchlist", "stocks": []},
-            {"name": "Potential Buys", "stocks": []},
-            {"name": "Portfolio", "stocks": []}
-        ]
+        categories = manager.get_categories()
         
-        # Initialize watchlists if not in session
-        if 'watchlists' not in st.session_state:
-            # Try to load from database
-            db_watchlist = get_watchlist()
+        # Add new category
+        with st.expander("➕ Add Category"):
+            new_name = st.text_input("Name")
+            new_color = st.color_picker("Color", "#6c757d")
+            new_icon = st.text_input("Icon", "📌")
+            new_desc = st.text_area("Description")
             
-            if db_watchlist:
-                # Create a single watchlist from database
-                all_stocks = [item['ticker'] for item in db_watchlist]
-                self.default_watchlists[0]["stocks"] = all_stocks
+            if st.button("Create Category"):
+                if new_name and manager.add_category(new_name, new_color, new_icon, new_desc):
+                    st.success(f"Created {new_icon} {new_name}")
+                    st.rerun()
+        
+        # Category selection
+        selected_cat = st.radio(
+            "Select Category",
+            options=[{"id": 0, "name": "All Categories"}] + categories,
+            format_func=lambda x: f"{x.get('icon', '')} {x['name']}",
+            index=0
+        )
+    
+    # Main content area
+    category_id = selected_cat['id'] if selected_cat['id'] > 0 else None
+    
+    # Alerts section
+    alerts = manager.check_alerts()
+    if alerts:
+        st.warning(f"🔔 {len(alerts)} alerts triggered!")
+        with st.expander("View Alerts", expanded=True):
+            for alert in alerts:
+                st.write(f"**{alert['ticker']}** - {alert['message']}")
+                st.write(f"Current: ${alert['current_price']:.2f} (Threshold: ${alert['threshold']:.2f})")
+    
+    # Performance summary
+    summary = manager.get_performance_summary(category_id)
+    if summary:
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Stocks", summary['total_stocks'])
+        with col2:
+            st.metric("Avg Return", f"{summary['average_return']:.1f}%")
+        with col3:
+            st.metric("Winners", summary['winners'])
+        with col4:
+            st.metric("Losers", summary['losers'])
+    
+    # Watchlist table
+    df = manager.get_watchlist_by_category(category_id)
+    
+    if not df.empty:
+        # Sort by total return
+        df = df.sort_values('total_return', ascending=False)
+        
+        # Display with color coding
+        st.subheader("📈 Watchlist Items")
+        
+        for _, row in df.iterrows():
+            with st.container():
+                col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 1, 1, 1, 1])
                 
-            st.session_state.watchlists = self.default_watchlists
-            
-        # Ensure all default watchlists exist
-        self._ensure_default_watchlists()
-        
-        # Initialize active watchlist index if not set
-        if 'active_watchlist_index' not in st.session_state:
-            st.session_state.active_watchlist_index = 0
-    
-    def get_all_watchlists(self):
-        """Get all watchlists."""
-        return st.session_state.watchlists
-    
-    def add_watchlist(self, name):
-        """Add a new watchlist."""
-        # Check if watchlist name already exists
-        existing_names = [w["name"] for w in st.session_state.watchlists]
-        if name in existing_names:
-            return False
-            
-        # Add new watchlist
-        st.session_state.watchlists.append({"name": name, "stocks": []})
-        return True
-    
-    def _ensure_default_watchlists(self):
-        """Ensure all default watchlists exist in the session state."""
-        default_names = set(wl["name"] for wl in self.default_watchlists)
-        existing_names = set(wl["name"] for wl in st.session_state.watchlists)
-        
-        # Add missing watchlists
-        for name in default_names - existing_names:
-            for wl in self.default_watchlists:
-                if wl["name"] == name:
-                    st.session_state.watchlists.append({"name": name, "stocks": []})
-    
-    def delete_watchlist(self, index):
-        """Delete a watchlist."""
-        if index < 0 or index >= len(st.session_state.watchlists):
-            return False
-            
-        # Don't delete the default watchlist
-        if index == 0:
-            return False
-            
-        # Delete watchlist
-        st.session_state.watchlists.pop(index)
-        return True
-    
-    def add_stock_to_watchlist(self, watchlist_index, ticker, add_to_db=True):
-        """Add a stock to a specific watchlist."""
-        if watchlist_index < 0 or watchlist_index >= len(st.session_state.watchlists):
-            return False
-            
-        # Get watchlist
-        watchlist = st.session_state.watchlists[watchlist_index]
-        
-        # Check if stock already exists
-        if ticker in watchlist["stocks"]:
-            return False
-            
-        # Add to watchlist
-        watchlist["stocks"].append(ticker)
-        
-        # Add to database if requested
-        if add_to_db and watchlist_index == 0:  # Only sync the main watchlist
-            try:
-                from data.stock_data import StockDataFetcher
+                with col1:
+                    st.write(f"**{row['ticker']}**")
+                    st.caption(row['name'])
+                    
+                with col2:
+                    # Tags
+                    if row['tags']:
+                        tag_html = " ".join([f"<span style='background-color: #e9ecef; padding: 2px 6px; border-radius: 3px; margin-right: 4px;'>{tag}</span>" for tag in row['tags']])
+                        st.markdown(tag_html, unsafe_allow_html=True)
+                    
+                with col3:
+                    st.metric("Price", f"${row['current_price']:.2f}", 
+                             f"{row['daily_change']:.1f}%")
                 
-                # Get stock info for database
-                fetcher = StockDataFetcher()
-                info = fetcher.get_stock_info(ticker)
+                with col4:
+                    color = "green" if row['total_return'] > 0 else "red"
+                    st.markdown(f"<span style='color:{color}'>**{row['total_return']:.1f}%**</span>", 
+                               unsafe_allow_html=True)
+                    st.caption("Since added")
                 
-                # Add to database
-                add_to_watchlist(
-                    ticker, 
-                    info.get('shortName', ticker),
-                    info.get('exchange', ''),
-                    info.get('sector', '')
-                )
-            except Exception as e:
-                self.logger.error(f"Error adding stock to database: {e}")
-        
-        return True
+                with col5:
+                    if row['alert']:
+                        st.error(row['alert'])
+                    else:
+                        st.write("—")
+                
+                with col6:
+                    if st.button("📝", key=f"edit_{row['id']}"):
+                        st.session_state[f"editing_{row['id']}"] = True
+                
+                # Edit section
+                if st.session_state.get(f"editing_{row['id']}", False):
+                    with st.expander("Edit", expanded=True):
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            new_target = st.number_input("Target Price", 
+                                                       value=row['target_price'] or 0.0,
+                                                       key=f"target_{row['id']}")
+                            new_stop = st.number_input("Stop Loss", 
+                                                     value=row['stop_loss'] or 0.0,
+                                                     key=f"stop_{row['id']}")
+                        with col2:
+                            new_notes = st.text_area("Notes", value=row['notes'] or "",
+                                                   key=f"notes_{row['id']}")
+                        
+                        if st.button("Save", key=f"save_{row['id']}"):
+                            # Update logic here
+                            st.session_state[f"editing_{row['id']}"] = False
+                            st.rerun()
+                
+                st.divider()
+    else:
+        st.info("No stocks in this category. Add some to get started!")
     
-    def remove_stock_from_watchlist(self, watchlist_index, ticker, remove_from_db=True):
-        """Remove a stock from a specific watchlist."""
-        if watchlist_index < 0 or watchlist_index >= len(st.session_state.watchlists):
-            return False
+    # Quick add section
+    st.subheader("➕ Quick Add Stock")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        ticker = st.text_input("Ticker Symbol")
+    
+    with col2:
+        if categories:
+            target_category = st.selectbox(
+                "Category",
+                categories,
+                format_func=lambda x: f"{x['icon']} {x['name']}"
+            )
+    
+    with col3:
+        tags = st.text_input("Tags (comma-separated)")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        target_price = st.number_input("Target Price (optional)", min_value=0.0)
+    
+    with col2:
+        stop_loss = st.number_input("Stop Loss (optional)", min_value=0.0)
+    
+    notes = st.text_area("Notes (optional)")
+    
+    if st.button("➕ Add to Watchlist", type="primary"):
+        if ticker and target_category:
+            tag_list = [t.strip() for t in tags.split(",")] if tags else []
             
-        # Get watchlist
-        watchlist = st.session_state.watchlists[watchlist_index]
-        
-        # Check if stock exists
-        if ticker not in watchlist["stocks"]:
-            return False
+            success = manager.add_stock_enhanced(
+                ticker=ticker.upper(),
+                category_id=target_category['id'],
+                tags=tag_list,
+                notes=notes,
+                target_price=target_price if target_price > 0 else None,
+                stop_loss=stop_loss if stop_loss > 0 else None
+            )
             
-        # Remove from watchlist
-        watchlist["stocks"].remove(ticker)
-        
-        # Remove from database if requested
-        if remove_from_db and watchlist_index == 0:  # Only sync the main watchlist
-            try:
-                remove_from_watchlist(ticker)
-            except Exception as e:
-                self.logger.error(f"Error removing stock from database: {e}")
-        
-        return True
-        
-    def get_active_watchlist_index(self):
-        """Get the index of the currently active watchlist."""
-        return st.session_state.active_watchlist_index
-        
-    def get_active_watchlist(self):
-        """Get the currently active watchlist."""
-        return st.session_state.watchlists[self.get_active_watchlist_index()]
-        
-    def set_active_watchlist(self, index):
-        """Set the active watchlist by index."""
-        if 0 <= index < len(st.session_state.watchlists):
-            st.session_state.active_watchlist_index = index
-            return True
-        return False
+            if success:
+                st.success(f"✅ Added {ticker} to {target_category['name']}!")
+                st.rerun()
+            else:
+                st.error("Failed to add stock (may already exist in this category)")
+```
 
-    def rename_watchlist(self, index, new_name):
-        """Rename a watchlist."""
-        if index < 0 or index >= len(st.session_state.watchlists):
-            return False
+### 4. **Update app.py**
 
-        # Check if the new name is empty or already exists
-        if not new_name or new_name in [wl["name"] for wl in st.session_state.watchlists]:
-            return False
+**MODIFY** `app.py` to add the enhanced watchlist:
 
-        # Rename watchlist
-        st.session_state.watchlists[index]["name"] = new_name
-        return True
+```python
+# In app.py, modify the imports section to add:
+from ui.watchlist_enhanced import display_enhanced_watchlist
+
+# In the sidebar navigation section, REPLACE:
+page = st.sidebar.radio(
+    "Select a page:",
+    ["Single Stock Analysis", "Batch Analysis",
+        "Enhanced Stock Scanner", "Watchlist"]
+)
+
+# WITH:
+page = st.sidebar.radio(
+    "Select a page:",
+    ["Single Stock Analysis", "Batch Analysis",
+        "Enhanced Stock Scanner", "Watchlist", "Enhanced Watchlist"]
+)
+
+# In the page display section, ADD:
+elif page == "Enhanced Watchlist":
+    display_enhanced_watchlist()
+```
+
+## Benefits of this Enhanced System:
+
+1. **Better Organization**: Categories and tags help organize large watchlists
+2. **Performance Tracking**: See how stocks have performed since you added them
+3. **Price Alerts**: Set target prices and stop losses with automatic notifications
+4. **Quick Actions**: Add stocks from any page with proper categorization
+5. **Bulk Operations**: Import/export watchlists, bulk categorization
+6. **Notes & Context**: Keep notes on why you're watching each stock
+7. **Visual Indicators**: Color-coded performance, alert badges
+8. **Integration**: Works seamlessly with existing scanner and analysis tools
+
+## Migration Strategy:
+
+1. **Keep existing watchlist functional** during transition
+2. **Run both systems in parallel** initially
+3. **Migrate existing watchlist data** to new enhanced format
+4. **Gradually phase out old system** once users are comfortable
+
+This enhanced watchlist system will make your stock analysis tool much more powerful and user-friendly!
