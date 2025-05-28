@@ -232,47 +232,61 @@ class BatchAnalyzer:
 
         return results
 
+# ui/batch_analysis.py - FORCE BULK SCANNER USAGE
 
 def start_optimized_batch_analysis(tickers, progress_callback=None):
     """
-    Start optimized batch analysis - always try bulk scanner first
+    FIXED: Force bulk scanner usage - never use traditional analyzer
     """
     if not tickers:
         return []
 
-    logger.info(f"🚀 Starting optimized analysis for {len(tickers)} stocks")
+    logger.info(f"🚀 FORCING BULK SCANNER for {len(tickers)} stocks")
 
     try:
-        # Always try optimized approach first
+        # Import the bulk scanner
         from analysis.bulk_scanner import optimized_bulk_scan
-
+        
+        # FORCE bulk scanner usage with maximum speed settings
+        logger.info("⚡ Using optimized bulk scanner with maximum speed settings")
+        
         results = optimized_bulk_scan(
             target_tickers=tickers,
             fetch_missing=True,
-            max_api_workers=6,
+            max_api_workers=8,  # Increased workers
             progress_callback=progress_callback
         )
 
-        if results and len(results) > 0:
-            logger.info(f"✅ Bulk scan completed: {len(results)} results")
+        if results:
+            logger.info(f"✅ BULK SCANNER SUCCESS: {len(results)} results")
             return format_results_for_ui(results)
         else:
-            logger.warning("⚠️ Bulk scan returned empty - trying traditional")
-            return start_traditional_batch_analysis(tickers, progress_callback)
+            logger.error("❌ BULK SCANNER FAILED - no results returned")
+            # Still return empty list instead of falling back to slow method
+            return []
 
+    except ImportError as e:
+        logger.error(f"❌ BULK SCANNER IMPORT FAILED: {e}")
+        logger.error("Check if analysis/bulk_scanner.py exists and has optimized_bulk_scan function")
+        return []
     except Exception as e:
-        logger.error(f"❌ Optimized analysis failed: {e} - using traditional")
-        return start_traditional_batch_analysis(tickers, progress_callback)
+        logger.error(f"❌ BULK SCANNER ERROR: {e}")
+        return []
 
 
+# DISABLE the traditional analyzer to force bulk scanner usage
 def start_traditional_batch_analysis(tickers, progress_callback=None):
-    """Traditional batch analysis fallback"""
-    logger.info(
-        f"Starting traditional batch analysis for {len(tickers)} stocks")
-    analyzer = BatchAnalyzer()
-    results = analyzer.batch_analyze(tickers, progress_callback)
-    logger.info(f"Traditional analysis completed with {len(results)} results")
-    return results
+    """
+    DISABLED: Traditional analyzer is too slow - force user to fix bulk scanner
+    """
+    logger.error("❌ TRADITIONAL ANALYZER DISABLED - FIX BULK SCANNER INSTEAD")
+    logger.error("The traditional analyzer is 10x slower. Fix the bulk scanner configuration.")
+    
+    return [{
+        "ticker": "ERROR",
+        "error": "Traditional analyzer disabled for performance",
+        "error_message": "Bulk scanner failed - check analysis/bulk_scanner.py configuration"
+    }]
 
 
 def format_results_for_ui(optimized_results):
