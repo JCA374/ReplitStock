@@ -253,7 +253,7 @@ class BatchAnalyzer:
 
 # ui/batch_analysis.py - FORCE BULK SCANNER USAGE
 
-def start_optimized_batch_analysis(tickers, progress_callback=None):
+def start_optimized_batch_analysis(tickers, progress_callback=None, fetch_missing=True):
     """
     FIXED: Force bulk scanner usage - never use traditional analyzer
     """
@@ -271,8 +271,8 @@ def start_optimized_batch_analysis(tickers, progress_callback=None):
         
         results = optimized_bulk_scan(
             target_tickers=tickers,
-            fetch_missing=True,
-            max_api_workers=8,  # Increased workers
+            fetch_missing=fetch_missing,  # Use the parameter
+            max_api_workers=3,  # Reduced from 8 for stability
             progress_callback=progress_callback
         )
 
@@ -563,6 +563,8 @@ def display_batch_analysis():
                     fixed_tickers.append(ticker)
 
             selected_tickers = fixed_tickers
+            # For testing: Uncomment next line to test with first 10 stocks only
+            # selected_tickers = fixed_tickers[:10]  # Test with first 10 stocks only
             
             # Debug info to verify the fix
             st.success(f"Ready to analyze all {len(selected_tickers)} stocks from Mid Cap list")
@@ -686,7 +688,7 @@ def display_batch_analysis():
         # Run optimized analysis
         with st.spinner(f"Running optimized analysis on {len(selected_tickers)} stocks..."):
             results = start_optimized_batch_analysis(
-                selected_tickers, update_progress)
+                selected_tickers, update_progress, fetch_missing=True)  # Enable API fetching
 
         # Clear progress indicators
         progress_bar.empty()
