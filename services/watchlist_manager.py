@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 import time
 
-from data.db_integration import (
+from data.db_manager import (
     add_to_watchlist,
     remove_from_watchlist,
     get_watchlist
@@ -16,14 +16,10 @@ class WatchlistManager:
     Allows multiple watchlists to be maintained.
     """
     
-    def __init__(self, db_storage):
+    def __init__(self):
         """
-        Initialize with the database storage system.
-        
-        Args:
-            db_storage: Database storage module (Supabase or SQLite)
+        Initialize the watchlist manager with SQLite storage.
         """
-        self.db_storage = db_storage
         self.logger = logging.getLogger(__name__)
         
         # Default watchlists

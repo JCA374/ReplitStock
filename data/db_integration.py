@@ -27,7 +27,7 @@ initialize_database()
 
 # Use Supabase if it's properly connected
 supabase_db = get_supabase_db()
-USE_SUPABASE = supabase_db.is_connected()  # Enable Supabase if connected
+USE_SUPABASE = False  # Disabled Supabase for watchlist operations
 
 
 def add_to_watchlist(ticker, name, exchange="", sector=""):

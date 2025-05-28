@@ -17,7 +17,7 @@ def refresh_watchlist_data():
             del st.session_state['watchlists']
         
         # Get fresh data from database
-        from data.db_integration import get_watchlist
+        from data.db_manager import get_watchlist
         db_watchlist = get_watchlist()
         
         # Recreate the default watchlists structure

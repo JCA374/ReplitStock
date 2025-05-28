@@ -81,14 +81,13 @@ def display_database_status():
 
         # Supabase status
         if status['supabase_connected']:
-            st.sidebar.success("✅ Supabase: Connected")
+            st.sidebar.info("ℹ️ Supabase: Available (not used for watchlist)")
         else:
             st.sidebar.info("ℹ️ Supabase: Not connected")
 
         # Primary database
-        primary_color = "green" if status['primary_db'] == 'supabase' else "blue"
         st.sidebar.markdown(
-            f"**Primary DB:** :{primary_color}[{status['primary_db'].title()}]")
+            f"**Primary DB:** :blue[SQLite] (Watchlist uses SQLite exclusively)")
 
     except Exception as e:
         st.sidebar.error(f"Database status error: {e}")
@@ -133,8 +132,7 @@ def main():
         if 'watchlist_manager' not in st.session_state:
             # Create a database storage object to pass to the watchlist manager
             st.session_state.db_storage = create_db_storage()
-            st.session_state.watchlist_manager = WatchlistManager(
-                st.session_state.db_storage)
+            st.session_state.watchlist_manager = WatchlistManager()
 
         # Initialize company explorer in session state
         if 'company_explorer' not in st.session_state:
