@@ -180,6 +180,17 @@ def main():
         # Display the selected page
         page = st.session_state.get('selected_page', page)
 
+        # Preserve critical session state across page changes
+        preserve_session_keys = [
+            'batch_analysis_results', 
+            'batch_analysis_timestamp', 
+            'batch_analysis_tickers',
+            'strategy',
+            'watchlist_manager',
+            'db_storage',
+            'company_explorer'
+        ]
+
         if page == "Single Stock Analysis":
             render_analysis_tab()
         elif page == "Batch Analysis":

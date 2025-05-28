@@ -23,6 +23,25 @@ from helpers import create_results_table
 from utils.ticker_mapping import normalize_ticker
 from ui.performance_overview import display_performance_metrics
 
+
+def check_and_restore_results():
+    """Check if we should auto-restore previous results"""
+    if ('batch_analysis_results' in st.session_state and 
+        st.session_state.batch_analysis_results and
+        'batch_analysis_timestamp' in st.session_state):
+        
+        # Check if results are recent (less than 24 hours old)
+        try:
+            from datetime import datetime, timedelta
+            timestamp_str = st.session_state.batch_analysis_timestamp
+            result_time = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+            
+            if datetime.now() - result_time < timedelta(hours=24):
+                return True
+        except:
+            pass
+    return False
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -430,6 +449,36 @@ def display_batch_analysis():
     st.header("Batch Analysis")
     st.write(
         "Analyze multiple stocks at once using database cache first, then API fallback.")
+    
+    # Auto-restore recent results
+    has_recent_results = check_and_restore_results()
+    
+    # Show existing results info if available
+    if has_recent_results:
+        results_count = len(st.session_state.batch_analysis_results)
+        timestamp = st.session_state.get('batch_analysis_timestamp', 'Unknown time')
+        analyzed_tickers = st.session_state.get('batch_analysis_tickers', [])
+        
+        st.info(f"📊 **Previous Results Available**: {results_count} stocks analyzed at {timestamp}")
+        
+        # Show quick summary of what was analyzed
+        if analyzed_tickers:
+            with st.expander(f"📋 Previously Analyzed Stocks ({len(analyzed_tickers)} stocks)", expanded=False):
+                # Display in columns for better formatting
+                cols = st.columns(5)
+                for i, ticker in enumerate(analyzed_tickers[:20]):  # Show first 20
+                    with cols[i % 5]:
+                        st.write(f"• {ticker}")
+                if len(analyzed_tickers) > 20:
+                    st.write(f"... and {len(analyzed_tickers) - 20} more")
+        
+        # Clear results button
+        if st.button("🗑️ Clear Previous Results", help="Clear previous analysis results"):
+            for key in ['batch_analysis_results', 'batch_analysis_timestamp', 'batch_analysis_tickers']:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.success("Previous results cleared!")
+            st.rerun()
 
     # Initialize analyzer
     if 'batch_analyzer' not in st.session_state:
@@ -601,8 +650,10 @@ def display_batch_analysis():
         progress_bar.empty()
         status_text.empty()
 
-        # Store results in session state
+        # Store results in session state with persistence
         st.session_state.batch_analysis_results = results
+        st.session_state.batch_analysis_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        st.session_state.batch_analysis_tickers = selected_tickers.copy()  # Remember what was analyzed
 
         # Show performance summary
         success_count = len([r for r in results if "error" not in r])
@@ -621,8 +672,11 @@ def display_batch_analysis():
     # Display results if available
     if 'batch_analysis_results' in st.session_state:
         results = st.session_state.batch_analysis_results
-
+        
+        # Show analysis summary
         if results:
+            timestamp = st.session_state.get('batch_analysis_timestamp', 'Unknown time')
+            st.subheader(f"📈 Analysis Results (Generated: {timestamp})")
             success_results = [r for r in results if "error" not in r]
             error_results = [r for r in results if "error" in r]
 
