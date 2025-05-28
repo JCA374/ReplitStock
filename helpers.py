@@ -85,9 +85,10 @@ def create_results_table(analysis_results):
         is_profitable = result.get(
             "is_profitable", result.get("Profitable", False))
 
-        # Get data source
+        # Get data source and status
         data_source = result.get(
             "data_source", result.get("Data Source", "unknown"))
+        data_status = result.get("data_status", "complete")
 
         # Format into a row
         row = {
@@ -105,7 +106,8 @@ def create_results_table(analysis_results):
             "P/E": f"{pe_ratio:.2f}" if pe_ratio is not None and isinstance(pe_ratio, (int, float)) else "N/A",
             "Vinstmarginal": f"{profit_margin*100:.1f}%" if profit_margin is not None and isinstance(profit_margin, (int, float)) else "N/A",
             "Omsättning Tillväxt": f"{revenue_growth*100:.1f}%" if revenue_growth is not None and isinstance(revenue_growth, (int, float)) else "N/A",
-            "Data Source": data_source.title().replace("_", " ")
+            "Data Source": data_source.title().replace("_", " "),
+            "data_status": data_status  # Include data status for UI handling
         }
 
         formatted_data.append(row)

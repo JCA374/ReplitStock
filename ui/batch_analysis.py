@@ -290,18 +290,28 @@ def start_traditional_batch_analysis(tickers, progress_callback=None):
 
 
 def format_results_for_ui(optimized_results):
-    """Convert optimized bulk scan results to UI format"""
+    """Convert optimized bulk scan results to UI format - ENHANCED for partial data"""
     formatted_results = []
 
     for analysis in optimized_results:
-        if "error" in analysis and analysis["error"]:
+        # ENHANCEMENT: Check for error attribute OR error field
+        has_error = (hasattr(analysis, "error") and analysis.error) or (isinstance(analysis, dict) and "error" in analysis and analysis["error"])
+        
+        if has_error:
             formatted_results.append({
                 "ticker": analysis.get("ticker", "Unknown"),
-                "error": analysis["error"],
-                "error_message": analysis.get("error_message", "Unknown error")
+                "error": analysis.get("error", "Unknown error"),
+                "error_message": analysis.get("error_message", "Unknown error"),
+                "name": analysis.get("name", analysis.get("ticker", "Unknown")),
+                "signal": "ERROR",
+                "tech_score": 0,
+                "data_source": "error"
             })
             continue
 
+        # ENHANCEMENT: Handle data_status field 
+        data_status = analysis.get("data_status", "complete")
+        
         result = {
             "ticker": analysis["ticker"],
             "name": analysis.get("name", analysis["ticker"]),
@@ -312,6 +322,7 @@ def format_results_for_ui(optimized_results):
             "buy_signal": analysis.get("value_momentum_signal") == "BUY",
             "sell_signal": analysis.get("value_momentum_signal") == "SELL",
             "data_source": analysis.get("data_source", "api"),
+            "data_status": data_status,  # Include data status
             "above_ma40": analysis.get("above_ma40", False),
             "above_ma4": analysis.get("above_ma4", False),
             "rsi_above_50": analysis.get("rsi_above_50", False),
@@ -322,6 +333,14 @@ def format_results_for_ui(optimized_results):
             "is_profitable": analysis.get("is_profitable", False),
             "fundamental_check": analysis.get("fundamental_pass", False)
         }
+        
+        # ENHANCEMENT: Add warning for partial data
+        if data_status == "partial":
+            result["warning"] = "Partial data available"
+        elif data_status == "missing":
+            result["warning"] = "Price data missing"
+            result["error"] = "No price data available"
+            
         formatted_results.append(result)
 
     return formatted_results
@@ -359,7 +378,15 @@ def render_results_with_watchlist_icons(filtered_df):
 
             with col_signal:
                 signal = row.get('Signal', 'HÅLL')
-                if signal == 'KÖP':
+                data_status = row.get('data_status', 'complete')
+                
+                if row.get('error') or data_status == 'error':
+                    st.error(f"⚠️ ERROR")
+                elif data_status == 'missing':
+                    st.warning(f"⚠️ NO DATA")
+                elif data_status == 'partial':
+                    st.warning(f"⚠️ {signal}")
+                elif signal == 'KÖP':
                     st.success(f"🟢 {signal}")
                 elif signal == 'SÄLJ':
                     st.error(f"🔴 {signal}")

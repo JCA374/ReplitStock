@@ -239,7 +239,7 @@ class OptimizedBulkScanner:
         return results
 
     def _analyze_all_stocks(self, all_stock_data, progress_callback=None):
-        """Process all stocks safely"""
+        """Process all stocks safely - ENHANCED to handle missing data"""
         results = []
         tickers = list(all_stock_data.keys())
 
@@ -265,7 +265,26 @@ class OptimizedBulkScanner:
                 try:
                     # Get stock data
                     stock_data = all_stock_data.get(ticker)
+                    
+                    # ENHANCEMENT: Handle missing stock data but still include in results
                     if stock_data is None or stock_data.empty:
+                        results.append({
+                            'ticker': ticker,
+                            'name': ticker,  # Use ticker as name when unknown
+                            'last_price': 0,
+                            'tech_score': 0,
+                            'above_ma40': False,
+                            'above_ma4': False,
+                            'rsi_above_50': False,
+                            'near_52w_high': False,
+                            'is_profitable': False,
+                            'reasonable_pe': False,
+                            'fundamental_pass': False,
+                            'value_momentum_signal': "HOLD",
+                            'data_source': "none",
+                            'data_status': "missing",  # Mark data as missing
+                            'warning': "No price data available"
+                        })
                         continue
 
                     # Calculate technical indicators
@@ -274,10 +293,18 @@ class OptimizedBulkScanner:
 
                     # Get fundamentals for the ticker
                     fundamentals = self.db_loader.get_fundamentals(ticker)
+                    
+                    # ENHANCEMENT: Set default fundamentals if missing
+                    if not fundamentals:
+                        fundamentals = {
+                            'name': ticker,
+                            'pe_ratio': None,
+                            'profit_margin': None,
+                            'revenue_growth': None
+                        }
 
                     # Calculate fundamental analysis
-                    fundamental_analysis = analyze_fundamentals(
-                        fundamentals or {})
+                    fundamental_analysis = analyze_fundamentals(fundamentals or {})
 
                     # Get current price
                     current_price = stock_data['close'].iloc[-1]
@@ -297,6 +324,9 @@ class OptimizedBulkScanner:
                     else:
                         value_momentum_signal = "HOLD"
 
+                    # ENHANCEMENT: Check if we have at least partial data
+                    has_fundamentals = fundamentals and 'pe_ratio' in fundamentals and fundamentals['pe_ratio'] is not None
+                    
                     # Create result
                     result = {
                         'ticker': ticker,
@@ -314,17 +344,32 @@ class OptimizedBulkScanner:
                         'reasonable_pe': fundamental_analysis['overall'].get('reasonable_pe', True),
                         'fundamental_pass': fundamental_pass,
                         'value_momentum_signal': value_momentum_signal,
-                        'data_source': "database"  # Since we're using cached data
+                        'data_source': "database" if has_fundamentals else "partial",  # Mark partial data
+                        'data_status': "complete" if has_fundamentals else "partial"  # Mark data status
                     }
 
                     results.append(result)
                 except Exception as e:
+                    # ENHANCEMENT: Include error result instead of just logging
                     logger.warning(f"⚠️ Analysis failed for {ticker}: {e}")
+                    results.append({
+                        'ticker': ticker,
+                        'name': ticker,
+                        'last_price': 0,
+                        'tech_score': 0,
+                        'value_momentum_signal': "HOLD",
+                        'above_ma40': False,
+                        'above_ma4': False,
+                        'data_source': "error",
+                        'data_status': "error",
+                        'error': str(e)
+                    })
 
-            processed_count += len(batch)
+                processed_count += 1
 
-        # Sort by tech score
-        results.sort(key=lambda x: x.get('tech_score', 0), reverse=True)
+            # ENHANCEMENT: Always sort by tech score even with missing data
+            results.sort(key=lambda x: x.get('tech_score', 0), reverse=True)
+            
         return results
 
 class BulkAPIFetcher:
@@ -426,9 +471,10 @@ class BulkAPIFetcher:
                 # Small delay between API calls
                 time.sleep(0.1)
 
-                # Fetch using Yahoo Finance directly (skip Alpha Vantage since it's failing)
+                # ENHANCEMENT: Try harder with fallbacks
+                # First try Yahoo Finance
                 stock_data = self.data_fetcher.get_stock_data(
-                    ticker, '1d', '1y', attempt_fallback=False)
+                    ticker, '1d', '1y', attempt_fallback=True)
 
                 if stock_data is not None and not stock_data.empty:
                     fetched_data[ticker] = stock_data
@@ -439,11 +485,19 @@ class BulkAPIFetcher:
                     except Exception as e:
                         logger.warning(
                             f"Failed to cache data for {ticker}: {e}")
+                else:
+                    # Even if we get no data, add an empty DataFrame to indicate we tried
+                    logger.warning(f"No data found for {ticker}")
+                    # Include empty dataframe to mark as processed
+                    fetched_data[ticker] = pd.DataFrame()
             except Exception as e:
                 logger.warning(f"Failed to fetch data for {ticker}: {e}")
+                # ENHANCEMENT: Include empty dataframe to mark as processed
+                fetched_data[ticker] = pd.DataFrame()
 
+        success_count = sum(1 for df in fetched_data.values() if not df.empty)
         logger.info(
-            f"Successfully fetched data for {len(fetched_data)} stocks")
+            f"Successfully fetched data for {success_count}/{len(missing_tickers)} stocks")
         return fetched_data
 
 

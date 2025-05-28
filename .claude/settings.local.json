@@ -17,7 +17,8 @@
       "Bash(mv:*)",
       "Bash(touch:*)",
       "Bash(rg:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   },
