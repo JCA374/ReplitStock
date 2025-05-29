@@ -242,18 +242,23 @@ class OptimizedBulkScanner:
         # Always return results, even if empty
         return results
 
+
     def _analyze_all_stocks(self, all_stock_data, progress_callback=None):
-        """Process all stocks safely - ENHANCED to handle missing data"""
+        """FIXED: Process all stocks with proper P/E data fetching"""
         results = []
         tickers = list(all_stock_data.keys())
 
         if not tickers:
             return results
 
-        # Use smaller batches
-        batch_size = 20  # Smaller batch size
+        # Initialize a fresh data fetcher for P/E data
+        from data.stock_data import StockDataFetcher
+        fresh_fetcher = StockDataFetcher()
+
+        # Use smaller batches for better error handling
+        batch_size = 10  # Smaller batches for stability
         batches = [tickers[i:i + batch_size]
-                   for i in range(0, len(tickers), batch_size)]
+                for i in range(0, len(tickers), batch_size)]
 
         processed_count = 0
 
@@ -262,19 +267,19 @@ class OptimizedBulkScanner:
                 base_progress = 0.75
                 batch_progress = (processed_count / len(tickers)) * 0.24
                 progress_callback(base_progress + batch_progress,
-                                  f"⚡ Batch {batch_idx + 1}/{len(batches)} ({len(batch)} stocks)")
+                                f"⚡ Processing batch {batch_idx + 1}/{len(batches)}")
 
-            # Process stocks in the batch one by one (safer than parallel)
+            # Process each stock in the batch
             for ticker in batch:
                 try:
                     # Get stock data
                     stock_data = all_stock_data.get(ticker)
-                    
-                    # ENHANCEMENT: Handle missing stock data but still include in results
+
                     if stock_data is None or stock_data.empty:
+                        # Include stocks with missing price data
                         results.append({
                             'ticker': ticker,
-                            'name': ticker,  # Use ticker as name when unknown
+                            'name': ticker,
                             'last_price': 0,
                             'tech_score': 0,
                             'above_ma40': False,
@@ -286,7 +291,10 @@ class OptimizedBulkScanner:
                             'fundamental_pass': False,
                             'value_momentum_signal': "HOLD",
                             'data_source': "none",
-                            'data_status': "missing",  # Mark data as missing
+                            'data_status': "missing",
+                            'pe_ratio': None,
+                            'profit_margin': None,
+                            'revenue_growth': None,
                             'warning': "No price data available"
                         })
                         continue
@@ -295,32 +303,9 @@ class OptimizedBulkScanner:
                     indicators = calculate_all_indicators(stock_data)
                     signals = generate_technical_signals(indicators)
 
-                    # Get fundamentals for the ticker
-                    fundamentals = self.db_loader.get_fundamentals(ticker)
-                    
-                    # ENHANCEMENT: Fetch fresh fundamentals if missing or P/E is None
-                    if not fundamentals or fundamentals.get('pe_ratio') is None:
-                        logger.info(f"Fetching fresh fundamentals for {ticker} (cached data missing/incomplete)")
-                        try:
-                            from data.stock_data import StockDataFetcher
-                            fresh_fetcher = StockDataFetcher()
-                            fresh_fundamentals = fresh_fetcher.get_fundamentals(ticker)
-                            if fresh_fundamentals and fresh_fundamentals.get('pe_ratio') is not None:
-                                fundamentals = fresh_fundamentals
-                                logger.info(f"✅ Fresh P/E for {ticker}: {fresh_fundamentals.get('pe_ratio')}")
-                            else:
-                                logger.warning(f"⚠️ No P/E data available for {ticker}")
-                        except Exception as e:
-                            logger.warning(f"Error fetching fresh fundamentals for {ticker}: {e}")
-                    
-                    # Set default fundamentals if still missing
-                    if not fundamentals:
-                        fundamentals = {
-                            'name': ticker,
-                            'pe_ratio': None,
-                            'profit_margin': None,
-                            'revenue_growth': None
-                        }
+                    # FIXED: Get fundamentals with proper P/E fetching
+                    fundamentals = self._get_fundamentals_with_pe(
+                        ticker, fresh_fetcher)
 
                     # Calculate fundamental analysis
                     fundamental_analysis = analyze_fundamentals(fundamentals or {})
@@ -335,7 +320,7 @@ class OptimizedBulkScanner:
                     fundamental_pass = fundamental_analysis['overall'].get(
                         'value_momentum_pass', False)
 
-                    # Generate signal
+                    # Generate Value & Momentum signal
                     if tech_score >= 70 and fundamental_pass:
                         value_momentum_signal = "BUY"
                     elif tech_score < 40 or not signals.get('above_ma40', False):
@@ -343,10 +328,13 @@ class OptimizedBulkScanner:
                     else:
                         value_momentum_signal = "HOLD"
 
-                    # ENHANCEMENT: Check if we have at least partial data
-                    has_fundamentals = fundamentals and 'pe_ratio' in fundamentals and fundamentals['pe_ratio'] is not None
-                    
-                    # Create result
+                    # Determine data status
+                    has_pe = fundamentals and fundamentals.get(
+                        'pe_ratio') is not None
+                    data_status = "complete" if has_pe else "partial"
+                    data_source = "database+api" if has_pe else "database"
+
+                    # Create comprehensive result
                     result = {
                         'ticker': ticker,
                         'name': fundamentals.get('name', ticker) if fundamentals else ticker,
@@ -363,14 +351,22 @@ class OptimizedBulkScanner:
                         'reasonable_pe': fundamental_analysis['overall'].get('reasonable_pe', True),
                         'fundamental_pass': fundamental_pass,
                         'value_momentum_signal': value_momentum_signal,
-                        'data_source': "database" if has_fundamentals else "partial",  # Mark partial data
-                        'data_status': "complete" if has_fundamentals else "partial"  # Mark data status
+                        'data_source': data_source,
+                        'data_status': data_status
                     }
 
                     results.append(result)
+
+                    # Log P/E success for debugging
+                    if fundamentals and fundamentals.get('pe_ratio'):
+                        logger.info(
+                            f"✅ P/E for {ticker}: {fundamentals.get('pe_ratio')}")
+                    else:
+                        logger.warning(f"❌ No P/E for {ticker}")
+
                 except Exception as e:
-                    # ENHANCEMENT: Include error result instead of just logging
-                    logger.warning(f"⚠️ Analysis failed for {ticker}: {e}")
+                    logger.error(f"⚠️ Analysis failed for {ticker}: {e}")
+                    # Include error result instead of skipping
                     results.append({
                         'ticker': ticker,
                         'name': ticker,
@@ -381,15 +377,55 @@ class OptimizedBulkScanner:
                         'above_ma4': False,
                         'data_source': "error",
                         'data_status': "error",
+                        'pe_ratio': None,
+                        'profit_margin': None,
+                        'revenue_growth': None,
                         'error': str(e)
                     })
 
                 processed_count += 1
 
-            # ENHANCEMENT: Always sort by tech score even with missing data
-            results.sort(key=lambda x: x.get('tech_score', 0), reverse=True)
-            
+        # Sort by tech score
+        results.sort(key=lambda x: x.get('tech_score', 0), reverse=True)
+
+        # Log P/E statistics for debugging
+        pe_count = sum(1 for r in results if r.get('pe_ratio') is not None)
+        logger.info(
+            f"📊 P/E STATISTICS: {pe_count}/{len(results)} stocks have P/E data ({pe_count/len(results)*100:.1f}%)")
+
         return results
+
+
+    def _get_fundamentals_with_pe(self, ticker, fresh_fetcher):
+        """FIXED: Get fundamentals with guaranteed P/E data fetching"""
+        # First try cached data
+        cached_fundamentals = self.db_loader.get_fundamentals(ticker)
+
+        # If cached data has P/E, use it
+        if cached_fundamentals and cached_fundamentals.get('pe_ratio') is not None:
+            logger.debug(
+                f"Using cached P/E for {ticker}: {cached_fundamentals.get('pe_ratio')}")
+            return cached_fundamentals
+
+        # If no P/E in cache, fetch fresh data
+        logger.info(f"🔄 Fetching fresh fundamentals for {ticker} (no cached P/E)")
+        try:
+            fresh_fundamentals = fresh_fetcher.get_fundamentals(ticker)
+            if fresh_fundamentals and fresh_fundamentals.get('pe_ratio') is not None:
+                logger.info(
+                    f"✅ Fresh P/E for {ticker}: {fresh_fundamentals.get('pe_ratio')}")
+
+                # Cache the fresh data for future use
+                from data.db_integration import cache_fundamentals
+                cache_fundamentals(ticker, fresh_fundamentals)
+
+                return fresh_fundamentals
+            else:
+                logger.warning(f"⚠️ Fresh fetch also has no P/E for {ticker}")
+                return fresh_fundamentals or cached_fundamentals or {}
+        except Exception as e:
+            logger.error(f"❌ Fresh fundamentals fetch failed for {ticker}: {e}")
+            return cached_fundamentals or {}
 
 class BulkAPIFetcher:
     """SPEED OPTIMIZED API fetcher with minimal delays"""
