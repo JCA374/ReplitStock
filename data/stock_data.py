@@ -294,11 +294,12 @@ class StockDataFetcher:
             # Calculate fundamental metrics with validation
             fundamentals = {}
 
-            # Valuation metrics - Try multiple sources for P/E ratio
-            fundamentals['pe_ratio'] = info.get('trailingPE')
-            if fundamentals['pe_ratio'] is None or not isinstance(fundamentals['pe_ratio'], (int, float)):
-                # Try forward P/E if trailing isn't available
-                fundamentals['pe_ratio'] = info.get('forwardPE')
+            # Valuation metrics - FIXED P/E extraction
+            pe_ratio = info.get('trailingPE') or info.get('forwardPE')
+            if pe_ratio is not None and isinstance(pe_ratio, (int, float)):
+                fundamentals['pe_ratio'] = float(pe_ratio)
+            else:
+                fundamentals['pe_ratio'] = None
 
             fundamentals['forward_pe'] = info.get('forwardPE') if isinstance(
                 info.get('forwardPE'), (int, float)) else None

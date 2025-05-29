@@ -298,7 +298,22 @@ class OptimizedBulkScanner:
                     # Get fundamentals for the ticker
                     fundamentals = self.db_loader.get_fundamentals(ticker)
                     
-                    # ENHANCEMENT: Set default fundamentals if missing
+                    # ENHANCEMENT: Fetch fresh fundamentals if missing or P/E is None
+                    if not fundamentals or fundamentals.get('pe_ratio') is None:
+                        logger.info(f"Fetching fresh fundamentals for {ticker} (cached data missing/incomplete)")
+                        try:
+                            from data.stock_data import StockDataFetcher
+                            fresh_fetcher = StockDataFetcher()
+                            fresh_fundamentals = fresh_fetcher.get_fundamentals(ticker)
+                            if fresh_fundamentals and fresh_fundamentals.get('pe_ratio') is not None:
+                                fundamentals = fresh_fundamentals
+                                logger.info(f"✅ Fresh P/E for {ticker}: {fresh_fundamentals.get('pe_ratio')}")
+                            else:
+                                logger.warning(f"⚠️ No P/E data available for {ticker}")
+                        except Exception as e:
+                            logger.warning(f"Error fetching fresh fundamentals for {ticker}: {e}")
+                    
+                    # Set default fundamentals if still missing
                     if not fundamentals:
                         fundamentals = {
                             'name': ticker,
