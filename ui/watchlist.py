@@ -140,7 +140,9 @@ def display_watchlist():
                     tickers = [s['ticker'] for s in stock_details]
                     st.session_state['batch_analysis_tickers'] = tickers
                     st.session_state['selected_page'] = 'Batch Analysis'
-                    st.success(f"Ready to analyze {len(tickers)} stocks. Go to Batch Analysis tab.")
+                    st.session_state['batch_analysis_mode'] = 'Selected Stocks'  # Add this line
+                    st.success(f"Ready to analyze {len(tickers)} stocks. Switch to Batch Analysis tab.")
+                    st.rerun()  # Add this to force navigation
             
             with col2:
                 # Export functionality
