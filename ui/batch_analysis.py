@@ -22,7 +22,6 @@ from data.stock_data import StockDataFetcher
 from helpers import create_results_table
 from utils.ticker_mapping import normalize_ticker
 from ui.performance_overview import display_performance_metrics
-from services.watchlist_manager import EnhancedWatchlistManager
 
 
 def check_and_restore_results():
@@ -503,7 +502,7 @@ def display_batch_analysis():
 
     analysis_mode = st.sidebar.radio(
         "Analysis Mode:",
-        ["All Watchlist Stocks", "All Small Cap",
+        ["All Watchlist Stocks", "Selected Watchlist", "All Small Cap",
             "All Mid Cap", "All Large Cap", "Selected Stocks"],
         key="batch_analysis_mode"
     )
@@ -518,6 +517,31 @@ def display_batch_analysis():
             selected_tickers = watchlist_tickers
             st.success(
                 f"Ready to analyze all {len(selected_tickers)} stocks in your watchlist")
+
+    elif analysis_mode == "Selected Watchlist":
+        # Get all watchlists
+        if 'watchlist_manager' not in st.session_state:
+            from services.watchlist_manager import SimpleWatchlistManager
+            st.session_state.watchlist_manager = SimpleWatchlistManager()
+        
+        manager = st.session_state.watchlist_manager
+        watchlists = manager.get_all_watchlists()
+        
+        if watchlists:
+            selected_wl = st.sidebar.selectbox(
+                "Select Watchlist",
+                options=watchlists,
+                format_func=lambda x: x['name'],
+                key="batch_watchlist_select"
+            )
+            
+            if selected_wl:
+                tickers = manager.get_watchlist_stocks(selected_wl['id'])
+                selected_tickers = tickers
+                st.success(f"Ready to analyze {len(tickers)} stocks from '{selected_wl['name']}'")
+        else:
+            st.warning("No watchlists available")
+            selected_tickers = []
 
     elif analysis_mode == "All Small Cap":
         try:

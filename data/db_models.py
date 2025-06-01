@@ -130,3 +130,30 @@ class WatchlistAlert(Base):
     
     def __repr__(self):
         return f"<WatchlistAlert(ticker='{self.ticker}', type='{self.alert_type}', threshold={self.threshold})>"
+
+class WatchlistCollection(Base):
+    __tablename__ = 'watchlist_collections'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), unique=True)
+    description = Column(String(200))
+    created_date = Column(String(20))
+    is_default = Column(Boolean, default=False)
+    
+    def __repr__(self):
+        return f"<WatchlistCollection(name='{self.name}')>"
+
+class WatchlistMembership(Base):
+    __tablename__ = 'watchlist_memberships'
+    
+    id = Column(Integer, primary_key=True)
+    collection_id = Column(Integer)
+    ticker = Column(String(20))
+    added_date = Column(String(20))
+    
+    __table_args__ = (
+        UniqueConstraint('collection_id', 'ticker', name='unique_collection_ticker'),
+    )
+    
+    def __repr__(self):
+        return f"<WatchlistMembership(collection_id={self.collection_id}, ticker='{self.ticker}')>"

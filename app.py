@@ -17,11 +17,9 @@ from ui.batch_analysis import display_batch_analysis
 from ui.company_explorer import display_company_explorer
 from ui.database_viewer import display_database_viewer
 from ui.watchlist import display_watchlist
-from ui.watchlist_enhanced import display_enhanced_watchlist
 
 # Analysis components and services
 from services.company_explorer import CompanyExplorer
-from services.watchlist_manager import WatchlistManager
 from tabs.analysis_tab import render_analysis_tab
 from ui.enhanced_scanner import render_enhanced_scanner_ui
 from ui.enhanced_scanner import render_enhanced_scanner_ui
@@ -131,14 +129,14 @@ def main():
             st.session_state.strategy = ValueMomentumStrategy()
 
         if 'watchlist_manager' not in st.session_state:
-            # Create a database storage object to pass to the watchlist manager
-            st.session_state.db_storage = create_db_storage()
-            st.session_state.watchlist_manager = WatchlistManager()
+            from services.watchlist_manager import SimpleWatchlistManager
+            st.session_state.watchlist_manager = SimpleWatchlistManager()
 
         # Initialize company explorer in session state
         if 'company_explorer' not in st.session_state:
-            st.session_state.company_explorer = CompanyExplorer(
-                st.session_state.db_storage)
+            # Create a database storage object for company explorer
+            db_storage = create_db_storage()
+            st.session_state.company_explorer = CompanyExplorer(db_storage)
 
         # Initialize show_watchlist_manager if not present
         if 'show_watchlist_manager' not in st.session_state:
@@ -151,7 +149,7 @@ def main():
         # Main pages
         page = st.sidebar.radio(
             "Select a page:",
-            ["Single Stock Analysis", "Batch Analysis", "Watchlist", "Enhanced Watchlist"]
+            ["Single Stock Analysis", "Batch Analysis", "Watchlist"]
         )
 
         # Store the selected page in session state if needed
@@ -177,7 +175,6 @@ def main():
             'batch_analysis_tickers',
             'strategy',
             'watchlist_manager',
-            'db_storage',
             'company_explorer'
         ]
 
@@ -189,8 +186,6 @@ def main():
             render_enhanced_scanner_ui()
         elif page == "Watchlist":
             display_watchlist()
-        elif page == "Enhanced Watchlist":
-            display_enhanced_watchlist()
         elif page == "Company Explorer":
             display_company_explorer()
         elif page == "Database Viewer":
