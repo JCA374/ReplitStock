@@ -143,52 +143,32 @@ def main():
             st.session_state.show_watchlist_manager = False
 
 
-        # Sidebar for navigation
-        st.sidebar.title("Navigation")
+        # Main navigation tabs at the top of the page
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+            "📊 Single Stock", 
+            "📈 Batch Analysis", 
+            "📋 Watchlist",
+            "🔍 Stock Explorer",
+            "🚀 Scanner",
+            "🗄️ Database"
+        ])
 
-        # Main pages
-        page = st.sidebar.radio(
-            "Select a page:",
-            ["Single Stock Analysis", "Batch Analysis", "Watchlist"]
-        )
-
-        # Store the selected page in session state if needed
-        if 'selected_page' not in st.session_state:
-            st.session_state.selected_page = page
-        else:
-            st.session_state.selected_page = page
-
-        # Batch Analysis Settings - only show when Batch Analysis is selected
-        if page == "Batch Analysis":
-            st.sidebar.markdown("---")
-            st.sidebar.subheader("Batch Analysis Settings")
-            # The batch analysis settings will be handled within the display_batch_analysis() function
-            # This is just a placeholder to show where they appear in the sidebar
-
-        # Display the selected page
-        page = st.session_state.get('selected_page', page)
-
-        # Preserve critical session state across page changes
-        preserve_session_keys = [
-            'batch_analysis_results', 
-            'batch_analysis_timestamp', 
-            'batch_analysis_tickers',
-            'strategy',
-            'watchlist_manager',
-            'company_explorer'
-        ]
-
-        if page == "Single Stock Analysis":
+        with tab1:
             render_analysis_tab()
-        elif page == "Batch Analysis":
+            
+        with tab2:
             display_batch_analysis()
-        elif page == "Enhanced Stock Scanner":
-            render_enhanced_scanner_ui()
-        elif page == "Watchlist":
+            
+        with tab3:
             display_watchlist()
-        elif page == "Company Explorer":
+            
+        with tab4:
             display_company_explorer()
-        elif page == "Database Viewer":
+            
+        with tab5:
+            render_enhanced_scanner_ui()
+            
+        with tab6:
             display_database_viewer()
 
         # Footer with database status - HIDDEN
@@ -203,15 +183,29 @@ def main():
         #             st.error(
         #                 "Database connection failed. Check your configuration.")
 
-        # Development section at the bottom with expander
+        # Simplified sidebar
+        st.sidebar.title("📈 Stock Analyzer")
         st.sidebar.markdown("---")
-        with st.sidebar.expander("Development", expanded=False):
-            dev_pages = ["Enhanced Stock Scanner", "Company Explorer",
-                         "Database Viewer"]
-            for dev_page in dev_pages:
-                if st.button(dev_page, key=f"dev_{dev_page}", use_container_width=True):
-                    page = dev_page
-                    st.session_state.selected_page = dev_page
+
+        # Quick actions
+        st.sidebar.subheader("Quick Actions")
+        if st.sidebar.button("🔄 Refresh Data", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+
+        # Help section
+        with st.sidebar.expander("ℹ️ Help"):
+            st.markdown("""
+            - **Single Stock**: Analyze individual stocks
+            - **Batch Analysis**: Analyze multiple stocks
+            - **Watchlist**: Manage your stock lists
+            - **Explorer**: Search for stocks
+            - **Scanner**: Find stocks by criteria
+            """)
+
+        # Footer
+        st.sidebar.markdown("---")
+        st.sidebar.caption(f"v1.0 | DB: {connection_type}")
 
     except Exception as e:
         st.error(f"Application error: {e}")

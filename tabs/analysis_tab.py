@@ -29,40 +29,86 @@ def render_analysis_tab():
         with st.spinner(f"Analyserar {ticker_to_analyze}..."):
             analyze_and_display_stock(ticker_to_analyze, strategy, watchlist_manager)
     else:
-        # No analysis in progress, show instructions
-        st.info("Använd sidofältet till vänster för att analysera en aktie.")
-        
-        # Add manual ticker input - FIXED VERSION
-        st.subheader("Manuell analys av aktie")
-        
-        # Create a form to handle manual input properly
-        with st.form("manual_ticker_form"):
-            manual_ticker = st.text_input(
-                "Ange aktiesymbol (t.ex. AAPL, VOLV-B.ST):", 
-                placeholder="Ticker",
-                key="manual_ticker_input"
-            )
-            
-            # Form submit button
-            submitted = st.form_submit_button("Analysera", type="primary")
-            
-            if submitted and manual_ticker:
-                # Store the ticker in session state and trigger analysis
-                st.session_state.manual_analyze_ticker = manual_ticker.strip().upper()
-                st.rerun()
-            elif submitted and not manual_ticker:
-                st.warning("Ange en aktiesymbol för att analysera.")
-        
-        st.divider()
-
-        # Option to select from watchlist
-        col1, col2 = st.columns([3, 1])
+        # Create two columns for better organization
+        col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.subheader("Eller välj en aktie från din watchlist")
+            st.header("Single Stock Analysis")
+            
+            # Quick analysis box
+            with st.container():
+                st.subheader("🔍 Quick Analysis")
+                
+                # Tabs for different input methods
+                input_tab1, input_tab2 = st.tabs(["📝 Manual Entry", "📋 From Watchlist"])
+                
+                with input_tab1:
+                    # Manual ticker form
+                    with st.form("manual_ticker_form"):
+                        manual_ticker = st.text_input(
+                            "Ange aktiesymbol (t.ex. AAPL, VOLV-B.ST):", 
+                            placeholder="Ticker",
+                            key="manual_ticker_input"
+                        )
+                        
+                        # Form submit button
+                        submitted = st.form_submit_button("Analysera", type="primary")
+                        
+                        if submitted and manual_ticker:
+                            # Store the ticker in session state and trigger analysis
+                            st.session_state.manual_analyze_ticker = manual_ticker.strip().upper()
+                            st.rerun()
+                        elif submitted and not manual_ticker:
+                            st.warning("Ange en aktiesymbol för att analysera.")
+                
+                with input_tab2:
+                    # Watchlist selection goes here (moved from below)
+                    # Get all stocks from all watchlists
+                    all_watchlists = watchlist_manager.get_all_watchlists()
+                    
+                    # Handle the case where there might be no watchlists
+                    if not all_watchlists:
+                        st.warning("Inga watchlists hittades. Skapa en watchlist för att fortsätta.")
+                    else:
+                        # First select which watchlist to use
+                        watchlist_names = [w["name"] for w in all_watchlists]
+                        selected_watchlist_index = st.selectbox(
+                            "Välj watchlist:",
+                            range(len(watchlist_names)), 
+                            format_func=lambda i: watchlist_names[i],
+                            key="analysis_watchlist_select"
+                        )
+                        
+                        # Get stocks from selected watchlist
+                        selected_watchlist = all_watchlists[selected_watchlist_index]
+                        # Use the manager to get stocks for this watchlist
+                        watchlist_id = selected_watchlist["id"]
+                        stocks_in_watchlist = watchlist_manager.get_watchlist_stocks(watchlist_id)
+                        
+                        if stocks_in_watchlist:
+                            # Format selection options
+                            selected_option = st.selectbox(
+                                "Välj aktie",
+                                options=[""] + stocks_in_watchlist,
+                                key="watchlist_stock_select"
+                            )
+
+                            if selected_option:
+                                # The selected option is directly the ticker
+                                selected_ticker = selected_option
+
+                                if st.button("Analysera vald aktie", key="analyze_watchlist_stock"):
+                                    # Use the same session state mechanism as manual input
+                                    st.session_state.manual_analyze_ticker = selected_ticker
+                                    st.rerun()
+                        else:
+                            st.warning("Din watchlist är tom. Lägg till aktier för att kunna välja från listan.")
         
         with col2:
-            if st.button("✏️ Hantera Watchlists", key="manage_watchlists_button"):
+            # Watchlist management and recent analyses
+            st.subheader("📊 Quick Actions")
+            
+            if st.button("✏️ Hantera Watchlists", key="manage_watchlists_button", use_container_width=True):
                 st.session_state.show_watchlist_manager = True
         
         # Show watchlist manager if requested
@@ -174,49 +220,6 @@ def render_analysis_tab():
                 if st.button("Stäng", key="close_watchlist_manager"):
                     st.session_state.show_watchlist_manager = False
                     st.rerun()
-        
-        # Get all stocks from all watchlists
-        all_watchlists = watchlist_manager.get_all_watchlists()
-        
-        # Handle the case where there might be no watchlists
-        if not all_watchlists:
-            st.warning("Inga watchlists hittades. Skapa en watchlist för att fortsätta.")
-            return
-            
-        # First select which watchlist to use
-        watchlist_names = [w["name"] for w in all_watchlists]
-        selected_watchlist_index = st.selectbox(
-            "Välj watchlist:",
-            range(len(watchlist_names)), 
-            format_func=lambda i: watchlist_names[i],
-            key="analysis_watchlist_select"
-        )
-        
-        # Get stocks from selected watchlist
-        selected_watchlist = all_watchlists[selected_watchlist_index]
-        # Use the manager to get stocks for this watchlist
-        watchlist_id = selected_watchlist["id"]
-        stocks_in_watchlist = watchlist_manager.get_watchlist_stocks(watchlist_id)
-        
-        if stocks_in_watchlist:
-            # Format selection options
-            selected_option = st.selectbox(
-                "Välj aktie",
-                options=[""] + stocks_in_watchlist,
-                key="watchlist_stock_select"
-            )
-
-            if selected_option:
-                # The selected option is directly the ticker
-                selected_ticker = selected_option
-
-                if st.button("Analysera vald aktie", key="analyze_watchlist_stock"):
-                    # Use the same session state mechanism as manual input
-                    st.session_state.manual_analyze_ticker = selected_ticker
-                    st.rerun()
-        else:
-            st.warning(
-                "Din watchlist är tom. Lägg till aktier för att kunna välja från listan.")
 
 
 def analyze_and_display_stock(ticker, strategy, watchlist_manager):

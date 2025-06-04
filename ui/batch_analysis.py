@@ -512,15 +512,23 @@ def display_batch_analysis():
     watchlist_tickers = [item['ticker']
                          for item in watchlist] if watchlist else []
 
-    # Input methods for batch analysis
-    st.sidebar.header("Batch Analysis Settings")
-
-    analysis_mode = st.sidebar.radio(
-        "Analysis Mode:",
-        ["All Watchlist Stocks", "Selected Watchlist", "All Small Cap",
-            "All Mid Cap", "All Large Cap", "Selected Stocks"],
-        key="batch_analysis_mode"
-    )
+    # Settings in main content area
+    st.header("Batch Analysis")
+    st.write("Analyze multiple stocks at once using database cache first, then API fallback.")
+    
+    with st.expander("⚙️ Analysis Settings", expanded=True):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            analysis_mode = st.radio(
+                "Analysis Mode:",
+                ["All Watchlist Stocks", "Selected Watchlist", "All Small Cap",
+                 "All Mid Cap", "All Large Cap", "Selected Stocks"],
+                key="batch_analysis_mode"
+            )
+        
+        with col2:
+            st.info("📊 Data Priority: Cache → Alpha Vantage → Yahoo Finance")
 
     selected_tickers = []
 
@@ -543,7 +551,7 @@ def display_batch_analysis():
         watchlists = manager.get_all_watchlists()
         
         if watchlists:
-            selected_wl = st.sidebar.selectbox(
+            selected_wl = st.selectbox(
                 "Select Watchlist",
                 options=watchlists,
                 format_func=lambda x: x['name'],
