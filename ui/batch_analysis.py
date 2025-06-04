@@ -403,7 +403,12 @@ def render_results_with_watchlist_icons(filtered_df):
                         st.error("❌ No ticker found for this stock")
 
             with col_ticker:
-                st.write(f"**{row.get('Ticker', 'N/A')}**")
+                ticker = row.get('Ticker', 'N/A')
+                if ticker != 'N/A':
+                    yahoo_url = f"https://finance.yahoo.com/quote/{ticker}"
+                    st.markdown(f"**[{ticker}]({yahoo_url})**")
+                else:
+                    st.write("**N/A**")
 
             with col_name:
                 st.write(row.get('Namn', 'N/A'))
@@ -877,7 +882,13 @@ def display_batch_analysis():
                         # Show traditional table view if requested
                         if show_traditional:
                             st.subheader("📊 Traditional Table View")
-                            st.dataframe(filtered_df, use_container_width=True, hide_index=True)
+                            # Create a copy with clickable ticker links
+                            display_df = filtered_df.copy()
+                            if 'Ticker' in display_df.columns:
+                                display_df['Ticker'] = display_df['Ticker'].apply(
+                                    lambda ticker: f"[{ticker}](https://finance.yahoo.com/quote/{ticker})" if ticker != 'N/A' else 'N/A'
+                                )
+                            st.dataframe(display_df, use_container_width=True, hide_index=True)
 
                 except Exception as e:
                     st.error(f"Error displaying results: {e}")
