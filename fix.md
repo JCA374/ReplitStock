@@ -1,477 +1,331 @@
-Looking at your code, I can see the issue. The single stock analysis tab works for stocks selected from watchlist, but the manual ticker input functionality is broken. Let me analyze the problem and provide a fix.
+After reviewing your code thoroughly, I can see you have a sophisticated stock analysis application with multiple components. Here's my analysis and improvement plan:
 
-## Problem Analysis
+## Current State Analysis
 
-In `tabs/analysis_tab.py`, the manual ticker analysis is broken because:
+Your app has:
+1. **Navigation**: Sidebar-based with 3 main pages (Single Stock, Batch Analysis, Watchlist)
+2. **Development Section**: Hidden in an expander with additional tools
+3. **Database Status**: Shows in sidebar
+4. **Batch Analysis Settings**: Appear in sidebar when on that page
+5. **Complex session state management**: For preserving data between page changes
 
-1. The manual ticker input doesn't properly trigger the analysis
-2. The session state management for `analyze_ticker` isn't working correctly for manual input
-3. The manual input uses a different flow than the watchlist selection
+## Issues I've Identified:
 
-## The Fix
+1. **Navigation Confusion**: Important features like Enhanced Scanner and Company Explorer are hidden in "Development" section
+2. **Sidebar Overload**: Too much functionality in the sidebar makes it cluttered
+3. **Context Switching**: Users need to constantly look between sidebar and main content
+4. **Hidden Features**: Valuable tools are not discoverable
 
-Here's the corrected code for `tabs/analysis_tab.py`:
+## Improvement Plan
 
+Here's a detailed markdown file for the UI improvements:
+
+```markdown
+# Stock Analysis App - UI Improvement Plan
+
+## Goal
+Improve usability by reorganizing the interface to be more intuitive and less cluttered, while maintaining all existing functionality.
+
+## Phase 1: Navigation Restructure
+
+### 1.1 Replace Sidebar Navigation with Tab-Based Navigation
+**Current Code to Remove** (app.py, lines ~122-134):
 ```python
-import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
+# Sidebar for navigation
+st.sidebar.title("Navigation")
 
+# Main pages
+page = st.sidebar.radio(
+    "Select a page:",
+    ["Single Stock Analysis", "Batch Analysis", "Watchlist"]
+)
+```
 
-def render_analysis_tab():
-    """Render the individual stock analysis tab"""
-    # Access shared objects from session state
-    strategy = st.session_state.strategy
-    watchlist_manager = st.session_state.watchlist_manager
+**Replace With**:
+```python
+# Main navigation tabs at the top of the page
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "📊 Single Stock", 
+    "📈 Batch Analysis", 
+    "📋 Watchlist",
+    "🔍 Stock Explorer",
+    "🚀 Scanner",
+    "🗄️ Database"
+])
 
-    # Check if we should analyze a ticker (triggered from sidebar OR manual input)
-    ticker_to_analyze = None
+with tab1:
+    render_analysis_tab()
     
-    # Priority 1: Check for sidebar trigger
-    if 'analyze_ticker' in st.session_state:
-        ticker_to_analyze = st.session_state.analyze_ticker
-        # Clear the trigger so it doesn't re-analyze on every rerun
-        del st.session_state.analyze_ticker
+with tab2:
+    display_batch_analysis()
     
-    # Priority 2: Check for manual input trigger
-    elif 'manual_analyze_ticker' in st.session_state:
-        ticker_to_analyze = st.session_state.manual_analyze_ticker
-        # Clear the trigger
-        del st.session_state.manual_analyze_ticker
+with tab3:
+    display_watchlist()
+    
+with tab4:
+    display_company_explorer()
+    
+with tab5:
+    render_enhanced_scanner_ui()
+    
+with tab6:
+    display_database_viewer()
+```
 
-    if ticker_to_analyze:
-        # Run the analysis
-        with st.spinner(f"Analyserar {ticker_to_analyze}..."):
-            analyze_and_display_stock(ticker_to_analyze, strategy, watchlist_manager)
+### 1.2 Remove Development Section
+**Remove** (app.py, lines ~213-223):
+```python
+# Development section at the bottom with expander
+st.sidebar.markdown("---")
+with st.sidebar.expander("Development", expanded=False):
+    dev_pages = ["Enhanced Stock Scanner", "Company Explorer",
+                 "Database Viewer"]
+    for dev_page in dev_pages:
+        if st.button(dev_page, key=f"dev_{dev_page}", use_container_width=True):
+            page = dev_page
+            st.session_state.selected_page = dev_page
+```
+
+## Phase 2: Sidebar Simplification
+
+### 2.1 Move Database Status to Header
+**Current Code to Remove** (app.py, display_database_status function):
+Remove the entire `display_database_status()` function and its call.
+
+**Add to Header Section** (after line ~96):
+```python
+# Header section with status indicator
+col1, col2, col3 = st.columns([3, 1, 1])
+with col1:
+    st.title("Stock Analysis Tool")
+    st.markdown("Analyze stocks using both fundamental (value) and technical (momentum) factors.")
+
+with col2:
+    if connection_type == "postgresql":
+        st.success("✅ Supabase Connected")
     else:
-        # No analysis in progress, show instructions
-        st.info("Använd sidofältet till vänster för att analysera en aktie.")
-        
-        # Add manual ticker input - FIXED VERSION
-        st.subheader("Manuell analys av aktie")
-        
-        # Create a form to handle manual input properly
-        with st.form("manual_ticker_form"):
-            manual_ticker = st.text_input(
-                "Ange aktiesymbol (t.ex. AAPL, VOLV-B.ST):", 
-                placeholder="Ticker",
-                key="manual_ticker_input"
-            )
-            
-            # Form submit button
-            submitted = st.form_submit_button("Analysera", type="primary")
-            
-            if submitted and manual_ticker:
-                # Store the ticker in session state and trigger analysis
-                st.session_state.manual_analyze_ticker = manual_ticker.strip().upper()
-                st.rerun()
-            elif submitted and not manual_ticker:
-                st.warning("Ange en aktiesymbol för att analysera.")
-        
-        st.divider()
+        st.info("💾 Local Database")
 
-        # Option to select from watchlist
-        col1, col2 = st.columns([3, 1])
+with col3:
+    # Quick stats
+    watchlist_count = len(get_watchlist())
+    st.metric("Watchlist", watchlist_count)
+```
+
+### 2.2 Keep Only Essential Items in Sidebar
+The sidebar should only contain:
+- App logo/branding
+- User settings (if any)
+- Help/Documentation links
+- Version info
+
+**New Sidebar Content**:
+```python
+# Simplified sidebar
+st.sidebar.title("📈 Stock Analyzer")
+st.sidebar.markdown("---")
+
+# Quick actions
+st.sidebar.subheader("Quick Actions")
+if st.sidebar.button("🔄 Refresh Data", use_container_width=True):
+    st.cache_data.clear()
+    st.rerun()
+
+# Help section
+with st.sidebar.expander("ℹ️ Help"):
+    st.markdown("""
+    - **Single Stock**: Analyze individual stocks
+    - **Batch Analysis**: Analyze multiple stocks
+    - **Watchlist**: Manage your stock lists
+    - **Explorer**: Search for stocks
+    - **Scanner**: Find stocks by criteria
+    """)
+
+# Footer
+st.sidebar.markdown("---")
+st.sidebar.caption(f"v1.0 | DB: {connection_type}")
+```
+
+## Phase 3: Tab-Specific Improvements
+
+### 3.1 Batch Analysis Tab
+**Move settings from sidebar to main content**:
+
+In `ui/batch_analysis.py`, replace the sidebar settings section with:
+```python
+def display_batch_analysis():
+    st.header("Batch Analysis")
+    st.write("Analyze multiple stocks at once using database cache first, then API fallback.")
+    
+    # Settings in main content area
+    with st.expander("⚙️ Analysis Settings", expanded=True):
+        col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("Eller välj en aktie från din watchlist")
+            analysis_mode = st.radio(
+                "Analysis Mode:",
+                ["All Watchlist Stocks", "Selected Watchlist", "All Small Cap",
+                 "All Mid Cap", "All Large Cap", "Selected Stocks"],
+                key="batch_analysis_mode"
+            )
         
         with col2:
-            if st.button("✏️ Hantera Watchlists", key="manage_watchlists_button"):
-                st.session_state.show_watchlist_manager = True
+            # Additional settings here
+            st.info("📊 Data Priority: Cache → Alpha Vantage → Yahoo Finance")
+```
+
+### 3.2 Single Stock Analysis Tab
+**Improve layout** in `tabs/analysis_tab.py`:
+```python
+def render_analysis_tab():
+    # Create two columns for better organization
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.header("Single Stock Analysis")
         
-        # Show watchlist manager if requested
-        if st.session_state.get('show_watchlist_manager', False):
-            with st.expander("Watchlist Manager", expanded=True):
-                # Create a new watchlist
-                new_watchlist_name = st.text_input("Skapa ny watchlist:", key="new_watchlist_name")
-                if st.button("Skapa Watchlist", key="create_watchlist_button"):
-                    if new_watchlist_name:
-                        if watchlist_manager.add_watchlist(new_watchlist_name):
-                            st.success(f"Watchlist '{new_watchlist_name}' skapad!")
-                            st.session_state.new_watchlist_name = ""  # Clear input
-                        else:
-                            st.error(f"Watchlist '{new_watchlist_name}' finns redan!")
-                    else:
-                        st.warning("Ange ett namn för watchlisten!")
-                
-                # Delete a watchlist
-                all_wl = watchlist_manager.get_all_watchlists()
-                wl_names = [w["name"] for w in all_wl]
-                
-                if len(wl_names) > 1:  # Don't allow deleting if only one watchlist
-                    st.divider()
-                    del_col1, del_col2 = st.columns([3, 1])
-                    
-                    with del_col1:
-                        delete_index = st.selectbox(
-                            "Välj watchlist att ta bort:",
-                            range(len(wl_names)),
-                            format_func=lambda i: wl_names[i],
-                            key="delete_watchlist_select"
-                        )
-                    
-                    with del_col2:
-                        if st.button("Ta bort", key="delete_watchlist_button"):
-                            if delete_index > 0:  # Don't delete the first (primary) watchlist
-                                if watchlist_manager.delete_watchlist(delete_index):
-                                    st.success(f"Watchlist '{wl_names[delete_index]}' borttagen!")
-                                else:
-                                    st.error("Kunde inte ta bort watchlisten!")
-                            else:
-                                st.error("Kan inte ta bort huvudwatchlisten!")
-                
-                # Add stocks to watchlists
-                st.divider()
-                st.subheader("Lägg till aktier i watchlist")
-                
-                # Select target watchlist
-                target_wl_index = st.selectbox(
-                    "Välj målwatchlist:",
-                    range(len(wl_names)),
-                    format_func=lambda i: wl_names[i],
-                    key="target_watchlist_select"
-                )
-                
-                # Add stock form
-                add_col1, add_col2 = st.columns([3, 1])
-                
-                with add_col1:
-                    add_ticker = st.text_input("Lägg till aktie (ticker):", 
-                                         placeholder="ex. AAPL, VOLV-B.ST", 
-                                         key="add_ticker_input")
-                
-                with add_col2:
-                    if st.button("Lägg till", key="add_stock_button"):
-                        if add_ticker:
-                            if watchlist_manager.add_stock_to_watchlist(target_wl_index, add_ticker):
-                                st.success(f"Lade till {add_ticker} i {wl_names[target_wl_index]}!")
-                            else:
-                                st.error(f"Kunde inte lägga till {add_ticker} (finns den redan?)")
-                        else:
-                            st.warning("Ange en ticker att lägga till!")
-                
-                # Remove stock from watchlist
-                st.divider()
-                st.subheader("Ta bort aktier från watchlist")
-                
-                # Select watchlist to remove from
-                remove_wl_index = st.selectbox(
-                    "Välj watchlist:",
-                    range(len(wl_names)),
-                    format_func=lambda i: wl_names[i],
-                    key="remove_wl_select"
-                )
-                
-                # Get stocks in the selected watchlist
-                remove_wl = watchlist_manager.get_all_watchlists()[remove_wl_index]
-                stocks_in_wl = remove_wl["stocks"]
-                
-                if stocks_in_wl:
-                    # Show dropdown of stocks to remove
-                    remove_ticker_index = st.selectbox(
-                        "Välj aktie att ta bort:",
-                        range(len(stocks_in_wl)),
-                        format_func=lambda i: stocks_in_wl[i],
-                        key="remove_ticker_select"
-                    )
-                    
-                    if st.button("Ta bort aktie", key="remove_stock_button"):
-                        ticker_to_remove = stocks_in_wl[remove_ticker_index]
-                        if watchlist_manager.remove_stock_from_watchlist(remove_wl_index, ticker_to_remove):
-                            st.success(f"Tog bort {ticker_to_remove} från {wl_names[remove_wl_index]}!")
-                        else:
-                            st.error(f"Kunde inte ta bort {ticker_to_remove}!")
-                else:
-                    st.info(f"Ingen aktie i watchlisten {wl_names[remove_wl_index]}.")
-                
-                # Close watchlist manager
-                if st.button("Stäng", key="close_watchlist_manager"):
-                    st.session_state.show_watchlist_manager = False
-                    st.rerun()
-        
-        # Get all stocks from all watchlists
-        all_watchlists = watchlist_manager.get_all_watchlists()
-        
-        # Handle the case where there might be no watchlists
-        if not all_watchlists:
-            st.warning("Inga watchlists hittades. Skapa en watchlist för att fortsätta.")
-            return
+        # Quick analysis box
+        with st.container():
+            st.subheader("🔍 Quick Analysis")
             
-        # First select which watchlist to use
-        watchlist_names = [w["name"] for w in all_watchlists]
-        selected_watchlist_index = st.selectbox(
-            "Välj watchlist:",
-            range(len(watchlist_names)), 
-            format_func=lambda i: watchlist_names[i],
-            key="analysis_watchlist_select"
+            # Tabs for different input methods
+            input_tab1, input_tab2 = st.tabs(["📝 Manual Entry", "📋 From Watchlist"])
+            
+            with input_tab1:
+                # Manual ticker form
+                ...
+            
+            with input_tab2:
+                # Watchlist selection
+                ...
+    
+    with col2:
+        # Recent analyses or quick stats
+        st.subheader("📊 Recent Analyses")
+        # Show last 5 analyzed stocks from session state
+```
+
+### 3.3 Enhanced Scanner Tab
+**Make controls more accessible**:
+```python
+def render_enhanced_scanner_ui():
+    st.header("📊 Enhanced Stock Scanner")
+    
+    # Main controls at top, not in sidebar
+    col1, col2, col3 = st.columns([2, 1, 1])
+    
+    with col1:
+        selected_universe = st.selectbox(
+            "🌍 Stock Universe",
+            ["OMXS30", "S&P 500 Top 30", "Watchlist", "All Database Stocks"],
+            help="Choose which set of stocks to scan"
         )
-        
-        # Get stocks from selected watchlist
-        selected_watchlist = all_watchlists[selected_watchlist_index]
-        stocks_in_watchlist = selected_watchlist["stocks"]
-        
-        if stocks_in_watchlist:
-            # Format selection options
-            selected_option = st.selectbox(
-                "Välj aktie",
-                options=[""] + stocks_in_watchlist,
-                key="watchlist_stock_select"
-            )
-
-            if selected_option:
-                # The selected option is directly the ticker
-                selected_ticker = selected_option
-
-                if st.button("Analysera vald aktie", key="analyze_watchlist_stock"):
-                    # Use the same session state mechanism as manual input
-                    st.session_state.manual_analyze_ticker = selected_ticker
-                    st.rerun()
-        else:
-            st.warning(
-                "Din watchlist är tom. Lägg till aktier för att kunna välja från listan.")
-
-
-def analyze_and_display_stock(ticker, strategy, watchlist_manager):
-    """Analyze a stock and display the results"""
-    analysis = strategy.analyze_stock(ticker)
-
-    if "error" in analysis and analysis["error"] is not None:
-        st.error(f"Fel: {analysis['error']}")
-        return
-
-    # Display analysis results
-    render_analysis_results(analysis, strategy, watchlist_manager)
-
-
-def render_analysis_results(analysis, strategy, watchlist_manager):
-    """Render the analysis results for a single stock"""
-    # Visa sammanfattning
-    signal_color = "green" if analysis["buy_signal"] else "red" if analysis["sell_signal"] else "orange"
-    signal_text = "KÖP" if analysis["buy_signal"] else "SÄLJ" if analysis["sell_signal"] else "HÅLL"
-
-    st.header(f"{analysis['name']} ({analysis['ticker']})")
-    st.subheader(f"Pris: {analysis['price']:.2f} SEK")
-
-    st.markdown(
-        f"<h3 style='color:{signal_color}'>Signal: {signal_text}</h3>", unsafe_allow_html=True)
-
-    # Add a data source indicator
-    source = analysis.get("data_source", "unknown")
-    source_display = {
-        "yahoo": "Yahoo Finance",
-        "alphavantage": "Alpha Vantage",
-        "local": "Local Cache",
-        "unknown": "Unknown Source"
-    }.get(source, source)
-
-    source_color = {
-        "yahoo": "#0077b6",  # Blue for Yahoo
-        "alphavantage": "#ff9e00",  # Orange for Alpha Vantage
-        "local": "#2e8b57",  # Green for local cache
-        "unknown": "#6c757d"  # Gray for unknown
-    }.get(source, "#6c757d")
-
-    st.markdown(
-        f"<div style='margin-bottom:15px;'><span style='background-color:{source_color}; color:white; padding:3px 8px; border-radius:10px; font-size:0.8em'>Data source: {source_display}</span></div>",
-        unsafe_allow_html=True
-    )
-
-    # Show watchlist options - updated to allow adding to any watchlist
-    st.subheader("Lägg till i watchlist")
-
-    # Create a radio button to select which watchlist to add to
-    all_watchlists = watchlist_manager.get_all_watchlists()
-    watchlist_names = [w["name"] for w in all_watchlists]
-
-    target_watchlist = st.radio(
-        "Välj watchlist",
-        options=range(len(watchlist_names)),
-        format_func=lambda i: watchlist_names[i],
-        horizontal=True,
-        key="analysis_target_watchlist"
-    )
-
-    # Check if the stock already exists in the selected watchlist
-    selected_watchlist = all_watchlists[target_watchlist]
-    already_in_watchlist = analysis["ticker"] in selected_watchlist["stocks"]
-
-    if already_in_watchlist:
-        st.info(
-            f"{analysis['ticker']} finns redan i {selected_watchlist['name']}")
-    else:
-        if st.button("Lägg till i watchlist", key="add_to_watchlist_from_analysis"):
-            if watchlist_manager.add_stock_to_watchlist(target_watchlist, analysis["ticker"]):
-                st.success(
-                    f"Lade till {analysis['ticker']} i {watchlist_names[target_watchlist]}")
-                st.rerun()
-            else:
-                st.error("Kunde inte lägga till aktien")
-
-    # Skapa flikar för detaljer
-    tab2_1, tab2_2, tab2_3 = st.tabs(
-        ["Översikt", "Fundamenta", "Teknisk Analys"])
-
-    with tab2_1:
-        # Visa diagram
-        fig = strategy.plot_analysis(analysis)
-        if fig:
-            st.pyplot(fig)
-
-        # Visa kort sammanfattning
-        st.subheader("Sammanfattning")
-        st.write(f"Datum för analys: {analysis['date']}")
-        st.write(
-            "Fundamentala kriterier uppfyllda" if analysis["fundamental_check"] else "Fundamentala kriterier EJ uppfyllda")
-        st.write(
-            "Tekniska kriterier uppfyllda" if analysis["technical_check"] else "Tekniska kriterier EJ uppfyllda")
-        st.write(f"Tech Score: {analysis['tech_score']}/100")
-
-    with tab2_2:
-        st.subheader("Fundamentala Data")
-        st.write(
-            f"Lönsamt bolag: {'Ja' if analysis['is_profitable'] else 'Nej'}")
-        st.write(
-            f"P/E-tal: {analysis['pe_ratio']:.2f}" if analysis['pe_ratio'] else "P/E-tal: Data saknas")
-        st.write(
-            f"Omsättningstillväxt: {analysis['revenue_growth']*100:.1f}%" if analysis['revenue_growth'] else "Omsättningstillväxt: Data saknas")
-        st.write(
-            f"Vinstmarginal: {analysis['profit_margin']*100:.1f}%" if analysis['profit_margin'] else "Vinstmarginal: Data saknas")
-        st.write(
-            f"Vinstutveckling: {analysis['earnings_trend']}")
-
-    with tab2_3:
-        st.subheader("Tekniska Indikatorer")
-        st.write(
-            f"Pris över MA40 (40-veckor): {'Ja' if analysis['above_ma40'] else 'Nej'}")
-        st.write(
-            f"Pris över MA4 (4-veckor): {'Ja' if analysis['above_ma4'] else 'Nej'}")
-        st.write(
-            f"RSI över 50: {'Ja' if analysis['rsi_above_50'] else 'Nej'}")
-        st.write(
-            f"Högre bottnar: {'Ja' if analysis['higher_lows'] else 'Nej'}")
-        st.write(
-            f"Nära 52-veckors högsta: {'Ja' if analysis['near_52w_high'] else 'Nej'}")
-        st.write(
-            f"Breakout från konsolidering: {'Ja' if analysis['breakout'] else 'Nej'}")
-
-    # Add option to compare with another stock (enhancement example)
-    with st.expander("Jämför med en annan aktie"):
-        compare_ticker = st.text_input(
-            "Jämför med (t.ex. MSFT, AAPL)", key="compare_input")
-        if st.button("Jämför", key="compare_button"):
-            if compare_ticker:
-                st.session_state['compare_tickers'] = [
-                    analysis["ticker"], compare_ticker]
-                # This could trigger a comparison feature in a future tab
-                st.info(
-                    f"Jämförelse mellan {analysis['ticker']} och {compare_ticker} är inte implementerad ännu.")
-            else:
-                st.warning("Ange en ticker att jämföra med")
-```
-
-## Key Changes Made
-
-### 1. **Replace the manual ticker section** (lines ~24-38 in original):
-
-**Remove this:**
-```python
-# Add manual ticker input
-st.subheader("Manuell analys av aktie")
-manual_ticker = st.text_input("Ange aktiesymbol (t.ex. AAPL, VOLV-B.ST):", placeholder="Ticker")
-if st.button("Analysera", key="analyze_manual_ticker"):
-    if manual_ticker:
-        with st.spinner(f"Analyserar {manual_ticker}..."):
-            analyze_and_display_stock(manual_ticker, strategy, watchlist_manager)
-    else:
-        st.warning("Ange en aktiesymbol för att analysera.")
-```
-
-**Replace with:**
-```python
-# Add manual ticker input - FIXED VERSION
-st.subheader("Manuell analys av aktie")
-
-# Create a form to handle manual input properly
-with st.form("manual_ticker_form"):
-    manual_ticker = st.text_input(
-        "Ange aktiesymbol (t.ex. AAPL, VOLV-B.ST):", 
-        placeholder="Ticker",
-        key="manual_ticker_input"
-    )
     
-    # Form submit button
-    submitted = st.form_submit_button("Analysera", type="primary")
+    with col2:
+        limit_stocks = st.checkbox("Limit to 20", value=False)
     
-    if submitted and manual_ticker:
-        # Store the ticker in session state and trigger analysis
-        st.session_state.manual_analyze_ticker = manual_ticker.strip().upper()
-        st.rerun()
-    elif submitted and not manual_ticker:
-        st.warning("Ange en aktiesymbol för att analysera.")
+    with col3:
+        if st.button("🚀 Start Scan", type="primary", use_container_width=True):
+            start_enhanced_scan(...)
 ```
 
-### 2. **Update the watchlist stock selection button** (around line ~161):
+## Phase 4: Session State Simplification
 
-**Replace:**
+### 4.1 Remove Complex Page State Management
+**Remove**:
 ```python
-if st.button("Analysera vald aktie"):
-    with st.spinner(f"Analyserar {selected_ticker}..."):
-        analyze_and_display_stock(
-            selected_ticker, strategy, watchlist_manager)
+# Store the selected page in session state if needed
+if 'selected_page' not in st.session_state:
+    st.session_state.selected_page = page
+else:
+    st.session_state.selected_page = page
 ```
 
-**With:**
+Since we're using tabs, Streamlit handles the state automatically.
+
+### 4.2 Simplify Preservation Logic
+Keep only essential state preservation:
 ```python
-if st.button("Analysera vald aktie", key="analyze_watchlist_stock"):
-    # Use the same session state mechanism as manual input
-    st.session_state.manual_analyze_ticker = selected_ticker
-    st.rerun()
+# Initialize core components once
+if 'strategy' not in st.session_state:
+    st.session_state.strategy = ValueMomentumStrategy()
+    st.session_state.watchlist_manager = SimpleWatchlistManager()
+    st.session_state.company_explorer = CompanyExplorer(create_db_storage())
 ```
 
-### 3. **Update the analysis trigger logic** (beginning of function):
+## Phase 5: Visual Improvements
 
-**Replace:**
+### 5.1 Add Welcome Dashboard
+When no analysis is active, show a dashboard:
 ```python
-# Check if we should analyze a ticker (triggered from sidebar)
-if 'analyze_ticker' in st.session_state:
-    ticker = st.session_state.analyze_ticker
-    # Clear the trigger so it doesn't re-analyze on every rerun
-    del st.session_state.analyze_ticker
-
-    # Run the analysis
-    with st.spinner(f"Analyserar {ticker}..."):
-        analyze_and_display_stock(ticker, strategy, watchlist_manager)
+def show_welcome_dashboard():
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("📊 Stocks in Database", len(get_all_cached_stocks()))
+    
+    with col2:
+        st.metric("📋 Watchlist Items", len(get_watchlist()))
+    
+    with col3:
+        st.metric("📈 Recent Analyses", len(st.session_state.get('recent_analyses', [])))
+    
+    # Quick actions
+    st.subheader("🚀 Quick Start")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("Analyze OMXS30", use_container_width=True):
+            st.session_state.quick_action = "analyze_omxs30"
+    
+    with col2:
+        if st.button("Scan Watchlist", use_container_width=True):
+            st.session_state.quick_action = "scan_watchlist"
+    
+    with col3:
+        if st.button("Find New Stocks", use_container_width=True):
+            st.session_state.quick_action = "explore_stocks"
 ```
 
-**With:**
-```python
-# Check if we should analyze a ticker (triggered from sidebar OR manual input)
-ticker_to_analyze = None
+## Implementation Priority
 
-# Priority 1: Check for sidebar trigger
-if 'analyze_ticker' in st.session_state:
-    ticker_to_analyze = st.session_state.analyze_ticker
-    # Clear the trigger so it doesn't re-analyze on every rerun
-    del st.session_state.analyze_ticker
+1. **High Priority** (Do First):
+   - Convert to tab navigation
+   - Move batch analysis settings to main content
+   - Simplify sidebar
 
-# Priority 2: Check for manual input trigger
-elif 'manual_analyze_ticker' in st.session_state:
-    ticker_to_analyze = st.session_state.manual_analyze_ticker
-    # Clear the trigger
-    del st.session_state.manual_analyze_ticker
+2. **Medium Priority**:
+   - Improve single stock analysis layout
+   - Add welcome dashboard
+   - Enhance scanner UI
 
-if ticker_to_analyze:
-    # Run the analysis
-    with st.spinner(f"Analyserar {ticker_to_analyze}..."):
-        analyze_and_display_stock(ticker_to_analyze, strategy, watchlist_manager)
+3. **Low Priority**:
+   - Visual polish
+   - Additional quick actions
+   - Performance optimizations
+
+## Benefits
+
+1. **Improved Discoverability**: All features visible in main navigation
+2. **Reduced Cognitive Load**: Less sidebar switching
+3. **Better Context**: Settings near their related content
+4. **Cleaner Interface**: More space for actual content
+5. **Modern UX**: Tab-based navigation is more intuitive
+
+## Migration Notes
+
+- All existing functionality is preserved
+- Session state for critical data remains
+- Database connections unchanged
+- No changes to core analysis logic
 ```
 
-## Why This Fix Works
+This plan will significantly improve the usability of your application while maintaining all functionality. The key changes are:
 
-1. **Uses Streamlit forms**: Forms prevent the automatic reruns that were breaking the manual input
-2. **Unified session state**: Both manual and watchlist selection use the same session state mechanism
-3. **Proper state management**: Clear session state after use to prevent repeat analyses
-4. **Better UX**: Form submission provides clearer user feedback
+1. **Tab-based navigation** instead of sidebar radio buttons
+2. **Settings moved to context** where they're used
+3. **Hidden features made visible** in main navigation
+4. **Simplified sidebar** with only global actions
+5. **Better visual hierarchy** with proper spacing and grouping
 
-This fix ensures that both manual ticker input and watchlist selection work identically, maintaining consistency with your existing codebase architecture.
+Would you like me to elaborate on any specific part of this plan or help with the implementation of any particular section?

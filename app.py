@@ -191,17 +191,17 @@ def main():
         elif page == "Database Viewer":
             display_database_viewer()
 
-        # Footer with database status
-        st.sidebar.markdown("---")
-        st.sidebar.markdown(f"**Database:** {connection_type.capitalize()}")
-        if st.sidebar.button("Test Connection"):
-            with st.sidebar:
-                connection_ok = test_connection()
-                if connection_ok:
-                    st.success("Database connection is working!")
-                else:
-                    st.error(
-                        "Database connection failed. Check your configuration.")
+        # Footer with database status - HIDDEN
+        # st.sidebar.markdown("---")
+        # st.sidebar.markdown(f"**Database:** {connection_type.capitalize()}")
+        # if st.sidebar.button("Test Connection"):
+        #     with st.sidebar:
+        #         connection_ok = test_connection()
+        #         if connection_ok:
+        #             st.success("Database connection is working!")
+        #         else:
+        #             st.error(
+        #                 "Database connection failed. Check your configuration.")
 
         # Development section at the bottom with expander
         st.sidebar.markdown("---")
