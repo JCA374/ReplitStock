@@ -513,9 +513,6 @@ def display_batch_analysis():
                          for item in watchlist] if watchlist else []
 
     # Settings in main content area
-    st.header("Batch Analysis")
-    st.write("Analyze multiple stocks at once using database cache first, then API fallback.")
-    
     with st.expander("⚙️ Analysis Settings", expanded=True):
         col1, col2 = st.columns(2)
         
@@ -528,7 +525,8 @@ def display_batch_analysis():
             )
         
         with col2:
-            st.info("📊 Data Priority: Cache → Alpha Vantage → Yahoo Finance")
+            # st.info("📊 Data Priority: Cache → Alpha Vantage → Yahoo Finance")
+            pass
 
     selected_tickers = []
 
