@@ -798,58 +798,47 @@ def display_batch_analysis():
                             filtered_df = filtered_df.sort_values(
                                 "Tech Score", ascending=False)
 
-                        # Render results with clickable watchlist icons
-                        render_results_with_watchlist_icons(filtered_df)
-
-                        # Traditional dataframe view
-                        with st.expander("📊 Traditional Table View", expanded=False):
-                            st.dataframe(
-                                filtered_df, use_container_width=True, hide_index=True)
-
-                        # Download button
-                        csv_data = filtered_df.to_csv(
-                            index=False).encode('utf-8')
-                        st.download_button(
-                            label="📥 Download Results as CSV",
-                            data=csv_data,
-                            file_name=f"batch_analysis_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                            mime="text/csv"
-                        )
-
-                        # Bulk add to watchlist
-                        st.subheader("📝 Bulk Add to Watchlist")
-
-                        # Use the simple watchlist manager
-                        if 'watchlist_manager' not in st.session_state:
-                            from services.watchlist_manager import SimpleWatchlistManager
-                            st.session_state.watchlist_manager = SimpleWatchlistManager()
-
-                        manager = st.session_state.watchlist_manager
-
-                        # Add debugging information
-                        if not filtered_df.empty:
-                            with st.expander("🔧 Debug Info", expanded=False):
-                                st.write(f"**Available columns:** {list(filtered_df.columns)}")
-                                if "Signal" in filtered_df.columns:
-                                    signal_counts = filtered_df['Signal'].value_counts()
-                                    st.write(f"**Signal distribution:** {signal_counts.to_dict()}")
-
-                        # Get all watchlists
-                        watchlists = manager.get_all_watchlists()
+                        # Results controls - moved above the table
+                        st.subheader("📊 Results Actions")
                         
-                        if watchlists:
-                            # Watchlist selection for bulk add
-                            col1, col2 = st.columns([2, 1])
+                        # Action controls in columns
+                        action_col1, action_col2, action_col3 = st.columns([1, 1, 1])
+                        
+                        with action_col1:
+                            # Traditional dataframe view toggle
+                            show_traditional = st.checkbox("📊 Show Traditional Table", value=False, key="show_traditional_table")
+                        
+                        with action_col2:
+                            # Download button
+                            csv_data = filtered_df.to_csv(index=False).encode('utf-8')
+                            st.download_button(
+                                label="📥 Download Results as CSV",
+                                data=csv_data,
+                                file_name=f"batch_analysis_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                                mime="text/csv",
+                                use_container_width=True
+                            )
+                        
+                        with action_col3:
+                            # Bulk add controls
+                            # Use the simple watchlist manager
+                            if 'watchlist_manager' not in st.session_state:
+                                from services.watchlist_manager import SimpleWatchlistManager
+                                st.session_state.watchlist_manager = SimpleWatchlistManager()
+
+                            manager = st.session_state.watchlist_manager
+                            watchlists = manager.get_all_watchlists()
                             
-                            with col1:
+                            if watchlists:
+                                # Watchlist selection for bulk add
                                 target_watchlist = st.selectbox(
-                                    "📁 Select Watchlist for Bulk Add:",
+                                    "📁 Select Watchlist:",
                                     options=watchlists,
                                     format_func=lambda x: f"{x['name']} {'(Default)' if x['is_default'] else ''}",
-                                    key="bulk_add_watchlist"
+                                    key="bulk_add_watchlist",
+                                    label_visibility="collapsed"
                                 )
-                            
-                            with col2:
+                                
                                 # Get stocks with BUY signals
                                 top_buy_signals = pd.DataFrame()
                                 if "Signal" in filtered_df.columns:
@@ -859,7 +848,7 @@ def display_batch_analysis():
                                     ].head(10)
                                 
                                 if not top_buy_signals.empty and target_watchlist:
-                                    if st.button("➕ Add All BUY Signals", type="primary", key="bulk_add_button"):
+                                    if st.button("➕ Add All BUY Signals", type="primary", key="bulk_add_button", use_container_width=True):
                                         added_count = 0
                                         failed_count = 0
                                         
@@ -869,25 +858,28 @@ def display_batch_analysis():
                                                 success = manager.add_stock_to_watchlist(target_watchlist['id'], ticker)
                                                 if success:
                                                     added_count += 1
-                                                    st.success(f"✅ Added {ticker}")
                                                 else:
-                                                    st.info(f"ℹ️ {ticker} already in watchlist")
-                                            else:
-                                                failed_count += 1
+                                                    failed_count += 1
                                         
                                         # Summary
                                         if added_count > 0:
-                                            st.success(f"✅ Successfully added {added_count} stocks to '{target_watchlist['name']}'!")
+                                            st.success(f"✅ Added {added_count} stocks to '{target_watchlist['name']}'!")
                                         if failed_count > 0:
-                                            st.warning(f"⚠️ {failed_count} stocks failed to add")
-                            
-                            # Show top buy signals
-                            if not top_buy_signals.empty:
-                                st.write("**Top BUY signals available:**")
-                                for _, stock in top_buy_signals.head(5).iterrows():
-                                    st.write(f"• {stock.get('Ticker', 'N/A')} - Score: {stock.get('Tech Score', 'N/A')}")
-                        else:
-                            st.warning("No watchlists available. Create one in the Watchlist tab.")
+                                            st.info(f"ℹ️ {failed_count} stocks already in watchlist")
+                                else:
+                                    st.info("No BUY signals to add")
+                            else:
+                                st.warning("No watchlists available")
+                        
+                        st.divider()
+
+                        # Render results with clickable watchlist icons
+                        render_results_with_watchlist_icons(filtered_df)
+                        
+                        # Show traditional table view if requested
+                        if show_traditional:
+                            st.subheader("📊 Traditional Table View")
+                            st.dataframe(filtered_df, use_container_width=True, hide_index=True)
 
                 except Exception as e:
                     st.error(f"Error displaying results: {e}")
