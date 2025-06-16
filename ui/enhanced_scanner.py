@@ -150,17 +150,12 @@ def load_tickers_from_csv(universe_file, limit_stocks=False):
         elif universe_file == "Dow Jones":
             tickers = get_index_constituents("Dow Jones")
         elif universe_file == "Watchlist":
-            # Use the database session context manager for proper resource management
-            with get_db_session_context() as session:
-                # Note: we need to adapt the get_watchlist function to accept a session parameter
-                # For now, we'll use the existing function that creates its own session
-                watchlist = get_watchlist()
-                tickers = [stock['ticker'] for stock in watchlist]
+            # Get watchlist using existing function
+            watchlist = get_watchlist()
+            tickers = [stock['ticker'] for stock in watchlist]
         elif universe_file == "All Database Stocks":
-            # Use the database session context manager for proper resource management
-            with get_db_session_context() as session:
-                # Note: adapt the function if possible to use the provided session
-                tickers = get_all_cached_stocks()
+            # Get all cached stocks using existing function
+            tickers = get_all_cached_stocks()
         else:
             # Try to load from CSV file
             try:
@@ -208,45 +203,50 @@ def render_enhanced_scanner_ui():
 
 
 def render_scanner_controls(scanner):
-    """
-    Render scanner control panel
-    """
-    st.subheader("🎯 Scanner Settings")
+    """Render simplified scanner control panel"""
+    st.subheader("🎯 Quick Scan")
 
-    # Stock universe selection
-    universe_options = [
-        "OMXS30",
-        "S&P 500 Top 30",
-        "Dow Jones",
-        "Watchlist",
-        "All Database Stocks"
-    ]
+    # Simplified stock universe selection
+    universe_options = {
+        "OMXS30": "OMXS30 (30 stocks)",
+        "S&P 500 Top 30": "S&P 500 Top 30",
+        "Watchlist": "My Watchlist",
+        "All Database Stocks": "All Cached Stocks"
+    }
 
     selected_universe = st.selectbox(
         "Stock Universe",
-        universe_options,
-        index=0,  # Default to OMXS30
+        list(universe_options.keys()),
+        format_func=lambda x: universe_options[x],
         help="Choose which set of stocks to scan"
     )
 
-    # Scan options
-    st.subheader("⚙️ Options")
+    # Compact options in columns
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        limit_stocks = st.checkbox("Test mode (20 stocks)", value=False)
+    
+    with col2:
+        batch_size = st.selectbox("Batch Size", [10, 25, 50], index=1)
 
-    limit_stocks = st.checkbox(
-        "Limit to first 20 stocks (for testing)", value=False)
-
-    batch_size = st.slider("Batch Size", 10, 50, 25,
-                           help="Number of stocks to process at once")
-
-    # Scan button
-    if st.button("🚀 Start Enhanced Scan", type="primary", use_container_width=True):
-        start_enhanced_scan(scanner, selected_universe,
-                            limit_stocks, batch_size)
-
-    # Watchlist quick add section
+    # Prominent scan button
+    if st.button("🚀 Start Scan", type="primary", use_container_width=True):
+        start_enhanced_scan(scanner, selected_universe, limit_stocks, batch_size)
+    
+    # Quick stats
     if 'scan_results' in st.session_state and st.session_state.scan_results:
-        st.subheader("📝 Quick Add to Watchlist")
-        render_watchlist_quick_add()
+        results = st.session_state.scan_results
+        buy_signals = len([r for r in results if r.get('Signal') in ['BUY', 'KÖP']])
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total", len(results))
+        with col2:
+            st.metric("BUY Signals", buy_signals, delta=buy_signals)
+        with col3:
+            avg_score = sum(r.get('Score', 0) for r in results) / len(results) if results else 0
+            st.metric("Avg Score", f"{avg_score:.1f}")
 
 
 def start_enhanced_scan(scanner, universe_file, limit_stocks, batch_size):
@@ -395,8 +395,8 @@ def render_scanner_results(scanner):
         st.warning("No stocks match the current filters")
         return
 
-    # Render results with clickable icons
-    render_results_with_watchlist_icons(filtered_df)
+    # Render compact results table
+    render_compact_results_table(filtered_df)
 
     # Top performers highlight
     st.subheader("🏆 Top 5 Performers")
@@ -427,97 +427,87 @@ def render_scanner_results(scanner):
             st.dataframe(failed_df, use_container_width=True)
 
 
-def render_results_with_watchlist_icons(filtered_df):
-    """
-    Render results table with clickable watchlist icons for each row
-    """
-    st.subheader("📊 Detailed Results")
-
-    # Create custom HTML table with clickable icons
-    for idx, row in filtered_df.iterrows():
-        with st.container():
-            # Create columns for the table layout
-            col1, col2, col3, col4, col5, col6, col7, col8 = st.columns(
-                [0.5, 1, 2, 1, 1, 1, 1, 1])
-
-            # Watchlist icon column
-            with col1:
-                # Use a button with an icon for adding to watchlist
-                if st.button("➕", key=f"watchlist_{row['Ticker']}_{idx}",
-                             help=f"Add {row['Ticker']} to watchlist"):
-                    add_stock_to_watchlist_with_feedback(
-                        row['Ticker'], row['Name'])
-
-            # Rank column
-            with col2:
-                st.write(f"#{row['Rank']}")
-
-            # Ticker and Name
-            with col3:
-                st.write(f"**{row['Ticker']}**")
-                st.caption(row['Name'])
-
-            # Score with progress bar
-            with col4:
-                score = row['Score']
-                st.metric("Score", f"{score:.1f}")
-                st.progress(score / 100)
-
-            # Signal with color coding
-            with col5:
-                signal = row['Signal']
-                if signal in ['KÖP', 'BUY']:
-                    st.success(f"🟢 {signal}")
-                elif signal in ['SÄLJ', 'SELL']:
-                    st.error(f"🔴 {signal}")
-                else:
-                    st.info(f"🟡 {signal}")
-
-            # Price
-            with col6:
-                price = row['Price']
-                if isinstance(price, (int, float)) and price > 0:
-                    st.metric("Price", f"{price:.2f}")
-                else:
-                    st.write("N/A")
-
-            # Technical indicators summary
-            with col7:
-                tech_indicators = []
-                if row.get('Above MA40') == '✓':
-                    tech_indicators.append("MA40✓")
-                if row.get('RSI > 50') == '✓':
-                    tech_indicators.append("RSI✓")
-                if row.get('Near 52w High') == '✓':
-                    tech_indicators.append("52W✓")
-
-                st.caption("Tech:")
-                st.caption(" ".join(tech_indicators)
-                           if tech_indicators else "—")
-
-            # P/E Ratio
-            with col8:
-                pe = row.get('P/E', 'N/A')
-                st.metric("P/E", pe)
-
-        # Add a subtle divider
-        st.divider()
+def render_compact_results_table(filtered_df):
+    """Render compact results table with minimal height per row"""
+    if filtered_df.empty:
+        st.info("No results to display")
+        return
+    
+    st.subheader(f"📊 Results ({len(filtered_df)} stocks)")
+    
+    # Create action buttons for bulk operations
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        if st.button("📝 Add All BUYs to Watchlist", type="secondary"):
+            buy_stocks = filtered_df[filtered_df['Signal'].isin(['BUY', 'KÖP'])]
+            for _, stock in buy_stocks.iterrows():
+                add_stock_to_watchlist_with_feedback(stock['Ticker'], stock['Name'])
+    
+    with col2:
+        export_csv = st.download_button(
+            "📄 Export CSV",
+            filtered_df.to_csv(index=False),
+            "scan_results.csv",
+            "text/csv"
+        )
+    
+    with col3:
+        if st.button("🔄 Refresh Data"):
+            st.rerun()
+    
+    # Configure compact dataframe display
+    column_config = {
+        "Rank": st.column_config.NumberColumn("Rank", width="small"),
+        "Ticker": st.column_config.TextColumn("Ticker", width="small"),
+        "Name": st.column_config.TextColumn("Company", width="medium"),
+        "Signal": st.column_config.TextColumn("Signal", width="small"),
+        "Score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100, width="medium"),
+        "Price": st.column_config.NumberColumn("Price", format="%.2f", width="small"),
+        "P/E": st.column_config.TextColumn("P/E", width="small"),
+    }
+    
+    # Display compact table with selection
+    selected_rows = st.dataframe(
+        filtered_df,
+        column_config=column_config,
+        use_container_width=True,
+        hide_index=True,
+        height=400,  # Fixed height for scrolling
+        on_select="rerun",
+        selection_mode="multi-row"
+    )
+    
+    # Handle selected rows for bulk actions
+    if selected_rows and selected_rows.selection.rows:
+        selected_indices = selected_rows.selection.rows
+        selected_stocks = filtered_df.iloc[selected_indices]
+        
+        st.write(f"**Selected {len(selected_stocks)} stocks:**")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("➕ Add Selected to Watchlist"):
+                for _, stock in selected_stocks.iterrows():
+                    add_stock_to_watchlist_with_feedback(stock['Ticker'], stock['Name'])
+        
+        with col2:
+            if st.button("📊 Analyze Selected"):
+                st.info("Bulk analysis feature coming soon!")
 
 
 def add_stock_to_watchlist_with_feedback(ticker, name):
-    """Add stock to watchlist with immediate user feedback"""
+    """Add stock to watchlist with user feedback"""
     try:
         success = add_to_watchlist(ticker, name, "", "")
-
         if success:
-            st.success(f"✅ Added {ticker} to watchlist!", icon="✅")
+            st.success(f"✅ Added {ticker} to watchlist")
+            time.sleep(0.5)  # Brief feedback
             return True
         else:
-            st.info(f"ℹ️ {ticker} is already in your watchlist!", icon="ℹ️")
+            st.info(f"ℹ️ {ticker} already in watchlist")
             return False
-
     except Exception as e:
-        st.error(f"❌ Failed to add {ticker}: {str(e)}", icon="❌")
+        st.error(f"❌ Failed to add {ticker}: {str(e)}")
         return False
 
 

@@ -26,7 +26,7 @@ def get_scanner_engine():
 
 def render_scanner_selection():
     """Simplified scanner selection interface"""
-    st.subheader("🚀 High-Performance Stock Scanner")
+    # st.subheader("🚀 High-Performance Stock Scanner")
     
     # Single row of essential controls
     col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
@@ -596,7 +596,7 @@ def render_unified_results_table(results):
 
 def show_scanner_status():
     """Show which scanner is being used and performance stats"""
-    st.info("🚀 **Using Optimized Bulk Scanner** - Database-first with parallel processing")
+    # st.info("🚀 **Using Optimized Bulk Scanner** - Database-first with parallel processing")
     
     # Show quick stats if available
     if 'last_scan_stats' in st.session_state:
