@@ -144,13 +144,10 @@ def main():
 
 
         # Main navigation tabs at the top of the page
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        tab1, tab2, tab3 = st.tabs([
             "📊 Single Stock", 
             "📈 Batch Analysis", 
-            "📋 Watchlist",
-            "🔍 Stock Explorer",
-            "🚀 Scanner",
-            "🗄️ Database"
+            "📋 Watchlist"
         ])
 
         with tab1:
@@ -162,14 +159,15 @@ def main():
         with tab3:
             display_watchlist()
             
-        with tab4:
-            display_company_explorer()
-            
-        with tab5:
-            render_enhanced_scanner_ui()
-            
-        with tab6:
-            display_database_viewer()
+        # Hidden tabs - commented out
+        # with tab4:
+        #     display_company_explorer()
+        #     
+        # with tab5:
+        #     render_enhanced_scanner_ui()
+        #     
+        # with tab6:
+        #     display_database_viewer()
 
         # Footer with database status - HIDDEN
         # st.sidebar.markdown("---")

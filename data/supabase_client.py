@@ -57,8 +57,8 @@ class SupabaseDB:
             return
 
         # Tables we expect to exist
-        tables = ["watchlist", "stock_data_cache",
-                "fundamentals_cache", "analysis_results"]
+        tables = ["watchlist", "watchlist_collections", "watchlist_memberships", 
+                "stock_data_cache", "fundamentals_cache", "analysis_results"]
         working_tables = 0
 
         for table in tables:
@@ -167,7 +167,86 @@ class SupabaseDB:
     CREATE INDEX IF NOT EXISTS idx_analysis_results_date ON public.analysis_results(analysis_date);
                 """)
 
-    # Watchlist methods
+    # Watchlist collection methods
+    def get_all_watchlist_collections(self):
+        """Get all watchlist collections from Supabase."""
+        if not self.is_connected():
+            return []
+        
+        try:
+            response = self.client.table("watchlist_collections").select("*").execute()
+            return response.data if response.data else []
+        except Exception as e:
+            print(f"Error getting watchlist collections: {e}")
+            return []
+
+    def create_watchlist_collection(self, name, description="", is_default=False):
+        """Create a new watchlist collection."""
+        if not self.is_connected():
+            return None
+        
+        try:
+            data = {
+                "name": name,
+                "description": description,
+                "created_date": datetime.now().strftime("%Y-%m-%d"),
+                "is_default": is_default
+            }
+            response = self.client.table("watchlist_collections").insert(data).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Error creating watchlist collection: {e}")
+            return None
+
+    def add_to_watchlist_collection(self, collection_id, ticker):
+        """Add a stock to a specific watchlist collection."""
+        if not self.is_connected():
+            return False
+        
+        try:
+            data = {
+                "collection_id": collection_id,
+                "ticker": ticker,
+                "added_date": datetime.now().strftime("%Y-%m-%d")
+            }
+            self.client.table("watchlist_memberships").insert(data).execute()
+            return True
+        except Exception as e:
+            print(f"Error adding to watchlist collection: {e}")
+            return False
+
+    def get_watchlist_collection_stocks(self, collection_id):
+        """Get all stocks in a specific watchlist collection."""
+        if not self.is_connected():
+            return []
+        
+        try:
+            response = self.client.table("watchlist_memberships")\
+                .select("ticker")\
+                .eq("collection_id", collection_id)\
+                .execute()
+            return [item['ticker'] for item in response.data] if response.data else []
+        except Exception as e:
+            print(f"Error getting watchlist stocks: {e}")
+            return []
+
+    def remove_from_watchlist_collection(self, collection_id, ticker):
+        """Remove a stock from a watchlist collection."""
+        if not self.is_connected():
+            return False
+        
+        try:
+            self.client.table("watchlist_memberships")\
+                .delete()\
+                .eq("collection_id", collection_id)\
+                .eq("ticker", ticker)\
+                .execute()
+            return True
+        except Exception as e:
+            print(f"Error removing from watchlist: {e}")
+            return False
+
+    # Legacy watchlist methods (for backward compatibility)
     def add_to_watchlist(self, ticker, name, exchange="", sector=""):
         """Add a ticker to the watchlist."""
         if not self.is_connected():

@@ -1,551 +1,360 @@
-# ui/batch_analysis.py - COMPLETE FILE with display_batch_analysis function
+# ui/batch_analysis.py - SIMPLIFIED BATCH ANALYSIS
 
 # Standard library imports
 import logging
 import time
+import pandas as pd
 from datetime import datetime
 
 # Third-party imports
-import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
 
 # Local application imports
-from analysis.fundamental import analyze_fundamentals
-from analysis.technical import calculate_all_indicators, generate_technical_signals
-from config import TIMEFRAMES, PERIOD_OPTIONS
-from data.db_integration import (
-    get_watchlist, get_all_cached_stocks, get_cached_stock_data,
-    get_cached_fundamentals, add_to_watchlist
-)
-from data.stock_data import StockDataFetcher
-from helpers import create_results_table
+from data.db_integration import get_watchlist
 from utils.ticker_mapping import normalize_ticker
-from ui.performance_overview import display_performance_metrics
-
-
-def add_to_default_watchlist(ticker, name):
-    """Quick add to default watchlist"""
-    if 'watchlist_manager' not in st.session_state:
-        from services.watchlist_manager import SimpleWatchlistManager
-        st.session_state.watchlist_manager = SimpleWatchlistManager()
-    
-    manager = st.session_state.watchlist_manager
-    watchlists = manager.get_all_watchlists()
-    
-    # Find default watchlist
-    default_wl = next((w for w in watchlists if w['is_default']), None)
-    
-    if default_wl:
-        return manager.add_stock_to_watchlist(default_wl['id'], ticker)
-    return False
-
-
-def check_and_restore_results():
-    """Check if we should auto-restore previous results"""
-    if ('batch_analysis_results' in st.session_state and 
-        st.session_state.batch_analysis_results and
-        'batch_analysis_timestamp' in st.session_state):
-        
-        # Check if results are recent (less than 24 hours old)
-        try:
-            from datetime import datetime, timedelta
-            timestamp_str = st.session_state.batch_analysis_timestamp
-            result_time = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
-            
-            if datetime.now() - result_time < timedelta(hours=24):
-                return True
-        except:
-            pass
-    return False
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class BatchAnalyzer:
-    """Enhanced batch analyzer with database-first approach"""
-
-    def __init__(self):
-        self.data_fetcher = StockDataFetcher()
-
-    def analyze_stock(self, ticker):
-        """
-        Analyze a single stock with database-first, then API fallback approach
-        Priority: Database -> Alpha Vantage -> Yahoo Finance
-        """
-        try:
-            ticker = normalize_ticker(ticker)
-            logger.info(f"Starting analysis for {ticker}")
-
-            # Step 1: Fetch stock data
-            stock_data, fundamentals, data_source = self._fetch_stock_data(
-                ticker)
-
-            if stock_data is None or stock_data.empty:
-                return {
-                    "ticker": ticker,
-                    "error": "No data available",
-                    "error_message": f"Could not retrieve data for {ticker} from any source"
-                }
-
-            # Step 2: Get stock info and name
-            name, stock_info = self._get_stock_info(ticker)
-
-            # Step 3: Ensure we have fundamentals
-            fundamentals = self._get_fundamentals(ticker, fundamentals)
-
-            # Step 4: Calculate technical and fundamental indicators
-            indicators, signals = self._calculate_technical_indicators(
-                ticker, stock_data)
-            fundamental_analysis = self._analyze_fundamentals(
-                ticker, fundamentals)
-
-            # Step 5: Get current price safely
-            current_price = self._get_current_price(ticker, stock_data)
-
-            # Step 6: Calculate tech score and signals
-            tech_score, buy_signal, sell_signal, signal = self._calculate_signals(
-                signals, fundamental_analysis)
-
-            # Step 7: Create comprehensive result
-            result = {
-                "ticker": ticker,
-                "name": name,
-                "price": current_price,
-                "date": datetime.now().strftime("%Y-%m-%d"),
-                "tech_score": tech_score,
-                "signal": signal,
-                "buy_signal": buy_signal,
-                "sell_signal": sell_signal,
-                "data_source": data_source,
-
-                # Technical indicators (with safe gets)
-                "above_ma40": signals.get('above_ma40', False),
-                "above_ma4": signals.get('above_ma4', False),
-                "rsi": signals.get('rsi_value', None),
-                "rsi_above_50": signals.get('rsi_above_50', False),
-                "higher_lows": signals.get('higher_lows', False),
-                "near_52w_high": signals.get('near_52w_high', False),
-                "breakout": signals.get('breakout_up', False),
-
-                # Fundamental indicators (with safe gets)
-                "pe_ratio": fundamentals.get('pe_ratio') if fundamentals else None,
-                "profit_margin": fundamentals.get('profit_margin') if fundamentals else None,
-                "revenue_growth": fundamentals.get('revenue_growth') if fundamentals else None,
-                "is_profitable": fundamental_analysis['overall'].get('is_profitable', False),
-                "fundamental_check": fundamental_analysis['overall'].get('value_momentum_pass', False),
-                "earnings_trend": "Stable"  # Default value
-            }
-
-            logger.info(f"Successfully analyzed {ticker}")
-            return result
-
-        except Exception as e:
-            logger.error(f"Error analyzing {ticker}: {e}")
-            return {
-                "ticker": ticker,
-                "error": str(e),
-                "error_message": f"Analysis failed for {ticker}: {str(e)}",
-                "name": ticker,
-                "price": 0,
-                "tech_score": 0,
-                "signal": "HÅLL",  # Default to hold on error
-                "buy_signal": False,
-                "sell_signal": False
-            }
-
-    def _fetch_stock_data(self, ticker):
-        """Fetch stock data from database first, then APIs"""
-        # Step 1: Try to get data from database first
-        stock_data = get_cached_stock_data(ticker, '1d', '1y', 'yahoo')
-        if stock_data is None or stock_data.empty:
-            stock_data = get_cached_stock_data(
-                ticker, '1d', '1y', 'alphavantage')
-
-        fundamentals = get_cached_fundamentals(ticker)
-        data_source = "database"
-
-        # Step 2: If no cached data, try APIs
-        if stock_data is None or stock_data.empty:
-            try:
-                logger.info(f"No cached data for {ticker}, trying APIs")
-                stock_data = self.data_fetcher.get_stock_data(
-                    ticker, '1d', '1y', attempt_fallback=True)
-                if not stock_data.empty:
-                    data_source = "api"
-                    logger.info(f"Got data from API for {ticker}")
-            except Exception as e:
-                logger.warning(f"API failed for {ticker}: {e}")
-                stock_data = None
-
-        return stock_data, fundamentals, data_source
-
-    def _get_stock_info(self, ticker):
-        """Get stock information"""
-        try:
-            stock_info = self.data_fetcher.get_stock_info(ticker)
-            name = stock_info.get('name', ticker)
-            return name, stock_info
-        except Exception as e:
-            logger.warning(f"Could not get stock info for {ticker}: {e}")
-            return ticker, {'name': ticker}
-
-    def _get_fundamentals(self, ticker, existing_fundamentals):
-        """Get fundamentals data if not already available"""
-        if not existing_fundamentals:
-            try:
-                return self.data_fetcher.get_fundamentals(ticker)
-            except Exception as e:
-                logger.debug(f"Skipping fundamentals for {ticker}: {e}")
-                return {}
-        return existing_fundamentals
-
-    def _calculate_technical_indicators(self, ticker, stock_data):
-        """Calculate technical indicators with error handling"""
-        try:
-            indicators = calculate_all_indicators(stock_data)
-            if not indicators:
-                logger.warning(
-                    f"Could not calculate technical indicators for {ticker}")
-                indicators = {}
-
-            signals = generate_technical_signals(indicators)
-            if not signals:
-                logger.warning(f"Could not generate signals for {ticker}")
-                signals = {}
-
-            return indicators, signals
-        except Exception as e:
-            logger.warning(f"Error calculating indicators for {ticker}: {e}")
-            return {}, {'tech_score': 50, 'overall_signal': 'HOLD', 'error': str(e)}
-
-    def _analyze_fundamentals(self, ticker, fundamentals):
-        """Analyze fundamentals with error handling"""
-        try:
-            return analyze_fundamentals(fundamentals or {})
-        except Exception as e:
-            logger.warning(f"Error analyzing fundamentals for {ticker}: {e}")
-            return {'overall': {'value_momentum_pass': False, 'is_profitable': False}}
-
-    def _get_current_price(self, ticker, stock_data):
-        """Get current price from stock data safely"""
-        try:
-            return stock_data['close'].iloc[-1] if not stock_data.empty else 0
-        except Exception as e:
-            logger.warning(f"Error getting price for {ticker}: {e}")
-            return 0
-
-    def _calculate_signals(self, signals, fundamental_analysis):
-        """Calculate technical score and buy/sell signals"""
-        tech_score = signals.get('tech_score', 0)
-        fundamental_pass = fundamental_analysis['overall'].get(
-            'value_momentum_pass', False)
-
-        buy_signal = tech_score >= 70 and fundamental_pass
-        sell_signal = tech_score < 40 or not signals.get('above_ma40', False)
-        signal = "KÖP" if buy_signal else "SÄLJ" if sell_signal else "HÅLL"
-
-        return tech_score, buy_signal, sell_signal, signal
-
-    def batch_analyze(self, tickers, progress_callback=None):
-        """Analyze multiple stocks with progress tracking"""
-        results = []
-
-        for i, ticker in enumerate(tickers):
-            if progress_callback and (i % 10 == 0 or i == len(tickers) - 1):
-                progress = (i + 1) / len(tickers)
-                progress_callback(
-                    progress, f"Analyzing {ticker}... ({i+1}/{len(tickers)})")
-
-            result = self.analyze_stock(ticker)
-            results.append(result)
-
-            # Minimal delay for rate limiting
-            if i % 20 == 0 and i > 0:
-                time.sleep(0.02)
-
-        return results
-
-# ui/batch_analysis.py - FORCE BULK SCANNER USAGE
-
-def start_optimized_batch_analysis(tickers, progress_callback=None):
-    """
-    FIXED: Force bulk scanner usage - never use traditional analyzer
-    """
-    if not tickers:
-        return []
-
-    logger.info(f"🚀 FORCING BULK SCANNER for {len(tickers)} stocks")
-
-    try:
-        # Import the bulk scanner
-        from analysis.bulk_scanner import optimized_bulk_scan
-        
-        # FORCE bulk scanner usage with maximum speed settings
-        logger.info("⚡ Using optimized bulk scanner with maximum speed settings")
-        
-        results = optimized_bulk_scan(
-            target_tickers=tickers,
-            fetch_missing=True,
-            max_api_workers=8,  # Increased workers
-            progress_callback=progress_callback
-        )
-
-        if results:
-            logger.info(f"✅ BULK SCANNER SUCCESS: {len(results)} results")
-            return format_results_for_ui(results)
-        else:
-            logger.error("❌ BULK SCANNER FAILED - no results returned")
-            # Still return empty list instead of falling back to slow method
-            return []
-
-    except ImportError as e:
-        logger.error(f"❌ BULK SCANNER IMPORT FAILED: {e}")
-        logger.error("Check if analysis/bulk_scanner.py exists and has optimized_bulk_scan function")
-        return []
-    except Exception as e:
-        logger.error(f"❌ BULK SCANNER ERROR: {e}")
-        return []
+def get_scanner_engine():
+    """Get the high-performance scanner engine"""
+    from analysis.bulk_scanner import optimized_bulk_scan
+    return optimized_bulk_scan
 
 
-# DISABLE the traditional analyzer to force bulk scanner usage
-def start_traditional_batch_analysis(tickers, progress_callback=None):
-    """
-    DISABLED: Traditional analyzer is too slow - force user to fix bulk scanner
-    """
-    logger.error("❌ TRADITIONAL ANALYZER DISABLED - FIX BULK SCANNER INSTEAD")
-    logger.error("The traditional analyzer is 10x slower. Fix the bulk scanner configuration.")
+def render_scanner_selection():
+    """Simplified scanner selection interface"""
+    st.subheader("🚀 High-Performance Stock Scanner")
     
-    return [{
-        "ticker": "ERROR",
-        "error": "Traditional analyzer disabled for performance",
-        "error_message": "Bulk scanner failed - check analysis/bulk_scanner.py configuration"
-    }]
+    # Single row of essential controls
+    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+    
+    with col1:
+        stock_universe = st.selectbox(
+            "📈 Select Stock Universe",
+            options=[
+                "All Watchlist Stocks",
+                "Selected Watchlist", 
+                "All Small Cap (updated_small.csv)",
+                "All Mid Cap (updated_mid.csv)", 
+                "All Large Cap (updated_large.csv)",
+                "Manual Entry"
+            ],
+            key="scanner_universe"
+        )
+    
+    with col2:
+        show_errors = st.checkbox("Show Errors", value=False, key="show_scanner_errors")
+    
+    with col3:
+        auto_add_buys = st.checkbox("Auto-add BUYs", value=False, key="auto_add_buy_signals")
+    
+    with col4:
+        if st.button("🚀 SCAN", type="primary", use_container_width=True):
+            return True, stock_universe, show_errors, auto_add_buys
+    
+    return False, stock_universe, show_errors, auto_add_buys
 
 
-def format_results_for_ui(optimized_results):
-    """Convert optimized bulk scan results to UI format - ENHANCED for partial data"""
-    formatted_results = []
-
-    for analysis in optimized_results:
-        # ENHANCEMENT: Check for error attribute OR error field
-        has_error = (hasattr(analysis, "error") and analysis.error) or (isinstance(analysis, dict) and "error" in analysis and analysis["error"])
+def get_tickers_for_universe(stock_universe):
+    """Get tickers based on selected universe"""
+    try:
+        if stock_universe == "All Watchlist Stocks":
+            watchlist = get_watchlist()
+            return [item['ticker'] for item in watchlist] if watchlist else []
         
-        if has_error:
-            formatted_results.append({
-                "ticker": analysis.get("ticker", "Unknown"),
-                "error": analysis.get("error", "Unknown error"),
-                "error_message": analysis.get("error_message", "Unknown error"),
-                "name": analysis.get("name", analysis.get("ticker", "Unknown")),
-                "signal": "ERROR",
-                "tech_score": 0,
-                "data_source": "error"
-            })
-            continue
-
-        # ENHANCEMENT: Handle data_status field 
-        data_status = analysis.get("data_status", "complete")
-        
-        result = {
-            "ticker": analysis["ticker"],
-            "name": analysis.get("name", analysis["ticker"]),
-            "price": analysis.get("last_price", 0),
-            "date": datetime.now().strftime("%Y-%m-%d"),
-            "tech_score": analysis.get("tech_score", 0),
-            "signal": analysis.get("value_momentum_signal", "HOLD"),
-            "buy_signal": analysis.get("value_momentum_signal") == "BUY",
-            "sell_signal": analysis.get("value_momentum_signal") == "SELL",
-            "data_source": analysis.get("data_source", "api"),
-            "data_status": data_status,  # Include data status
-            "above_ma40": analysis.get("above_ma40", False),
-            "above_ma4": analysis.get("above_ma4", False),
-            "rsi_above_50": analysis.get("rsi_above_50", False),
-            "near_52w_high": analysis.get("near_52w_high", False),
-            "pe_ratio": analysis.get("pe_ratio"),
-            "profit_margin": analysis.get("profit_margin"),
-            "revenue_growth": analysis.get("revenue_growth"),
-            "is_profitable": analysis.get("is_profitable", False),
-            "fundamental_check": analysis.get("fundamental_pass", False)
-        }
-        
-        # ENHANCEMENT: Add warning for partial data
-        if data_status == "partial":
-            result["warning"] = "Partial data available"
-        elif data_status == "missing":
-            result["warning"] = "Price data missing"
-            result["error"] = "No price data available"
+        elif stock_universe == "Selected Watchlist":
+            # Get all watchlists
+            if 'watchlist_manager' not in st.session_state:
+                from services.watchlist_manager import SimpleWatchlistManager
+                st.session_state.watchlist_manager = SimpleWatchlistManager()
             
-        formatted_results.append(result)
+            manager = st.session_state.watchlist_manager
+            watchlists = manager.get_all_watchlists()
+            
+            if not watchlists:
+                st.warning("No watchlists available")
+                return []
+            
+            selected_wl = st.selectbox(
+                "Select Watchlist:",
+                options=watchlists,
+                format_func=lambda x: x['name'],
+                key="batch_watchlist_select"
+            )
+            
+            if selected_wl:
+                return manager.get_watchlist_stocks(selected_wl['id'])
+            return []
+        
+        elif stock_universe == "All Small Cap (updated_small.csv)":
+            small_cap_df = pd.read_csv('data/csv/updated_small.csv')
+            return [t for t in small_cap_df['YahooTicker'].tolist() if pd.notna(t)]
+        
+        elif stock_universe == "All Mid Cap (updated_mid.csv)":
+            mid_cap_df = pd.read_csv('data/csv/updated_mid.csv')
+            tickers = []
+            for ticker in mid_cap_df['YahooTicker'].tolist():
+                if pd.notna(ticker):
+                    # Fix tickers missing .ST suffix
+                    if ticker.endswith('ST') and not ticker.endswith('.ST'):
+                        ticker = ticker[:-2] + '.ST'
+                    tickers.append(ticker)
+            return tickers
+        
+        elif stock_universe == "All Large Cap (updated_large.csv)":
+            large_cap_df = pd.read_csv('data/csv/updated_large.csv')
+            return [t for t in large_cap_df['YahooTicker'].tolist() if pd.notna(t)]
+        
+        elif stock_universe == "Manual Entry":
+            ticker_input = st.text_input(
+                "Enter ticker symbols (comma-separated):",
+                key="manual_ticker_input"
+            )
+            if ticker_input:
+                raw_tickers = [t.strip() for t in ticker_input.split(",")]
+                return [normalize_ticker(t) for t in raw_tickers if t]
+            return []
+    
+    except Exception as e:
+        st.error(f"Error loading tickers: {str(e)}")
+        return []
 
-    return formatted_results
+
+def format_pe_ratio(pe_ratio):
+    """Format P/E ratio for display"""
+    if pe_ratio is None or pd.isna(pe_ratio):
+        return "N/A"
+    try:
+        pe_float = float(pe_ratio)
+        if pe_float < 0:
+            return "N/A"
+        return f"{pe_float:.1f}"
+    except (ValueError, TypeError):
+        return "N/A"
 
 
-def render_results_with_watchlist_icons(filtered_df):
-    """Render results table with clickable watchlist icons"""
-    st.subheader("📊 Analysis Results with Quick Add")
+def create_clean_results_dataframe(results):
+    """Create a clean, consistent DataFrame from scanner results"""
+    clean_data = []
+    
+    for result in results:
+        # Skip errors unless specifically requested
+        if result.get('error') and not st.session_state.get('show_scanner_errors', False):
+            continue
+            
+        # Standardize signal format
+        signal = result.get('value_momentum_signal', result.get('signal', 'HOLD'))
+        if signal in ['KÖP', 'KÖPA']:
+            signal = 'BUY'
+        elif signal in ['SÄLJ', 'SÄLJA']: 
+            signal = 'SELL'
+        elif signal in ['HÅLL', 'HÅLLA']:
+            signal = 'HOLD'
+            
+        # Create clean row
+        clean_data.append({
+            'Rank': 0,  # Will be set after sorting
+            'Ticker': result.get('ticker', 'N/A'),
+            'Name': result.get('name', result.get('ticker', 'N/A')),
+            'Signal': signal,
+            'Score': int(result.get('tech_score', 0)),
+            'Price': f"{result.get('last_price', result.get('price', 0)):.2f}",
+            'P/E': format_pe_ratio(result.get('pe_ratio')),
+            'MA40': '✓' if result.get('above_ma40') else '✗',
+            'RSI>50': '✓' if result.get('rsi_above_50') else '✗', 
+            'Profitable': '✓' if result.get('is_profitable') else '✗',
+            'Source': result.get('data_source', 'api'),
+            '_raw': result  # Keep raw data for actions
+        })
+    
+    return pd.DataFrame(clean_data)
 
-    for idx, row in filtered_df.iterrows():
-        with st.container():
-            col_icon, col_ticker, col_name, col_price, col_signal, col_tech, col_pe = st.columns([
-                0.5, 1, 2.5, 1, 1, 1, 1])
 
-            with col_icon:
-                ticker = row.get('Ticker', '')
-                name = row.get('Namn', ticker)
-                if st.button("➕", key=f"batch_watchlist_{ticker}_{idx}",
-                             help=f"Add {ticker} to watchlist"):
-                    if ticker:
-                        add_stock_to_watchlist_with_feedback(ticker, name)
-                        st.rerun()
-                    else:
-                        st.error("❌ No ticker found for this stock")
+def apply_filters_and_sort(df, signal_filter, min_score, sort_by):
+    """Apply filters and sorting to results DataFrame"""
+    if df.empty:
+        return df
+    
+    filtered_df = df.copy()
+    
+    # Apply signal filter
+    if signal_filter:
+        filtered_df = filtered_df[filtered_df['Signal'].isin(signal_filter)]
+    
+    # Apply minimum score filter
+    filtered_df = filtered_df[filtered_df['Score'] >= min_score]
+    
+    # Apply sorting
+    if sort_by == "Score":
+        filtered_df = filtered_df.sort_values('Score', ascending=False)
+    elif sort_by == "Signal":
+        signal_priority = {"BUY": 1, "HOLD": 2, "SELL": 3}
+        filtered_df['_signal_priority'] = filtered_df['Signal'].map(signal_priority).fillna(4)
+        filtered_df = filtered_df.sort_values(['_signal_priority', 'Score'], ascending=[True, False])
+        filtered_df = filtered_df.drop('_signal_priority', axis=1)
+    elif sort_by == "Ticker":
+        filtered_df = filtered_df.sort_values('Ticker')
+    elif sort_by == "P/E":
+        # Sort by P/E, putting N/A at the end
+        filtered_df['_pe_sort'] = filtered_df['P/E'].apply(lambda x: 999 if x == 'N/A' else float(x))
+        filtered_df = filtered_df.sort_values('_pe_sort')
+        filtered_df = filtered_df.drop('_pe_sort', axis=1)
+    
+    # Update rank after sorting
+    filtered_df['Rank'] = range(1, len(filtered_df) + 1)
+    
+    return filtered_df
 
-            with col_ticker:
-                ticker = row.get('Ticker', 'N/A')
-                if ticker != 'N/A':
-                    yahoo_url = f"https://finance.yahoo.com/quote/{ticker}"
-                    st.markdown(f"**[{ticker}]({yahoo_url})**")
+
+def add_single_to_watchlist(ticker, name, selected_watchlist_id=None):
+    """Add single stock to specified or default watchlist"""
+    try:
+        if 'watchlist_manager' not in st.session_state:
+            from services.watchlist_manager import SimpleWatchlistManager
+            st.session_state.watchlist_manager = SimpleWatchlistManager()
+        
+        manager = st.session_state.watchlist_manager
+        watchlists = manager.get_all_watchlists()
+        
+        # Use selected watchlist or find default
+        if selected_watchlist_id:
+            target_wl = next((w for w in watchlists if w['id'] == selected_watchlist_id), None)
+        else:
+            # Try to get the currently selected bulk add watchlist
+            if 'bulk_add_watchlist_select' in st.session_state:
+                bulk_selected = st.session_state.bulk_add_watchlist_select
+                target_wl = bulk_selected if bulk_selected else next((w for w in watchlists if w['is_default']), None)
+            else:
+                target_wl = next((w for w in watchlists if w['is_default']), None)
+        
+        if target_wl:
+            success = manager.add_stock_to_watchlist(target_wl['id'], ticker)
+            if success:
+                st.success(f"✅ Added {ticker} to '{target_wl['name']}'!")
+            else:
+                st.info(f"ℹ️ {ticker} already in '{target_wl['name']}'")
+        else:
+            st.error("No watchlist found")
+    except Exception as e:
+        st.error(f"Error adding {ticker}: {str(e)}")
+
+
+def bulk_add_to_watchlist(buy_signals_df, selected_watchlist_id=None):
+    """Add all BUY signals to a specified watchlist"""
+    try:
+        if 'watchlist_manager' not in st.session_state:
+            from services.watchlist_manager import SimpleWatchlistManager
+            st.session_state.watchlist_manager = SimpleWatchlistManager()
+        
+        manager = st.session_state.watchlist_manager
+        watchlists = manager.get_all_watchlists()
+        
+        # Use selected watchlist or find default
+        if selected_watchlist_id:
+            target_wl = next((w for w in watchlists if w['id'] == selected_watchlist_id), None)
+        else:
+            target_wl = next((w for w in watchlists if w['is_default']), None)
+        
+        if not target_wl:
+            st.error("No watchlist found")
+            return
+        
+        added_count = 0
+        failed_count = 0
+        
+        for _, row in buy_signals_df.iterrows():
+            ticker = row['Ticker']
+            if ticker and ticker != 'N/A':
+                success = manager.add_stock_to_watchlist(target_wl['id'], ticker)
+                if success:
+                    added_count += 1
                 else:
-                    st.write("**N/A**")
+                    failed_count += 1
+        
+        if added_count > 0:
+            st.success(f"✅ Added {added_count} BUY signals to '{target_wl['name']}'!")
+        if failed_count > 0:
+            st.info(f"ℹ️ {failed_count} stocks already in watchlist")
+            
+    except Exception as e:
+        st.error(f"Error in bulk add: {str(e)}")
 
-            with col_name:
-                st.write(row.get('Namn', 'N/A'))
 
-            with col_price:
-                price_str = row.get('Pris', 'N/A')
-                st.write(price_str)
-
-            with col_signal:
-                signal = row.get('Signal', 'HÅLL')
-                data_status = row.get('data_status', 'complete')
-                
-                if row.get('error') or data_status == 'error':
-                    st.error(f"⚠️ ERROR")
-                elif data_status == 'missing':
-                    st.warning(f"⚠️ NO DATA")
-                elif data_status == 'partial':
-                    st.warning(f"⚠️ {signal}")
-                elif signal == 'KÖP':
-                    st.success(f"🟢 {signal}")
-                elif signal == 'SÄLJ':
-                    st.error(f"🔴 {signal}")
-                else:
-                    st.info(f"🟡 {signal}")
-
-            with col_tech:
-                tech_score = row.get('Tech Score', 0)
-                if isinstance(tech_score, (int, float)):
-                    st.metric("Tech", f"{tech_score}")
-                else:
-                    st.write(tech_score)
-
-            with col_pe:
-                pe = row.get('P/E', 'N/A')
-                st.write(f"P/E: {pe}")
-
-        st.divider()
+def trigger_new_scan():
+    """Trigger a new scan by clearing results"""
+    if 'batch_analysis_results' in st.session_state:
+        del st.session_state.batch_analysis_results
+    if 'last_scan_stats' in st.session_state:
+        del st.session_state.last_scan_stats
+    st.rerun()
 
 
 def add_stock_to_watchlist_with_feedback(ticker, name):
     """Add stock to default watchlist with proper feedback"""
     try:
         if not ticker:
-            st.error("❌ Invalid ticker provided", icon="❌")
             return False
 
-        success = add_to_default_watchlist(ticker, name)
-
-        if success:
-            st.success(f"✅ Added {ticker} to watchlist!", icon="✅")
-            return True
-        else:
-            st.info(f"ℹ️ {ticker} is already in your watchlist!", icon="ℹ️")
-            return False
+        if 'watchlist_manager' not in st.session_state:
+            from services.watchlist_manager import SimpleWatchlistManager
+            st.session_state.watchlist_manager = SimpleWatchlistManager()
+        
+        manager = st.session_state.watchlist_manager
+        watchlists = manager.get_all_watchlists()
+        
+        # Find default watchlist
+        default_wl = next((w for w in watchlists if w['is_default']), None)
+        
+        if default_wl:
+            return manager.add_stock_to_watchlist(default_wl['id'], ticker)
+        return False
 
     except Exception as e:
-        st.error(f"❌ Failed to add {ticker}: {str(e)}", icon="❌")
+        st.error(f"❌ Failed to add {ticker}: {str(e)}")
         return False
 
 
-
-def display_batch_analysis():
-    """Main batch analysis interface with clickable watchlist icons"""
-    st.header("Batch Analysis")
-    st.write(
-        "Analyze multiple stocks at once using database cache first, then API fallback.")
+def add_selected_to_watchlist(selected_stocks):
+    """Add selected stocks to default watchlist"""
+    added_count = 0
+    for _, stock in selected_stocks.iterrows():
+        ticker = stock.get('Ticker', '')
+        name = stock.get('Name', ticker)
+        
+        # Clean ticker if it has markdown link formatting
+        if '[' in str(ticker) and ']' in str(ticker):
+            ticker = str(ticker).split('[')[1].split(']')[0]
+        
+        if ticker and add_stock_to_watchlist_with_feedback(ticker, name):
+            added_count += 1
     
-    # Auto-restore recent results
-    has_recent_results = check_and_restore_results()
+    if added_count > 0:
+        st.success(f"✅ Added {added_count} stocks to watchlist!")
+
+
+def render_compact_results_table(filtered_df):
+    """Render beautiful, compact results table with individual add buttons"""
+    if filtered_df.empty:
+        st.info("📊 No results to display")
+        return
     
-    # Show existing results info if available
-    if has_recent_results:
-        results_count = len(st.session_state.batch_analysis_results)
-        timestamp = st.session_state.get('batch_analysis_timestamp', 'Unknown time')
-        analyzed_tickers = st.session_state.get('batch_analysis_tickers', [])
-        
-        st.info(f"📊 **Previous Results Available**: {results_count} stocks analyzed at {timestamp}")
-        
-        # Show quick summary of what was analyzed
-        if analyzed_tickers:
-            with st.expander(f"📋 Previously Analyzed Stocks ({len(analyzed_tickers)} stocks)", expanded=False):
-                # Display in columns for better formatting
-                cols = st.columns(5)
-                for i, ticker in enumerate(analyzed_tickers[:20]):  # Show first 20
-                    with cols[i % 5]:
-                        st.write(f"• {ticker}")
-                if len(analyzed_tickers) > 20:
-                    st.write(f"... and {len(analyzed_tickers) - 20} more")
-        
-        # Clear results button
-        if st.button("🗑️ Clear Previous Results", help="Clear previous analysis results"):
-            for key in ['batch_analysis_results', 'batch_analysis_timestamp', 'batch_analysis_tickers']:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.success("Previous results cleared!")
-            st.rerun()
-
-    # Initialize analyzer
-    if 'batch_analyzer' not in st.session_state:
-        st.session_state.batch_analyzer = BatchAnalyzer()
-
-    analyzer = st.session_state.batch_analyzer
-
-    # Get watchlist for quick selection
-    watchlist = get_watchlist()
-    watchlist_tickers = [item['ticker']
-                         for item in watchlist] if watchlist else []
-
-    # Settings in main content area
-    with st.expander("⚙️ Analysis Settings", expanded=True):
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            analysis_mode = st.radio(
-                "Analysis Mode:",
-                ["All Watchlist Stocks", "Selected Watchlist", "All Small Cap",
-                 "All Mid Cap", "All Large Cap", "Selected Stocks"],
-                key="batch_analysis_mode"
-            )
-        
-        with col2:
-            # st.info("📊 Data Priority: Cache → Alpha Vantage → Yahoo Finance")
-            pass
-
-    selected_tickers = []
-
-    if analysis_mode == "All Watchlist Stocks":
-        if not watchlist:
-            st.warning(
-                "Your watchlist is empty. Please add stocks to your watchlist or use another mode.")
-        else:
-            selected_tickers = watchlist_tickers
-            st.success(
-                f"Ready to analyze all {len(selected_tickers)} stocks in your watchlist")
-
-    elif analysis_mode == "Selected Watchlist":
-        # Get all watchlists
+    # Header with stats
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.subheader(f"📊 Scan Results ({len(filtered_df)} stocks)")
+    with col2:
+        buy_count = len(filtered_df[filtered_df['Signal'] == 'BUY'])
+        if buy_count > 0:
+            st.metric("🟢 BUY Signals", buy_count)
+    
+    # Bulk actions row with watchlist selector
+    buy_signals = filtered_df[filtered_df['Signal'] == 'BUY']
+    
+    if not buy_signals.empty:
+        # Get watchlists for selection
         if 'watchlist_manager' not in st.session_state:
             from services.watchlist_manager import SimpleWatchlistManager
             st.session_state.watchlist_manager = SimpleWatchlistManager()
@@ -554,347 +363,341 @@ def display_batch_analysis():
         watchlists = manager.get_all_watchlists()
         
         if watchlists:
-            selected_wl = st.selectbox(
-                "Select Watchlist",
-                options=watchlists,
-                format_func=lambda x: x['name'],
-                key="batch_watchlist_select"
-            )
+            # Watchlist selection and bulk add
+            col1, col2, col3, col4, col5 = st.columns([2, 1.2, 0.8, 0.8, 0.8])
             
-            if selected_wl:
-                tickers = manager.get_watchlist_stocks(selected_wl['id'])
-                selected_tickers = tickers
-                st.success(f"Ready to analyze {len(tickers)} stocks from '{selected_wl['name']}'")
+            with col1:
+                selected_watchlist = st.selectbox(
+                    "Select watchlist for bulk add:",
+                    options=watchlists,
+                    format_func=lambda x: f"📋 {x['name']} {'(default)' if x.get('is_default') else ''}",
+                    key="bulk_add_watchlist_select"
+                )
+            
+            with col2:
+                if st.button(f"➕ Add All {len(buy_signals)} BUYs", type="primary", use_container_width=True):
+                    bulk_add_to_watchlist(buy_signals, selected_watchlist['id'] if selected_watchlist else None)
+            
+            with col3:
+                # Quick create new watchlist
+                if st.button("📋 New", use_container_width=True, help="Create new watchlist"):
+                    new_name = f"Scan Results {datetime.now().strftime('%m/%d')}"
+                    success = manager.create_watchlist(new_name, f"Created from scan on {datetime.now().strftime('%Y-%m-%d')}")
+                    if success:
+                        st.success(f"✅ Created '{new_name}'")
+                        st.rerun()
+                    else:
+                        st.error("Failed to create watchlist")
+            
+            with col4:
+                csv_data = filtered_df.to_csv(index=False)
+                st.download_button("📥 CSV", csv_data, "scan_results.csv", "text/csv", use_container_width=True)
+            
+            with col5:
+                if st.button("🔄 Refresh", use_container_width=True):
+                    trigger_new_scan()
         else:
-            st.warning("No watchlists available")
-            selected_tickers = []
-
-    elif analysis_mode == "All Small Cap":
-        try:
-            small_cap_df = pd.read_csv('data/csv/updated_small.csv')
-            small_cap_tickers = small_cap_df['YahooTicker'].tolist()
-            selected_tickers = [t for t in small_cap_tickers if pd.notna(t)]
-            st.success(
-                f"Ready to analyze all {len(selected_tickers)} stocks from Small Cap list")
-        except Exception as e:
-            st.error(f"Failed to load Small Cap CSV file: {str(e)}")
-
-    elif analysis_mode == "All Mid Cap":
-        try:
-            mid_cap_df = pd.read_csv('data/csv/updated_mid.csv')
-            mid_cap_tickers = mid_cap_df['YahooTicker'].tolist()
-
-            # Fix common ticker format issues in midcap CSV
-            fixed_tickers = []
-            for ticker in mid_cap_tickers:
-                if pd.notna(ticker):
-                    # Fix tickers missing .ST suffix
-                    if ticker.endswith('ST') and not ticker.endswith('.ST'):
-                        ticker = ticker[:-2] + '.ST'
-                    fixed_tickers.append(ticker)
-
-            selected_tickers = fixed_tickers
-            st.success(
-                f"Ready to analyze all {len(selected_tickers)} stocks from Mid Cap list")
-        except Exception as e:
-            st.error(f"Failed to load Mid Cap CSV file: {str(e)}")
-
-    elif analysis_mode == "All Large Cap":
-        try:
-            large_cap_df = pd.read_csv('data/csv/updated_large.csv')
-            large_cap_tickers = large_cap_df['YahooTicker'].tolist()
-            selected_tickers = [t for t in large_cap_tickers if pd.notna(t)]
-            st.success(
-                f"Ready to analyze all {len(selected_tickers)} stocks from Large Cap list")
-        except Exception as e:
-            st.error(f"Failed to load Large Cap CSV file: {str(e)}")
-
-    else:  # Selected Stocks mode
-        input_method = st.radio(
-            "Select stocks from:",
-            ["Watchlist", "Small Cap CSV", "Mid Cap CSV",
-                "Large Cap CSV", "Manual Entry"],
-            key="batch_input_method"
-        )
-
-        if input_method == "Watchlist":
-            if not watchlist:
-                st.warning("Your watchlist is empty.")
+            # Fallback if no watchlists available
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                if st.button(f"➕ Add All {len(buy_signals)} BUY Signals", type="primary", use_container_width=True):
+                    bulk_add_to_watchlist(buy_signals)
+            
+            with col2:
+                csv_data = filtered_df.to_csv(index=False)
+                st.download_button("📥 Download CSV", csv_data, "scan_results.csv", "text/csv", use_container_width=True)
+            
+            with col3:
+                if st.button("🔄 Refresh Scan", use_container_width=True):
+                    trigger_new_scan()
+    else:
+        # No buy signals, just show other actions
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            csv_data = filtered_df.to_csv(index=False)
+            st.download_button("📥 Download CSV", csv_data, "scan_results.csv", "text/csv", use_container_width=True)
+        
+        with col2:
+            if st.button("🔄 Refresh Scan", use_container_width=True):
+                trigger_new_scan()
+    
+    st.divider()
+    
+    # Table headers
+    col_add, col_rank, col_ticker, col_company, col_signal, col_score, col_price, col_pe, col_indicators = st.columns([
+        0.8, 0.6, 1.2, 2.5, 1, 1.2, 1, 0.8, 1.5
+    ])
+    
+    with col_add:
+        st.markdown("**Add**")
+    with col_rank:
+        st.markdown("**#**")
+    with col_ticker:
+        st.markdown("**Ticker**")
+    with col_company:
+        st.markdown("**Company**")
+    with col_signal:
+        st.markdown("**Signal**")
+    with col_score:
+        st.markdown("**Score**")
+    with col_price:
+        st.markdown("**Price**")
+    with col_pe:
+        st.markdown("**P/E**")
+    with col_indicators:
+        st.markdown("**Indicators**")
+    
+    st.markdown("---")
+    
+    # Custom CSS for ultra-compact rows
+    st.markdown("""
+    <style>
+    .compact-row {
+        padding: 2px 0px !important;
+        margin: 0px !important;
+        min-height: 25px !important;
+    }
+    div[data-testid="stHorizontalBlock"] > div {
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+    .stButton > button {
+        height: 25px !important;
+        padding: 0px 6px !important;
+        min-height: 25px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Ultra-compact table with individual buttons
+    for idx, row in filtered_df.iterrows():
+        # Create a single compact row using HTML-like approach
+        col_add, col_rank, col_ticker, col_company, col_signal, col_score, col_price, col_pe, col_indicators = st.columns([
+            0.8, 0.6, 1.2, 2.5, 1, 1.2, 1, 0.8, 1.5
+        ])
+        
+        # Add button - ultra compact
+        with col_add:
+            ticker = row.get('Ticker', 'N/A')
+            name = row.get('Name', ticker)
+            if st.button("➕", key=f"add_{ticker}_{idx}", help=f"Add {ticker}"):
+                add_single_to_watchlist(ticker, name)
+        
+        # Rank - small text
+        with col_rank:
+            st.markdown(f"<small>#{row.get('Rank', idx+1)}</small>", unsafe_allow_html=True)
+        
+        # Ticker with Yahoo Finance link - compact
+        with col_ticker:
+            if ticker != 'N/A':
+                clean_ticker = ticker.replace('[', '').replace(']', '').split('(')[0].strip()
+                yahoo_url = f"https://finance.yahoo.com/quote/{clean_ticker}"
+                st.markdown(f"**[{clean_ticker}]({yahoo_url})**")
             else:
-                selected_tickers = st.multiselect(
-                    "Select stocks from your watchlist:",
-                    options=watchlist_tickers,
-                    key="batch_watchlist_select"
-                )
+                st.markdown("**N/A**")
+        
+        # Company name - truncated
+        with col_company:
+            if name != 'N/A' and name != ticker:
+                display_name = name[:30] + "..." if len(name) > 30 else name
+                google_search = f"https://www.google.com/search?q={name.replace(' ', '+')}"
+                st.markdown(f"[{display_name}]({google_search})")
+            else:
+                st.markdown(name if name != ticker else "—")
+        
+        # Signal - compact colored badge
+        with col_signal:
+            signal = row.get('Signal', 'HOLD')
+            if signal == 'BUY':
+                st.markdown("🟢 **BUY**")
+            elif signal == 'SELL':
+                st.markdown("🔴 **SELL**")
+            else:
+                st.markdown("🟡 **HOLD**")
+        
+        # Score - compact with mini progress
+        with col_score:
+            score = int(row.get('Score', 0))
+            # Inline score with mini progress bar
+            if score >= 70:
+                st.markdown(f"**{score}** 🟢")
+            elif score >= 50:
+                st.markdown(f"**{score}** 🟡")
+            else:
+                st.markdown(f"**{score}** 🔴")
+        
+        # Price - compact
+        with col_price:
+            price = row.get('Price', 'N/A')
+            if price != 'N/A':
+                st.markdown(f"**${price}**")
+            else:
+                st.markdown("N/A")
+        
+        # P/E Ratio - compact
+        with col_pe:
+            pe = row.get('P/E', 'N/A')
+            st.markdown(f"{pe}")
+        
+        # Technical indicators - ultra compact
+        with col_indicators:
+            ma40 = '🟢' if row.get('MA40') == '✓' else '🔴'
+            rsi = '🟢' if row.get('RSI>50') == '✓' else '🔴'
+            profit = '🟢' if row.get('Profitable') == '✓' else '🔴'
+            st.markdown(f"<small>{ma40}{rsi}{profit}</small>", unsafe_allow_html=True)
+    
+    # Footer with selection info
+    st.caption(f"💡 Tip: Click ticker symbols to view on Yahoo Finance • Company names link to Google search")
+    
+    # Enhanced info about watchlist functionality
+    if not buy_signals.empty:
+        st.info("💡 **Watchlist Add Options**: Select your target watchlist above, then use 'Add All BUYs' or individual ➕ buttons")
+    else:
+        st.info("💡 **No BUY signals found** - Try adjusting filters or running a new scan")
 
-        elif input_method == "Small Cap CSV":
-            try:
-                small_cap_df = pd.read_csv('data/csv/updated_small.csv')
-                small_cap_tickers = small_cap_df['YahooTicker'].tolist()
-                selected_tickers = st.multiselect(
-                    "Select stocks from Small Cap list:",
-                    options=[t for t in small_cap_tickers if pd.notna(t)],
-                    key="batch_small_cap_select"
-                )
-            except Exception as e:
-                st.error(f"Failed to load Small Cap CSV file: {str(e)}")
 
-        elif input_method == "Mid Cap CSV":
-            try:
-                mid_cap_df = pd.read_csv('data/csv/updated_mid.csv')
-                mid_cap_tickers = mid_cap_df['YahooTicker'].tolist()
+def render_unified_results_table(results):
+    """Single unified results table with all features"""
+    if not results:
+        st.info("No results to display")
+        return
+    
+    # Convert to clean DataFrame
+    df = create_clean_results_dataframe(results)
+    
+    if df.empty:
+        st.info("No valid results to display")
+        return
+    
+    # Simple filters in one row
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        signal_filter = st.multiselect("Signals", ["BUY", "HOLD", "SELL"], default=["BUY", "HOLD", "SELL"])
+    
+    with col2:
+        min_score = st.slider("Min Score", 0, 100, 0)
+    
+    with col3:
+        max_results = st.slider("Show Top", 10, 200, 50)
+    
+    with col4:
+        sort_by = st.selectbox("Sort By", ["Score", "Signal", "Ticker", "P/E"])
+    
+    # Apply filters and sorting
+    filtered_df = apply_filters_and_sort(df, signal_filter, min_score, sort_by)
+    top_results = filtered_df.head(max_results)
+    
+    # Render the compact table
+    render_compact_results_table(top_results)
 
-                # Fix ticker format issues for selection
-                fixed_options = []
-                for ticker in mid_cap_tickers:
-                    if pd.notna(ticker):
-                        if ticker.endswith('ST') and not ticker.endswith('.ST'):
-                            ticker = ticker[:-2] + '.ST'
-                        fixed_options.append(ticker)
 
-                selected_tickers = st.multiselect(
-                    "Select stocks from Mid Cap list:",
-                    options=fixed_options,
-                    key="batch_mid_cap_select"
-                )
-            except Exception as e:
-                st.error(f"Failed to load Mid Cap CSV file: {str(e)}")
+def show_scanner_status():
+    """Show which scanner is being used and performance stats"""
+    st.info("🚀 **Using Optimized Bulk Scanner** - Database-first with parallel processing")
+    
+    # Show quick stats if available
+    if 'last_scan_stats' in st.session_state:
+        stats = st.session_state.last_scan_stats
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Stocks Processed", stats.get('total', 0))
+        with col2:
+            st.metric("Processing Time", f"{stats.get('duration', 0):.1f}s")
+        with col3:
+            st.metric("Success Rate", f"{stats.get('success_rate', 0):.1f}%")
+        with col4:
+            st.metric("Data Sources", stats.get('sources', 'Multiple'))
 
-        elif input_method == "Large Cap CSV":
-            try:
-                large_cap_df = pd.read_csv('data/csv/updated_large.csv')
-                large_cap_tickers = large_cap_df['YahooTicker'].tolist()
-                selected_tickers = st.multiselect(
-                    "Select stocks from Large Cap list:",
-                    options=[t for t in large_cap_tickers if pd.notna(t)],
-                    key="batch_large_cap_select"
-                )
-            except Exception as e:
-                st.error(f"Failed to load Large Cap CSV file: {str(e)}")
 
-        else:  # Manual Entry
-            ticker_input = st.text_input(
-                "Enter ticker symbols (comma-separated):",
-                key="batch_manual_tickers"
-            )
-            if ticker_input:
-                raw_tickers = [t.strip() for t in ticker_input.split(",")]
-                selected_tickers = [normalize_ticker(
-                    t) for t in raw_tickers if t]
+def run_optimized_scan(tickers, progress_callback=None):
+    """Run the optimized bulk scanner"""
+    try:
+        scanner = get_scanner_engine()
+        
+        start_time = time.time()
+        results = scanner(
+            target_tickers=tickers,
+            fetch_missing=True,
+            max_api_workers=8,
+            progress_callback=progress_callback
+        )
+        end_time = time.time()
+        
+        # Store scan stats
+        success_count = len([r for r in results if not r.get('error')])
+        st.session_state.last_scan_stats = {
+            'total': len(results),
+            'duration': end_time - start_time,
+            'success_rate': (success_count / len(results)) * 100 if results else 0,
+            'sources': 'Database + APIs'
+        }
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"Scanner error: {e}")
+        return []
 
-    # Show data source priority info
-    st.info("📊 **Data Source Priority**: Database Cache → Alpha Vantage API → Yahoo Finance API")
 
-    # Analysis execution
-    run_button = st.button("🚀 Run Batch Analysis",
-                           type="primary", disabled=len(selected_tickers) == 0)
-
-    if run_button and selected_tickers:
+def display_batch_analysis():
+    """Main batch analysis interface - SIMPLIFIED"""
+    st.header("🚀 Stock Scanner")
+    
+    # Show scanner status
+    show_scanner_status()
+    
+    # Simplified scanner selection
+    should_scan, stock_universe, show_errors, auto_add_buys = render_scanner_selection()
+    
+    # Get tickers for selected universe
+    tickers = get_tickers_for_universe(stock_universe)
+    
+    if not tickers and stock_universe != "Manual Entry":
+        st.warning(f"No tickers found for {stock_universe}")
+    elif tickers:
+        st.success(f"Ready to scan {len(tickers)} stocks from {stock_universe}")
+    
+    # Run scan if requested
+    if should_scan and tickers:
         # Create progress indicators
         progress_bar = st.progress(0)
         status_text = st.empty()
-
+        
         def update_progress(progress, text):
             progress_bar.progress(progress)
             status_text.text(text)
-
+        
         # Run optimized analysis
-        with st.spinner(f"Running optimized analysis on {len(selected_tickers)} stocks..."):
-            results = start_optimized_batch_analysis(
-                selected_tickers, update_progress)
-
+        with st.spinner(f"Scanning {len(tickers)} stocks..."):
+            results = run_optimized_scan(tickers, update_progress)
+        
         # Clear progress indicators
         progress_bar.empty()
         status_text.empty()
-
-        # Store results in session state with persistence
+        
+        # Store results
         st.session_state.batch_analysis_results = results
-        st.session_state.batch_analysis_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        st.session_state.batch_analysis_tickers = selected_tickers.copy()  # Remember what was analyzed
-
-        # Show performance summary
-        success_count = len([r for r in results if "error" not in r])
-        error_count = len([r for r in results if "error" in r])
-
-        st.success(f"✅ Optimized analysis complete!")
-
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Total Processed", len(results))
-        with col2:
-            st.metric("Successful", success_count)
-        with col3:
-            st.metric("Failed", error_count)
-
+        
+        # Auto-add BUY signals if requested
+        if auto_add_buys and results:
+            buy_results = [r for r in results if r.get('value_momentum_signal') == 'BUY']
+            if buy_results:
+                buy_df = create_clean_results_dataframe(buy_results)
+                buy_signals = buy_df[buy_df['Signal'] == 'BUY']
+                if not buy_signals.empty:
+                    # Use default watchlist for auto-add
+                    bulk_add_to_watchlist(buy_signals)
+        
+        st.success(f"✅ Scan complete! Found {len(results)} results")
+    
     # Display results if available
     if 'batch_analysis_results' in st.session_state:
         results = st.session_state.batch_analysis_results
-        
-        # Show analysis summary
         if results:
-            timestamp = st.session_state.get('batch_analysis_timestamp', 'Unknown time')
-            st.subheader(f"📈 Analysis Results (Generated: {timestamp})")
-            success_results = [r for r in results if "error" not in r]
-            error_results = [r for r in results if "error" in r]
-
-            if success_results:
-                try:
-                    results_df = create_results_table(success_results)
-
-                    if not results_df.empty:
-                        st.subheader(
-                            f"📈 Analysis Results ({len(success_results)} successful)")
-
-                        # Add filtering options
-                        col1, col2, col3 = st.columns(3)
-
-                        with col1:
-                            signal_filter = st.multiselect(
-                                "Filter by Signal:",
-                                ["KÖP", "HÅLL", "SÄLJ"],
-                                default=["KÖP", "HÅLL", "SÄLJ"],
-                                key="batch_signal_filter"
-                            )
-
-                        with col2:
-                            min_tech_score = st.slider(
-                                "Minimum Tech Score:",
-                                0, 100, 0,
-                                key="batch_tech_score_filter"
-                            )
-
-                        with col3:
-                            available_sources = results_df["Data Source"].unique(
-                            ).tolist() if "Data Source" in results_df.columns else []
-                            data_source_filter = st.multiselect(
-                                "Data Source:",
-                                available_sources,
-                                default=available_sources,
-                                key="batch_source_filter"
-                            )
-
-                        # Apply filters
-                        filtered_df = results_df.copy()
-
-                        if signal_filter and "Signal" in filtered_df.columns:
-                            filtered_df = filtered_df[filtered_df["Signal"].isin(
-                                signal_filter)]
-
-                        if "Tech Score" in filtered_df.columns:
-                            filtered_df = filtered_df[filtered_df["Tech Score"]
-                                                      >= min_tech_score]
-
-                        if data_source_filter and "Data Source" in filtered_df.columns:
-                            filtered_df = filtered_df[filtered_df["Data Source"].isin(
-                                data_source_filter)]
-
-                        # Sort by Signal priority then Tech Score
-                        if "Signal" in filtered_df.columns and "Tech Score" in filtered_df.columns:
-                            signal_priority = {"KÖP": 1, "HÅLL": 2, "SÄLJ": 3}
-                            filtered_df["_signal_priority"] = filtered_df["Signal"].map(
-                                signal_priority).fillna(4)
-                            filtered_df = filtered_df.sort_values(
-                                ["_signal_priority", "Tech Score"], ascending=[True, False])
-                            filtered_df = filtered_df.drop(
-                                "_signal_priority", axis=1)
-                        elif "Tech Score" in filtered_df.columns:
-                            filtered_df = filtered_df.sort_values(
-                                "Tech Score", ascending=False)
-
-                        # Results controls - moved above the table
-                        st.subheader("📊 Results Actions")
-                        
-                        # Action controls in columns
-                        action_col1, action_col2, action_col3 = st.columns([1, 1, 1])
-                        
-                        with action_col1:
-                            # Traditional dataframe view toggle
-                            show_traditional = st.checkbox("📊 Show Traditional Table", value=False, key="show_traditional_table")
-                        
-                        with action_col2:
-                            # Download button
-                            csv_data = filtered_df.to_csv(index=False).encode('utf-8')
-                            st.download_button(
-                                label="📥 Download Results as CSV",
-                                data=csv_data,
-                                file_name=f"batch_analysis_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                                mime="text/csv",
-                                use_container_width=True
-                            )
-                        
-                        with action_col3:
-                            # Bulk add controls
-                            # Use the simple watchlist manager
-                            if 'watchlist_manager' not in st.session_state:
-                                from services.watchlist_manager import SimpleWatchlistManager
-                                st.session_state.watchlist_manager = SimpleWatchlistManager()
-
-                            manager = st.session_state.watchlist_manager
-                            watchlists = manager.get_all_watchlists()
-                            
-                            if watchlists:
-                                # Watchlist selection for bulk add
-                                target_watchlist = st.selectbox(
-                                    "📁 Select Watchlist:",
-                                    options=watchlists,
-                                    format_func=lambda x: f"{x['name']} {'(Default)' if x['is_default'] else ''}",
-                                    key="bulk_add_watchlist",
-                                    label_visibility="collapsed"
-                                )
-                                
-                                # Get stocks with BUY signals
-                                top_buy_signals = pd.DataFrame()
-                                if "Signal" in filtered_df.columns:
-                                    top_buy_signals = filtered_df[
-                                        (filtered_df["Signal"] == "KÖP") | 
-                                        (filtered_df["Signal"] == "BUY")
-                                    ].head(10)
-                                
-                                if not top_buy_signals.empty and target_watchlist:
-                                    if st.button("➕ Add All BUY Signals", type="primary", key="bulk_add_button", use_container_width=True):
-                                        added_count = 0
-                                        failed_count = 0
-                                        
-                                        for _, stock in top_buy_signals.iterrows():
-                                            ticker = stock.get('Ticker', '')
-                                            if ticker:
-                                                success = manager.add_stock_to_watchlist(target_watchlist['id'], ticker)
-                                                if success:
-                                                    added_count += 1
-                                                else:
-                                                    failed_count += 1
-                                        
-                                        # Summary
-                                        if added_count > 0:
-                                            st.success(f"✅ Added {added_count} stocks to '{target_watchlist['name']}'!")
-                                        if failed_count > 0:
-                                            st.info(f"ℹ️ {failed_count} stocks already in watchlist")
-                                else:
-                                    st.info("No BUY signals to add")
-                            else:
-                                st.warning("No watchlists available")
-                        
-                        st.divider()
-
-                        # Render results with clickable watchlist icons
-                        render_results_with_watchlist_icons(filtered_df)
-                        
-                        # Show traditional table view if requested
-                        if show_traditional:
-                            st.subheader("📊 Traditional Table View")
-                            # Create a copy with clickable ticker links
-                            display_df = filtered_df.copy()
-                            if 'Ticker' in display_df.columns:
-                                display_df['Ticker'] = display_df['Ticker'].apply(
-                                    lambda ticker: f"[{ticker}](https://finance.yahoo.com/quote/{ticker})" if ticker != 'N/A' else 'N/A'
-                                )
-                            st.dataframe(display_df, use_container_width=True, hide_index=True)
-
-                except Exception as e:
-                    st.error(f"Error displaying results: {e}")
-
-            # Show error results if any
-            if error_results:
-                with st.expander(f"⚠️ Failed Analyses ({len(error_results)})", expanded=False):
-                    error_df = pd.DataFrame(error_results)
-                    st.dataframe(error_df, use_container_width=True)
+            render_unified_results_table(results)
+        else:
+            st.info("No results from last scan")

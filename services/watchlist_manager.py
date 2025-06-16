@@ -13,10 +13,37 @@ class SimpleWatchlistManager:
     
     def __init__(self):
         self.data_fetcher = StockDataFetcher()
+        
+        # Try to get Supabase connection
+        from data.supabase_client import get_supabase_db
+        self.supabase_db = get_supabase_db()
+        self.use_supabase = self.supabase_db.is_connected()
+        
+        if self.use_supabase:
+            logger.info("Using Supabase for watchlist storage")
+        else:
+            logger.info("Using SQLite for watchlist storage")
+        
         self._ensure_default_watchlist()
     
     def _ensure_default_watchlist(self):
         """Ensure at least one default watchlist exists"""
+        # Try Supabase first
+        if self.use_supabase:
+            collections = self.supabase_db.get_all_watchlist_collections()
+            default_exists = any(c.get('is_default', False) for c in collections)
+            
+            if not default_exists:
+                result = self.supabase_db.create_watchlist_collection(
+                    "My Watchlist", 
+                    "Default watchlist", 
+                    is_default=True
+                )
+                if result:
+                    logger.info("Created default watchlist in Supabase")
+                    return
+        
+        # Fall back to SQLite
         session = get_db_session()
         try:
             default = session.query(WatchlistCollection).filter(
@@ -33,7 +60,7 @@ class SimpleWatchlistManager:
                 )
                 session.add(default)
                 session.commit()
-                logger.info("Created default watchlist")
+                logger.info("Created default watchlist in SQLite")
         except Exception as e:
             session.rollback()
             logger.error(f"Error creating default watchlist: {e}")
@@ -41,7 +68,14 @@ class SimpleWatchlistManager:
             session.close()
     
     def get_all_watchlists(self) -> List[Dict]:
-        """Get all watchlist collections"""
+        """Get all watchlist collections from the appropriate database."""
+        # Try Supabase first
+        if self.use_supabase:
+            collections = self.supabase_db.get_all_watchlist_collections()
+            if collections:
+                return collections
+        
+        # Fall back to SQLite
         session = get_db_session()
         try:
             collections = session.query(WatchlistCollection).all()
@@ -59,7 +93,14 @@ class SimpleWatchlistManager:
             session.close()
     
     def create_watchlist(self, name: str, description: str = "") -> bool:
-        """Create a new watchlist collection"""
+        """Create a new watchlist collection in the appropriate database."""
+        # Try Supabase first
+        if self.use_supabase:
+            result = self.supabase_db.create_watchlist_collection(name, description)
+            if result:
+                return True
+        
+        # Fall back to SQLite
         session = get_db_session()
         try:
             # Check if name already exists
@@ -115,6 +156,13 @@ class SimpleWatchlistManager:
     
     def add_stock_to_watchlist(self, watchlist_id: int, ticker: str) -> bool:
         """Add a stock to a specific watchlist"""
+        # Try Supabase first
+        if self.use_supabase:
+            result = self.supabase_db.add_to_watchlist_collection(watchlist_id, ticker)
+            if result:
+                return True
+        
+        # Fall back to SQLite
         session = get_db_session()
         try:
             # Check if already exists
@@ -158,6 +206,13 @@ class SimpleWatchlistManager:
     
     def remove_stock_from_watchlist(self, watchlist_id: int, ticker: str) -> bool:
         """Remove a stock from a specific watchlist"""
+        # Try Supabase first
+        if self.use_supabase:
+            result = self.supabase_db.remove_from_watchlist_collection(watchlist_id, ticker)
+            if result:
+                return True
+        
+        # Fall back to SQLite
         session = get_db_session()
         try:
             membership = session.query(WatchlistMembership).filter(
@@ -179,6 +234,13 @@ class SimpleWatchlistManager:
     
     def get_watchlist_stocks(self, watchlist_id: int) -> List[str]:
         """Get all stock tickers in a specific watchlist"""
+        # Try Supabase first
+        if self.use_supabase:
+            stocks = self.supabase_db.get_watchlist_collection_stocks(watchlist_id)
+            if stocks is not None:
+                return stocks
+        
+        # Fall back to SQLite
         session = get_db_session()
         try:
             memberships = session.query(WatchlistMembership).filter(
