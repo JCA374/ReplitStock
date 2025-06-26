@@ -18,7 +18,9 @@
       "Bash(touch:*)",
       "Bash(rg:*)",
       "Bash(python:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(pip install:*)",
+      "Bash(streamlit run:*)"
     ],
     "deny": []
   },
