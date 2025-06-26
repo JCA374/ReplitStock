@@ -1,12 +1,21 @@
 import os
 import socket
-import psycopg2
 import sqlite3
 import pandas as pd
 import json
 from contextlib import contextmanager
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+
+# Use SQLAlchemy's built-in PostgreSQL support instead of direct psycopg2
+try:
+    # Test if we can create a PostgreSQL engine (SQLAlchemy will handle the driver)
+    from sqlalchemy import create_engine as _test_engine
+    POSTGRESQL_AVAILABLE = True
+except ImportError:
+    POSTGRESQL_AVAILABLE = False
+    print("📝 PostgreSQL support not available - PostgreSQL/Supabase connections disabled")
+    print("✅ App will run using SQLite (local database)")
 
 # Constants
 SQLITE_DB_PATH = "stock_data.db"  # Fallback local database
@@ -122,8 +131,8 @@ class DatabaseConnection:
             else:
                 project_ref = supabase_url.split(".")[0]
 
-            # Session pooler connection string
-            conn_string = f"postgresql://postgres.{project_ref}:{db_password}@aws-0-eu-north-1.pooler.supabase.com:5432/postgres"
+            # Session pooler connection string with pg8000 driver
+            conn_string = f"postgresql+pg8000://postgres.{project_ref}:{db_password}@aws-0-eu-north-1.pooler.supabase.com:5432/postgres"
             print(
                 f"Using Session Pooler connection for project: {project_ref}")
             return conn_string
@@ -133,6 +142,10 @@ class DatabaseConnection:
 
     def _init_supabase(self):
         """Initialize connection to Supabase using Session Pooler"""
+        if not POSTGRESQL_AVAILABLE:
+            print("PostgreSQL support not available - skipping Supabase connection")
+            return False
+            
         conn_string = self._get_supabase_pooler_connection_string()
         if not conn_string:
             print("No valid Supabase connection string available")
@@ -141,13 +154,15 @@ class DatabaseConnection:
         try:
             print("Connecting to Supabase PostgreSQL database via Session Pooler...")
 
-            # Create SQLAlchemy engine with IPv4 compatible pooler
+            # Let SQLAlchemy handle the PostgreSQL driver automatically
             self.engine = create_engine(
                 conn_string,
                 connect_args={
-                    "connect_timeout": 10,  # 10-second connection timeout
+                    "connect_timeout": 10,
                     "application_name": "stock_analyzer"
-                }
+                },
+                # SQLAlchemy will automatically find and use available PostgreSQL drivers
+                pool_pre_ping=True  # Test connections before use
             )
 
             # Test connection

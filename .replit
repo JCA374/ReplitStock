@@ -6,7 +6,7 @@ packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["streamlit", "run", "app.py", "--server.port", "8501"]
+run = ["pip", "install", "-r", "requirements.txt", "&&", "streamlit", "run", "app.py", "--server.port", "8501"]
 
 [workflows]
 runButton = "Project"
@@ -26,9 +26,9 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pip install yfinance alpha_vantage plotly && streamlit run app.py --server.port 5000"
-waitForPort = 5000
+args = "pip install -r requirements.txt && streamlit run app.py --server.port 8501"
+waitForPort = 8501
 
 [[ports]]
-localPort = 5000
+localPort = 8501
 externalPort = 80

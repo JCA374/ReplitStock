@@ -4,7 +4,6 @@ port = 8501
 enableCORS = true
 enableXsrfProtection = true
 
-
 [theme]
 primaryColor = "#1E88E5"
 base = "dark"

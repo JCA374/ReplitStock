@@ -5,6 +5,8 @@ numpy==2.2.5
 matplotlib==3.10.3
 plotly==6.1.0
 sqlalchemy==2.0.41
-psycopg2-binary==2.9.10
+pg8000>=1.29.0
 alpha-vantage==3.0.0
 supabase==2.15.1
+requests>=2.32.3
+trafilatura>=2.0.0
