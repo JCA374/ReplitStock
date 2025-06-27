@@ -85,45 +85,22 @@ def get_tickers_for_universe(stock_universe):
             return []
 
         elif stock_universe == "All Small Cap":
-            # Load Swedish companies and filter by market cap (smaller companies)
-            from services.company_explorer import CompanyExplorer
-            explorer = CompanyExplorer()
-            companies = explorer.get_companies_df()
-            if not companies.empty:
-                # Small cap: assume companies not in major sectors or newer listings
-                small_cap_sectors = ['Consumer Cyclical', 'Technology', 'Healthcare']
-                small_cap = companies[companies['Sector'].isin(small_cap_sectors)]
-                return small_cap['Ticker'].tolist()
-            return []
+            from utils.ticker_cleaner import load_and_clean_csv_tickers
+            tickers = load_and_clean_csv_tickers('data/csv/updated_small.csv')
+            st.info(f"Loaded {len(tickers)} small cap stocks from CSV")
+            return tickers
 
         elif stock_universe == "All Mid Cap":
-            # Load Swedish companies and filter by market cap (mid-size companies)
-            from services.company_explorer import CompanyExplorer
-            explorer = CompanyExplorer()
-            companies = explorer.get_companies_df()
-            if not companies.empty:
-                # Mid cap: industrial and materials companies
-                mid_cap_sectors = ['Industrials', 'Basic Materials', 'Consumer Defensive']
-                mid_cap = companies[companies['Sector'].isin(mid_cap_sectors)]
-                return mid_cap['Ticker'].tolist()
-            return []
+            from utils.ticker_cleaner import load_and_clean_csv_tickers
+            tickers = load_and_clean_csv_tickers('data/csv/updated_mid.csv')
+            st.info(f"Loaded {len(tickers)} mid cap stocks from CSV")
+            return tickers
 
         elif stock_universe == "All Large Cap":
-            # Load Swedish companies and filter by market cap (largest companies)
-            from services.company_explorer import CompanyExplorer
-            explorer = CompanyExplorer()
-            companies = explorer.get_companies_df()
-            if not companies.empty:
-                # Large cap: major financial and telecom companies
-                large_cap_sectors = ['Financial Services', 'Communication Services']
-                large_cap = companies[companies['Sector'].isin(large_cap_sectors)]
-                # Also include some major industrials
-                major_industrials = companies[
-                    (companies['Sector'] == 'Industrials') & 
-                    (companies['Ticker'].isin(['ABB.ST', 'SAND.ST', 'SKF-B.ST', 'VOLV-B.ST']))
-                ]
-                return pd.concat([large_cap, major_industrials])['Ticker'].tolist()
-            return []
+            from utils.ticker_cleaner import load_and_clean_csv_tickers
+            tickers = load_and_clean_csv_tickers('data/csv/updated_large.csv')
+            st.info(f"Loaded {len(tickers)} large cap stocks from CSV")
+            return tickers
 
         elif stock_universe == "Manual Entry":
             ticker_input = st.text_input(
