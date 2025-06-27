@@ -360,106 +360,40 @@ def render_compact_results_table(filtered_df):
         st.info("📊 No results to display")
         return
 
-    # Header with stats
-    st.subheader(f"📊 Scan Results ({len(filtered_df)} stocks)")
-
-    # Bulk actions row with watchlist selector
+    # Compact header with essential actions
+    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+    
+    with col1:
+        st.markdown(f"**📊 Results ({len(filtered_df)} stocks)**")
+        
     buy_signals = filtered_df[filtered_df['Signal'] == 'BUY']
-
+    
     if not buy_signals.empty:
         # Get watchlists for selection
         if 'watchlist_manager' not in st.session_state:
             from services.watchlist_manager import SimpleWatchlistManager
             st.session_state.watchlist_manager = SimpleWatchlistManager()
-
+        
         manager = st.session_state.watchlist_manager
         watchlists = manager.get_all_watchlists()
-
+        
         if watchlists:
-            # Watchlist selection and bulk add
-            col1, col2, col3, col4, col5 = st.columns([2, 1.2, 0.8, 0.8, 0.8])
-
-            with col1:
-                selected_watchlist = st.selectbox(
-                    "Select watchlist for bulk add:",
-                    options=watchlists,
-                    format_func=lambda x:
-                    f"📋 {x['name']} {'(default)' if x.get('is_default') else ''}",
-                    key="bulk_add_watchlist_select")
-
             with col2:
-                if st.button(f"➕ Add All {len(buy_signals)} BUYs",
-                             type="primary",
-                             use_container_width=True):
-                    bulk_add_to_watchlist(
-                        buy_signals, selected_watchlist['id']
-                        if selected_watchlist else None)
+                if st.button(f"➕ Add {len(buy_signals)} BUYs", 
+                           type="primary", use_container_width=True):
+                    # Use default watchlist for quick add
+                    default_watchlist = next((w for w in watchlists if w.get('is_default')), watchlists[0])
+                    bulk_add_to_watchlist(buy_signals, default_watchlist['id'])
+    
+    with col3:
+        csv_data = filtered_df.to_csv(index=False)
+        st.download_button("📥 CSV", csv_data, "results.csv", "text/csv", use_container_width=True)
+    
+    with col4:
+        if st.button("🔄 Refresh", use_container_width=True):
+            trigger_new_scan()
 
-            with col3:
-                # Quick create new watchlist
-                if st.button("📋 New",
-                             use_container_width=True,
-                             help="Create new watchlist"):
-                    new_name = f"Scan Results {datetime.now().strftime('%m/%d')}"
-                    success = manager.create_watchlist(
-                        new_name,
-                        f"Created from scan on {datetime.now().strftime('%Y-%m-%d')}"
-                    )
-                    if success:
-                        st.success(f"✅ Created '{new_name}'")
-                        st.rerun()
-                    else:
-                        st.error("Failed to create watchlist")
-
-            with col4:
-                csv_data = filtered_df.to_csv(index=False)
-                st.download_button("📥 CSV",
-                                   csv_data,
-                                   "scan_results.csv",
-                                   "text/csv",
-                                   use_container_width=True)
-
-            with col5:
-                if st.button("🔄 Refresh", use_container_width=True):
-                    trigger_new_scan()
-        else:
-            # Fallback if no watchlists available
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                if st.button(f"➕ Add All {len(buy_signals)} BUY Signals",
-                             type="primary",
-                             use_container_width=True):
-                    bulk_add_to_watchlist(buy_signals)
-
-            with col2:
-                csv_data = filtered_df.to_csv(index=False)
-                st.download_button("📥 Download CSV",
-                                   csv_data,
-                                   "scan_results.csv",
-                                   "text/csv",
-                                   use_container_width=True)
-
-            with col3:
-                if st.button("🔄 Refresh Scan", use_container_width=True):
-                    trigger_new_scan()
-    else:
-        # No buy signals, just show other actions
-        col1, col2 = st.columns(2)
-
-        with col1:
-            csv_data = filtered_df.to_csv(index=False)
-            st.download_button("📥 Download CSV",
-                               csv_data,
-                               "scan_results.csv",
-                               "text/csv",
-                               use_container_width=True)
-
-        with col2:
-            if st.button("🔄 Refresh Scan", use_container_width=True):
-                trigger_new_scan()
-
-    st.divider()
+    st.markdown("---")
 
     # Mobile-responsive table headers with GPT
     col_add, col_gpt, col_ticker, col_signal, col_score, col_indicators = st.columns([0.8, 0.8, 1.5, 1, 1, 1.2])
