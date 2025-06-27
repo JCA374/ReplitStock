@@ -477,31 +477,54 @@ def render_compact_results_table(filtered_df):
 
     st.markdown("---")
 
-    # Mobile-optimized CSS
+    # Mobile-optimized CSS with full width
     st.markdown("""
     <style>
+    /* Force full width on mobile */
+    .main .block-container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        max-width: 100% !important;
+    }
+    
+    /* Make columns use full width */
+    div[data-testid="stHorizontalBlock"] {
+        width: 100% !important;
+        gap: 0.25rem !important;
+    }
+    
+    div[data-testid="stHorizontalBlock"] > div {
+        padding-top: 0.2rem !important;
+        padding-bottom: 0.2rem !important;
+        padding-left: 0.1rem !important;
+        padding-right: 0.1rem !important;
+        flex: 1 !important;
+    }
+    
     .batch-table-row {
         padding: 4px 0px !important;
         margin: 2px 0px !important;
         min-height: 32px !important;
         border-bottom: 1px solid #e6e6e6;
+        width: 100% !important;
     }
-    div[data-testid="stHorizontalBlock"] > div {
-        padding-top: 0.2rem !important;
-        padding-bottom: 0.2rem !important;
-    }
+    
     .stButton > button {
         height: 32px !important;
-        padding: 4px 12px !important;
+        padding: 4px 8px !important;
         min-height: 32px !important;
         font-size: 14px !important;
         touch-action: manipulation !important;
+        width: 100% !important;
     }
+    
     .batch-text {
         font-size: 14px !important;
         line-height: 1.4 !important;
         margin: 0 !important;
+        word-wrap: break-word !important;
     }
+    
     .batch-link {
         font-size: 14px !important;
         text-decoration: none !important;
@@ -509,22 +532,43 @@ def render_compact_results_table(filtered_df):
         padding: 4px !important;
         min-height: 32px !important;
         touch-action: manipulation !important;
+        word-wrap: break-word !important;
     }
+    
     .batch-indicator {
         font-size: 18px !important;
         line-height: 1.2 !important;
+        text-align: center !important;
     }
+    
     /* Mobile responsive adjustments */
     @media (max-width: 768px) {
+        .main .block-container {
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
+        }
+        
         .batch-text {
             font-size: 12px !important;
         }
+        
         .batch-link {
             font-size: 12px !important;
+            padding: 2px !important;
         }
+        
         .stButton > button {
             font-size: 12px !important;
-            padding: 6px 8px !important;
+            padding: 4px 6px !important;
+        }
+        
+        div[data-testid="stHorizontalBlock"] {
+            gap: 0.1rem !important;
+        }
+        
+        div[data-testid="stHorizontalBlock"] > div {
+            padding-left: 0.05rem !important;
+            padding-right: 0.05rem !important;
         }
     }
     </style>
