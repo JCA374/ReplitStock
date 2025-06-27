@@ -367,13 +367,7 @@ def render_compact_results_table(filtered_df):
         return
 
     # Header with stats
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.subheader(f"📊 Scan Results ({len(filtered_df)} stocks)")
-    with col2:
-        buy_count = len(filtered_df[filtered_df['Signal'] == 'BUY'])
-        if buy_count > 0:
-            st.metric("🟢 BUY Signals", buy_count)
+    st.subheader(f"📊 Scan Results ({len(filtered_df)} stocks)")
 
     # Bulk actions row with watchlist selector
     buy_signals = filtered_df[filtered_df['Signal'] == 'BUY']
