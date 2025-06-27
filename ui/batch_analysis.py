@@ -161,8 +161,6 @@ def create_clean_results_dataframe(results):
             'Name': result.get('name', result.get('ticker', 'N/A')),
             'Signal': signal,
             'Score': int(result.get('tech_score', 0)),
-            'Price': f"{result.get('last_price', result.get('price', 0)):.2f}",
-            'P/E': format_pe_ratio(result.get('pe_ratio')),
             'MA40': '✓' if result.get('above_ma40') else '✗',
             'RSI>50': '✓' if result.get('rsi_above_50') else '✗', 
             'Profitable': '✓' if result.get('is_profitable') else '✗',
@@ -427,8 +425,8 @@ def render_compact_results_table(filtered_df):
     
 
     # Table headers
-    col_add, col_gpt, col_rank, col_ticker, col_company, col_signal, col_score, col_price, col_pe, col_indicators = st.columns([
-        0.8, 0.7, 0.6, 1.2, 2.5, 1, 1.2, 1, 0.8, 1.5
+    col_add, col_gpt, col_rank, col_ticker, col_company, col_signal, col_score, col_indicators = st.columns([
+        0.8, 0.7, 0.6, 1.2, 2.5, 1, 1.2, 1.5
     ])
 
    
@@ -446,10 +444,6 @@ def render_compact_results_table(filtered_df):
         st.markdown("**Signal**")
     with col_score:
         st.markdown("**Score**")
-    with col_price:
-        st.markdown("**Price**")
-    with col_pe:
-        st.markdown("**P/E**")
     with col_indicators:
         st.markdown("**Indicators**")
     
@@ -478,8 +472,8 @@ def render_compact_results_table(filtered_df):
     # Ultra-compact table with individual buttons
     for idx, row in filtered_df.iterrows():
         # Create a single compact row using HTML-like approach
-        col_add, col_gpt, col_rank, col_ticker, col_company, col_signal, col_score, col_price, col_pe, col_indicators = st.columns([
-            0.8, 0.7, 0.6, 1.2, 2.5, 1, 1.2, 1, 0.8, 1.5
+        col_add, col_gpt, col_rank, col_ticker, col_company, col_signal, col_score, col_indicators = st.columns([
+            0.8, 0.7, 0.6, 1.2, 2.5, 1, 1.2, 1.5
         ])
         
         # Add button - ultra compact
@@ -537,19 +531,6 @@ def render_compact_results_table(filtered_df):
                 st.markdown(f"**{score}** 🟡")
             else:
                 st.markdown(f"**{score}** 🔴")
-        
-        # Price - compact
-        with col_price:
-            price = row.get('Price', 'N/A')
-            if price != 'N/A':
-                st.markdown(f"**${price}**")
-            else:
-                st.markdown("N/A")
-        
-        # P/E Ratio - compact
-        with col_pe:
-            pe = row.get('P/E', 'N/A')
-            st.markdown(f"{pe}")
         
         # Technical indicators - ultra compact
         with col_indicators:
