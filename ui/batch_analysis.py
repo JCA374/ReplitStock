@@ -644,21 +644,30 @@ def render_unified_results_table(results):
         st.info("No valid results to display")
         return
 
-    # Simple filters in one row
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        signal_filter = st.multiselect("Signals", ["BUY", "HOLD", "SELL"],
-                                       default=["BUY", "HOLD", "SELL"])
-
-    with col2:
-        min_score = st.slider("Min Score", 0, 100, 0)
-
-    with col3:
-        max_results = st.slider("Show Top", 10, 200, 50)
-
-    with col4:
-        sort_by = st.selectbox("Sort By", ["Score", "Signal", "Ticker", "P/E"])
+    # Compact filters in expander
+    with st.expander("🔧 Filters & Settings", expanded=False):
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            signal_filter = st.multiselect("Show Signals", 
+                                         ["BUY", "HOLD", "SELL"],
+                                         default=["BUY", "HOLD", "SELL"],
+                                         help="Filter by trading signals")
+        
+        with col2:
+            min_score = st.number_input("Min Score", 
+                                      min_value=0, max_value=100, value=0,
+                                      help="Minimum technical score")
+        
+        with col3:
+            max_results = st.number_input("Show Results", 
+                                        min_value=5, max_value=200, value=50,
+                                        help="Maximum results to display")
+        
+        with col4:
+            sort_by = st.selectbox("Sort By", 
+                                 ["Score", "Signal", "Ticker"],
+                                 help="Sort results by field")
 
     # Apply filters and sorting
     filtered_df = apply_filters_and_sort(df, signal_filter, min_score, sort_by)
