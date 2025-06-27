@@ -25,37 +25,32 @@ def get_scanner_engine():
 
 
 def render_scanner_selection():
-    """Simplified scanner selection interface"""
-    # st.subheader("🚀 High-Performance Stock Scanner")
+    """Mobile-friendly scanner selection interface"""
+    
+    # Main selection - full width on mobile
+    stock_universe = st.selectbox("📈 Select Stock Universe",
+                                  options=[
+                                      "All Watchlist Stocks",
+                                      "Selected Watchlist", 
+                                      "All Small Cap",
+                                      "All Mid Cap",
+                                      "All Large Cap"
+                                  ],
+                                  index=0,
+                                  key="scanner_universe")
 
-    # Single row of essential controls
-    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
-
+    # Mobile-friendly controls layout
+    col1, col2 = st.columns(2)
+    
     with col1:
-        stock_universe = st.selectbox("📈 Select Stock Universe",
-                                      options=[
-                                          "All Watchlist Stocks",
-                                          "Selected Watchlist",
-                                          "All Small Cap (updated_small.csv)",
-                                          "All Mid Cap (updated_mid.csv)",
-                                          "All Large Cap (updated_large.csv)"
-                                      ],
-                                      index=0,  # Default to "All Watchlist Stocks"
-                                      key="scanner_universe")
-
+        show_errors = st.checkbox("Show Errors", value=False, key="show_scanner_errors")
+        
     with col2:
-        show_errors = st.checkbox("Show Errors",
-                                  value=False,
-                                  key="show_scanner_errors")
+        auto_add_buys = st.checkbox("Auto-add BUYs", value=False, key="auto_add_buy_signals")
 
-    with col3:
-        auto_add_buys = st.checkbox("Auto-add BUYs",
-                                    value=False,
-                                    key="auto_add_buy_signals")
-
-    with col4:
-        if st.button("🚀 SCAN", type="primary", use_container_width=True):
-            return True, stock_universe, show_errors, auto_add_buys
+    # Large scan button for mobile
+    if st.button("🚀 SCAN", type="primary", use_container_width=True):
+        return True, stock_universe, show_errors, auto_add_buys
 
     return False, stock_universe, show_errors, auto_add_buys
 
@@ -466,30 +461,23 @@ def render_compact_results_table(filtered_df):
 
     st.divider()
 
-    # Table headers
-    col_add, col_gpt, col_rank, col_ticker, col_company, col_signal, col_score, col_indicators = st.columns(
-        [0.8, 0.7, 0.6, 1.2, 2.5, 1, 1.2, 1.5])
+    # Mobile-responsive table headers
+    col_add, col_ticker, col_signal, col_score, col_indicators = st.columns([1, 1.5, 1, 1, 1.5])
 
     with col_add:
         st.markdown("**Add**")
-    with col_gpt:
-        st.markdown("**Ask GPT**")
-    with col_rank:
-        st.markdown("**#**")
     with col_ticker:
-        st.markdown("**Ticker**")
-    with col_company:
-        st.markdown("**Company**")
+        st.markdown("**Stock**")
     with col_signal:
         st.markdown("**Signal**")
     with col_score:
         st.markdown("**Score**")
     with col_indicators:
-        st.markdown("**Indicators**")
+        st.markdown("**Tech**")
 
     st.markdown("---")
 
-    # Custom CSS for consistent, readable table
+    # Mobile-optimized CSS
     st.markdown("""
     <style>
     .batch-table-row {
@@ -503,10 +491,11 @@ def render_compact_results_table(filtered_df):
         padding-bottom: 0.2rem !important;
     }
     .stButton > button {
-        height: 28px !important;
-        padding: 2px 8px !important;
-        min-height: 28px !important;
+        height: 32px !important;
+        padding: 4px 12px !important;
+        min-height: 32px !important;
         font-size: 14px !important;
+        touch-action: manipulation !important;
     }
     .batch-text {
         font-size: 14px !important;
@@ -516,10 +505,27 @@ def render_compact_results_table(filtered_df):
     .batch-link {
         font-size: 14px !important;
         text-decoration: none !important;
+        display: inline-block !important;
+        padding: 4px !important;
+        min-height: 32px !important;
+        touch-action: manipulation !important;
     }
     .batch-indicator {
-        font-size: 16px !important;
+        font-size: 18px !important;
         line-height: 1.2 !important;
+    }
+    /* Mobile responsive adjustments */
+    @media (max-width: 768px) {
+        .batch-text {
+            font-size: 12px !important;
+        }
+        .batch-link {
+            font-size: 12px !important;
+        }
+        .stButton > button {
+            font-size: 12px !important;
+            padding: 6px 8px !important;
+        }
     }
     </style>
     """,
@@ -527,57 +533,33 @@ def render_compact_results_table(filtered_df):
 
     # Ultra-compact table with individual buttons
     for idx, row in filtered_df.iterrows():
-        # Create a single compact row using HTML-like approach
-        col_add, col_gpt, col_rank, col_ticker, col_company, col_signal, col_score, col_indicators = st.columns(
-            [0.8, 0.7, 0.6, 1.2, 2.5, 1, 1.2, 1.5])
+        # Mobile-responsive row layout
+        col_add, col_ticker, col_signal, col_score, col_indicators = st.columns([1, 1.5, 1, 1, 1.5])
 
-        # Add button - ultra compact
+        # Add button
         with col_add:
             ticker = row.get('Ticker', 'N/A')
             name = row.get('Name', ticker)
             if st.button("➕", key=f"add_{ticker}_{idx}", help=f"Add {ticker}"):
                 add_single_to_watchlist(ticker, name)
 
-        # Ask GPT link - consistent font
-        with col_gpt:
-            if ticker != 'N/A':
-                link, clean_ticker = generate_chatgpt_link(ticker)
-                st.markdown(
-                    f'<a href="{link}" target="_blank" class="batch-link">Ask GPT</a>',
-                    unsafe_allow_html=True)
-
-        # Rank - consistent font
-        with col_rank:
-            st.markdown(
-                f'<div class="batch-text">#{row.get("Rank", idx+1)}</div>',
-                unsafe_allow_html=True)
-
-        # Ticker with Yahoo Finance link - consistent font
+        # Stock info (ticker + company name combined for mobile)
         with col_ticker:
             if ticker != 'N/A':
-                clean_ticker = ticker.replace('[', '').replace(
-                    ']', '').split('(')[0].strip()
+                clean_ticker = ticker.replace('[', '').replace(']', '').split('(')[0].strip()
                 yahoo_url = f"https://finance.yahoo.com/quote/{clean_ticker}"
-                st.markdown(
-                    f'<a href="{yahoo_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong></a>',
-                    unsafe_allow_html=True)
+                # Compact display: ticker on top, company name smaller below
+                if name != 'N/A' and name != ticker:
+                    display_name = name[:20] + "..." if len(name) > 20 else name
+                    st.markdown(
+                        f'<a href="{yahoo_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>{display_name}</small></a>',
+                        unsafe_allow_html=True)
+                else:
+                    st.markdown(
+                        f'<a href="{yahoo_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong></a>',
+                        unsafe_allow_html=True)
             else:
-                st.markdown(
-                    '<div class="batch-text"><strong>N/A</strong></div>',
-                    unsafe_allow_html=True)
-
-        # Company name - consistent font
-        with col_company:
-            if name != 'N/A' and name != ticker:
-                display_name = name[:30] + "..." if len(name) > 30 else name
-                google_search = f"https://www.google.com/search?q={name.replace(' ', '+')}"
-                st.markdown(
-                    f'<a href="{google_search}" target="_blank" class="batch-link">{display_name}</a>',
-                    unsafe_allow_html=True)
-            else:
-                display_text = name if name != ticker else "—"
-                st.markdown(f'<div class="batch-text">{display_text}</div>',
-                            unsafe_allow_html=True)
+                st.markdown('<div class="batch-text"><strong>N/A</strong></div>', unsafe_allow_html=True)
 
         # Signal - consistent font with color
         with col_signal:
@@ -620,14 +602,14 @@ def render_compact_results_table(filtered_df):
                 f'<div class="batch-indicator">{ma40}{rsi}{profit}</div>',
                 unsafe_allow_html=True)
 
-    # Single comprehensive tip
+    # Mobile-friendly tips
     if not buy_signals.empty:
         st.info(
-            "💡 **Tips**: Click ticker symbols for Yahoo Finance • Company names for Google search • Select watchlist above and use 'Add All BUYs' or individual ➕ buttons"
+            "💡 **Tips**: Tap ticker symbols for Yahoo Finance • Select watchlist above and use 'Add All BUYs' or individual ➕ buttons"
         )
     else:
         st.info(
-            "💡 **Tips**: Click ticker symbols for Yahoo Finance • Company names for Google search • No BUY signals found - try adjusting filters"
+            "💡 **Tips**: Tap ticker symbols for Yahoo Finance • No BUY signals found - try adjusting filters"
         )
 
 
@@ -644,27 +626,26 @@ def render_unified_results_table(results):
         st.info("No valid results to display")
         return
 
-    # Compact filters in expander
+    # Mobile-optimized filters in expander
     with st.expander("🔧 Filters & Settings", expanded=False):
-        col1, col2, col3, col4 = st.columns(4)
+        # Mobile-friendly 2x2 layout
+        col1, col2 = st.columns(2)
         
         with col1:
             signal_filter = st.multiselect("Show Signals", 
                                          ["BUY", "HOLD", "SELL"],
                                          default=["BUY", "HOLD", "SELL"],
                                          help="Filter by trading signals")
-        
-        with col2:
+            
             min_score = st.number_input("Min Score", 
                                       min_value=0, max_value=100, value=0,
                                       help="Minimum technical score")
         
-        with col3:
+        with col2:
             max_results = st.number_input("Show Results", 
                                         min_value=5, max_value=200, value=50,
                                         help="Maximum results to display")
-        
-        with col4:
+            
             sort_by = st.selectbox("Sort By", 
                                  ["Score", "Signal", "Ticker"],
                                  help="Sort results by field")
