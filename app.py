@@ -100,6 +100,42 @@ def main():
             layout="wide",
             initial_sidebar_state="collapsed",
         )
+        
+        # Global mobile-responsive CSS
+        st.markdown("""
+        <style>
+        /* Force full width on all devices */
+        .main .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+        
+        /* Mobile responsive breakpoint */
+        @media (max-width: 768px) {
+            .main .block-container {
+                padding-left: 0.5rem !important;
+                padding-right: 0.5rem !important;
+                max-width: 100% !important;
+                width: 100vw !important;
+            }
+            
+            /* Make all horizontal blocks use full width */
+            div[data-testid="stHorizontalBlock"] {
+                width: 100% !important;
+                gap: 0.25rem !important;
+            }
+            
+            div[data-testid="stHorizontalBlock"] > div {
+                padding-left: 0.1rem !important;
+                padding-right: 0.1rem !important;
+                flex: 1 !important;
+                min-width: 0 !important;
+            }
+        }
+        </style>
+        """, unsafe_allow_html=True)
 
         # Attempt database connection and show status
         db_connection = get_db_connection()
