@@ -478,8 +478,8 @@ def render_compact_results_table(filtered_df):
     # Ultra-compact table with individual buttons
     for idx, row in filtered_df.iterrows():
         # Create a single compact row using HTML-like approach
-        col_add, col_rank, col_ticker, col_company, col_signal, col_score, col_price, col_pe, col_indicators = st.columns([
-            0.8, 0.6, 1.2, 2.5, 1, 1.2, 1, 0.8, 1.5
+        col_add, col_gpt, col_rank, col_ticker, col_company, col_signal, col_score, col_price, col_pe, col_indicators = st.columns([
+            0.8, 0.7, 0.6, 1.2, 2.5, 1, 1.2, 1, 0.8, 1.5
         ])
         
         # Add button - ultra compact
