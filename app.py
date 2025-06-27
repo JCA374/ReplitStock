@@ -145,20 +145,25 @@ def main():
             st.session_state.show_watchlist_manager = False
 
 
-        # Main navigation tabs at the top of the page - start with Batch Analysis
-        tab1, tab2, tab3 = st.tabs([
+        # Main navigation tabs at the top of the page - start with Mobile Scanner
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "📱 Mobile Scanner",
             "📈 Batch Analysis", 
             "📊 Single Stock", 
             "📋 Watchlist"
         ])
 
         with tab1:
-            display_batch_analysis()
+            from ui.batchscanner_dev import display_batchscanner_dev
+            display_batchscanner_dev()
             
         with tab2:
-            render_analysis_tab()
+            display_batch_analysis()
             
         with tab3:
+            render_analysis_tab()
+            
+        with tab4:
             display_watchlist()
             
         # Hidden tabs - commented out

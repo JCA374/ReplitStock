@@ -111,6 +111,7 @@ This is a comprehensive stock analysis application built with **Streamlit** as t
 
 - June 27, 2025. Initial setup
 - June 27, 2025. Migrated from Replit Agent to standard environment, improved batch analysis table readability with consistent font sizing, set app to start on batch scan with first watchlist as default
+- June 27, 2025. Created mobile-friendly batch scanner (batchscanner_dev.py) with card-based layout, touch-friendly interface, and simplified navigation optimized for mobile devices
 
 ## User Preferences
 
