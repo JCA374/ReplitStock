@@ -759,9 +759,8 @@ def display_batch_analysis():
 
     if not tickers and stock_universe != "Manual Entry":
         st.warning(f"No tickers found for {stock_universe}")
-    elif tickers:
-        st.success(
-            f"Ready to scan {len(tickers)} stocks from {stock_universe}")
+    elif tickers and not should_scan:
+        st.info(f"Ready to scan {len(tickers)} stocks from {stock_universe}")
 
     # Run scan if requested
     if should_scan and tickers:
@@ -796,7 +795,8 @@ def display_batch_analysis():
                     # Use default watchlist for auto-add
                     bulk_add_to_watchlist(buy_signals)
 
-        st.success(f"✅ Scan complete! Found {len(results)} results")
+        # Single merged notification
+        st.success(f"Scanned {len(tickers)} stocks from {stock_universe} - Found {len(results)} results")
 
     # Display results if available
     if 'batch_analysis_results' in st.session_state:
