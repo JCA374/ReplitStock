@@ -393,9 +393,7 @@ def render_compact_results_table(filtered_df):
         if st.button("🔄 Refresh", use_container_width=True):
             trigger_new_scan()
 
-    st.markdown("---")
-
-    # Mobile-responsive table headers with GPT
+    # Mobile-responsive table headers with minimal spacing
     col_add, col_gpt, col_ticker, col_signal, col_score, col_indicators = st.columns([0.8, 0.8, 1.5, 1, 1, 1.2])
 
     with col_add:
@@ -411,7 +409,7 @@ def render_compact_results_table(filtered_df):
     with col_indicators:
         st.markdown("**Tech**")
 
-    st.markdown("---")
+    st.markdown('<div style="margin: 0.25rem 0; border-bottom: 1px solid #333;"></div>', unsafe_allow_html=True)
 
     # Mobile-optimized CSS with full width
     st.markdown("""
@@ -430,11 +428,17 @@ def render_compact_results_table(filtered_df):
     }
     
     div[data-testid="stHorizontalBlock"] > div {
-        padding-top: 0.2rem !important;
-        padding-bottom: 0.2rem !important;
+        padding-top: 0.1rem !important;
+        padding-bottom: 0.1rem !important;
         padding-left: 0.1rem !important;
         padding-right: 0.1rem !important;
         flex: 1 !important;
+    }
+    
+    /* Reduce header spacing */
+    .batch-header {
+        margin-bottom: 0.25rem !important;
+        padding-bottom: 0.1rem !important;
     }
     
     .batch-table-row {
