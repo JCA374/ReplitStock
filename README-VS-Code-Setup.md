@@ -9,14 +9,14 @@ This guide helps you set up and run the Stock Analysis App in VS Code on Windows
 2. Double-click `setup-windows.bat` to automatically set everything up
 3. Open the folder in VS Code
 4. Press `Ctrl+Shift+P` → Type "Tasks: Run Task" → Select "Run Streamlit App"
-5. App opens at http://localhost:5000
+5. App opens at http://localhost:8501
 
 ### For Mac/Linux Users:
 1. Download/clone this repository
 2. Run `./setup-linux-mac.sh` in terminal
 3. Open the folder in VS Code
 4. Press `Ctrl+Shift+P` → Type "Tasks: Run Task" → Select "Run Streamlit App"
-5. App opens at http://localhost:5000
+5. App opens at http://localhost:8501
 
 ## Manual Setup (if scripts don't work)
 
@@ -46,7 +46,7 @@ This guide helps you set up and run the Stock Analysis App in VS Code on Windows
 
 4. **Run the app:**
    ```bash
-   streamlit run app.py --server.port 5000
+   streamlit run app.py
    ```
 
 ## VS Code Features
@@ -70,10 +70,10 @@ venv\Scripts\activate
 source venv/bin/activate
 
 # Run app
-streamlit run app.py --server.port 5000
+streamlit run app.py
 
 # Run with debug info
-streamlit run app.py --server.port 5000 --logger.level debug
+streamlit run app.py --logger.level debug
 ```
 
 ## Configuration (Optional)

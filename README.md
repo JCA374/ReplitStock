@@ -62,10 +62,10 @@ chmod +x setup-linux-mac.sh
 
 4. **Run the application:**
    ```bash
-   streamlit run app.py --server.port 5000
+   streamlit run app.py
    ```
 
-5. **Open in browser:** http://localhost:5000
+5. **Open in browser:** http://localhost:8501
 
 ## VS Code Setup
 

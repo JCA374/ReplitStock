@@ -55,7 +55,7 @@ echo Setup complete! To run the app:
 echo 1. Open this folder in VS Code
 echo 2. Press Ctrl+Shift+P and run "Tasks: Run Task" then select "Run Streamlit App"
 echo    OR
-echo 3. Open terminal and run: venv\Scripts\streamlit.exe run app.py --server.port 5000
+echo 3. Open terminal and run: venv\Scripts\streamlit.exe run app.py
 echo.
-echo The app will open at http://localhost:5000
+echo The app will open at http://localhost:8501
 pause
