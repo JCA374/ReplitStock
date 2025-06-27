@@ -104,7 +104,10 @@ def main():
         # Attempt database connection and show status
         db_connection = get_db_connection()
         engine = db_connection.get_engine()
-        connection_type = db_connection.connection_type
+        
+        # Check actual database usage (Supabase integration vs SQLAlchemy)
+        from data.db_integration import USE_SUPABASE
+        connection_type = "postgresql" if USE_SUPABASE else "sqlite"
 
         # Create tables if they don't exist
         tables_initialized = initialize_tables(engine)
@@ -120,9 +123,8 @@ def main():
             if connection_type == "postgresql":
                 st.success("✅ Connected to Supabase")
             else:
-                st.warning("⚠️ Using local SQLite database")
-                st.info(
-                    "Database features will work, but data won't be shared across sessions.")
+                st.info("💾 Using local SQLite database")
+                st.caption("Data stored locally on your device")
 
         # Initialize strategy and watchlist manager in session state
         if 'strategy' not in st.session_state:
