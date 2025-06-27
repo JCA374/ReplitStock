@@ -461,11 +461,13 @@ def render_compact_results_table(filtered_df):
 
     st.divider()
 
-    # Mobile-responsive table headers
-    col_add, col_ticker, col_signal, col_score, col_indicators = st.columns([1, 1.5, 1, 1, 1.5])
+    # Mobile-responsive table headers with GPT
+    col_add, col_gpt, col_ticker, col_signal, col_score, col_indicators = st.columns([0.8, 0.8, 1.5, 1, 1, 1.2])
 
     with col_add:
         st.markdown("**Add**")
+    with col_gpt:
+        st.markdown("**GPT**")
     with col_ticker:
         st.markdown("**Stock**")
     with col_signal:
@@ -577,8 +579,8 @@ def render_compact_results_table(filtered_df):
 
     # Ultra-compact table with individual buttons
     for idx, row in filtered_df.iterrows():
-        # Mobile-responsive row layout
-        col_add, col_ticker, col_signal, col_score, col_indicators = st.columns([1, 1.5, 1, 1, 1.5])
+        # Mobile-responsive row layout with GPT
+        col_add, col_gpt, col_ticker, col_signal, col_score, col_indicators = st.columns([0.8, 0.8, 1.5, 1, 1, 1.2])
 
         # Add button
         with col_add:
@@ -586,6 +588,16 @@ def render_compact_results_table(filtered_df):
             name = row.get('Name', ticker)
             if st.button("➕", key=f"add_{ticker}_{idx}", help=f"Add {ticker}"):
                 add_single_to_watchlist(ticker, name)
+
+        # GPT link - compact for mobile
+        with col_gpt:
+            if ticker != 'N/A':
+                link, clean_ticker = generate_chatgpt_link(ticker)
+                st.markdown(
+                    f'<a href="{link}" target="_blank" class="batch-link">🤖</a>',
+                    unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="batch-text">—</div>', unsafe_allow_html=True)
 
         # Stock info (ticker + company name combined for mobile)
         with col_ticker:
