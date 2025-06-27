@@ -245,6 +245,10 @@ class CompanyExplorer:
         sectors = sorted(self.companies_df["Sector"].dropna().unique().tolist())
         return sectors
     
+    def get_companies_df(self) -> pd.DataFrame:
+        """Get the complete companies DataFrame."""
+        return self.companies_df.copy()
+    
     def get_countries(self) -> List[str]:
         """Get a list of available countries from the company data."""
         if self.companies_df.empty or "Country" not in self.companies_df.columns:

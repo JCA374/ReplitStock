@@ -84,28 +84,46 @@ def get_tickers_for_universe(stock_universe):
                 return manager.get_watchlist_stocks(selected_wl['id'])
             return []
 
-        elif stock_universe == "All Small Cap (updated_small.csv)":
-            small_cap_df = pd.read_csv('data/csv/updated_small.csv')
-            return [
-                t for t in small_cap_df['YahooTicker'].tolist() if pd.notna(t)
-            ]
+        elif stock_universe == "All Small Cap":
+            # Load Swedish companies and filter by market cap (smaller companies)
+            from services.company_explorer import CompanyExplorer
+            explorer = CompanyExplorer()
+            companies = explorer.get_companies_df()
+            if not companies.empty:
+                # Small cap: assume companies not in major sectors or newer listings
+                small_cap_sectors = ['Consumer Cyclical', 'Technology', 'Healthcare']
+                small_cap = companies[companies['Sector'].isin(small_cap_sectors)]
+                return small_cap['Ticker'].tolist()
+            return []
 
-        elif stock_universe == "All Mid Cap (updated_mid.csv)":
-            mid_cap_df = pd.read_csv('data/csv/updated_mid.csv')
-            tickers = []
-            for ticker in mid_cap_df['YahooTicker'].tolist():
-                if pd.notna(ticker):
-                    # Fix tickers missing .ST suffix
-                    if ticker.endswith('ST') and not ticker.endswith('.ST'):
-                        ticker = ticker[:-2] + '.ST'
-                    tickers.append(ticker)
-            return tickers
+        elif stock_universe == "All Mid Cap":
+            # Load Swedish companies and filter by market cap (mid-size companies)
+            from services.company_explorer import CompanyExplorer
+            explorer = CompanyExplorer()
+            companies = explorer.get_companies_df()
+            if not companies.empty:
+                # Mid cap: industrial and materials companies
+                mid_cap_sectors = ['Industrials', 'Basic Materials', 'Consumer Defensive']
+                mid_cap = companies[companies['Sector'].isin(mid_cap_sectors)]
+                return mid_cap['Ticker'].tolist()
+            return []
 
-        elif stock_universe == "All Large Cap (updated_large.csv)":
-            large_cap_df = pd.read_csv('data/csv/updated_large.csv')
-            return [
-                t for t in large_cap_df['YahooTicker'].tolist() if pd.notna(t)
-            ]
+        elif stock_universe == "All Large Cap":
+            # Load Swedish companies and filter by market cap (largest companies)
+            from services.company_explorer import CompanyExplorer
+            explorer = CompanyExplorer()
+            companies = explorer.get_companies_df()
+            if not companies.empty:
+                # Large cap: major financial and telecom companies
+                large_cap_sectors = ['Financial Services', 'Communication Services']
+                large_cap = companies[companies['Sector'].isin(large_cap_sectors)]
+                # Also include some major industrials
+                major_industrials = companies[
+                    (companies['Sector'] == 'Industrials') & 
+                    (companies['Ticker'].isin(['ABB.ST', 'SAND.ST', 'SKF-B.ST', 'VOLV-B.ST']))
+                ]
+                return pd.concat([large_cap, major_industrials])['Ticker'].tolist()
+            return []
 
         elif stock_universe == "Manual Entry":
             ticker_input = st.text_input(
