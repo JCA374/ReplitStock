@@ -538,9 +538,10 @@ def render_compact_results_table(filtered_df):
     }
     
     .batch-indicator {
-        font-size: 18px !important;
-        line-height: 1.2 !important;
+        font-size: 16px !important;
+        line-height: 1.0 !important;
         text-align: center !important;
+        letter-spacing: -1px !important;
     }
     
     /* Mobile responsive adjustments */
@@ -562,6 +563,12 @@ def render_compact_results_table(filtered_df):
         .stButton > button {
             font-size: 12px !important;
             padding: 4px 6px !important;
+        }
+        
+        .batch-indicator {
+            font-size: 12px !important;
+            line-height: 0.8 !important;
+            letter-spacing: -2px !important;
         }
         
         div[data-testid="stHorizontalBlock"] {
