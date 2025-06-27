@@ -426,12 +426,15 @@ def render_compact_results_table(filtered_df):
     st.divider()
     
     # Table headers
-    col_add, col_rank, col_ticker, col_company, col_signal, col_score, col_price, col_pe, col_indicators = st.columns([
-        0.8, 0.6, 1.2, 2.5, 1, 1.2, 1, 0.8, 1.5
-    ])
-    
+    col_add, col_gpt, col_rank, col_ticker, col_company, col_signal, col_score, col_price, col_pe, col_indicators = st.columns([
+            0.8, 0.8, 0.6, 1.2, 2.5, 1, 1.2, 1, 0.8, 1.5
+        ])
+
+   
     with col_add:
         st.markdown("**Add**")
+    with col_gpt:
+        st.markdown("**Ask_GPT**")
     with col_rank:
         st.markdown("**#**")
     with col_ticker:
@@ -484,7 +487,15 @@ def render_compact_results_table(filtered_df):
             name = row.get('Name', ticker)
             if st.button("➕", key=f"add_{ticker}_{idx}", help=f"Add {ticker}"):
                 add_single_to_watchlist(ticker, name)
-        
+
+        # Ask GPT button - ultra compact
+        with col_gpt:
+            if ticker != 'N/A':
+                link, clean_ticker = generate_chatgpt_link(ticker)
+                if st.button("🤖", key=f"gpt_{clean_ticker}_{idx}", help=f"Ask GPT about {clean_ticker}"):
+                    st.markdown(
+                        f'🤖 [Ask GPT about {clean_ticker}]({link})', unsafe_allow_html=True)
+
         # Rank - small text
         with col_rank:
             st.markdown(f"<small>#{row.get('Rank', idx+1)}</small>", unsafe_allow_html=True)
@@ -641,6 +652,24 @@ def run_optimized_scan(tickers, progress_callback=None):
     except Exception as e:
         logger.error(f"Scanner error: {e}")
         return []
+
+def generate_chatgpt_link(ticker):
+    """Generate ChatGPT link with ticker-specific question"""
+    import urllib.parse
+    
+    # Clean the ticker
+    clean_ticker = ticker.replace('[', '').replace(']', '').split('(')[0].strip()
+    
+    # Create the question
+    question = f"""
+Tell me about the company behind the Yahoo Finance ticker {clean_ticker}. 
+Give me a short summary about the company and its future potentials and risks. 
+If the company is dealing in conflict materials, Arctic oil or gas exploration, or weapons, let me know.
+"""
+    
+    # Generate the link
+    link = "https://chatgpt.com/?q=" + urllib.parse.quote(question)
+    return link, clean_ticker
 
 
 def display_batch_analysis():
