@@ -425,10 +425,11 @@ def render_compact_results_table(filtered_df):
     
     st.divider()
     
+
     # Table headers
     col_add, col_gpt, col_rank, col_ticker, col_company, col_signal, col_score, col_price, col_pe, col_indicators = st.columns([
-            0.8, 0.8, 0.6, 1.2, 2.5, 1, 1.2, 1, 0.8, 1.5
-        ])
+        0.8, 0.7, 0.6, 1.2, 2.5, 1, 1.2, 1, 0.8, 1.5
+    ])
 
    
     with col_add:
@@ -488,13 +489,11 @@ def render_compact_results_table(filtered_df):
             if st.button("➕", key=f"add_{ticker}_{idx}", help=f"Add {ticker}"):
                 add_single_to_watchlist(ticker, name)
 
-        # Ask GPT button - ultra compact
+        # Ask GPT link - simple text link
         with col_gpt:
             if ticker != 'N/A':
                 link, clean_ticker = generate_chatgpt_link(ticker)
-                if st.button("🤖", key=f"gpt_{clean_ticker}_{idx}", help=f"Ask GPT about {clean_ticker}"):
-                    st.markdown(
-                        f'🤖 [Ask GPT about {clean_ticker}]({link})', unsafe_allow_html=True)
+                st.markdown(f'<a href="{link}" target="_blank" style="font-size: 12px;">Ask GPT</a>', unsafe_allow_html=True)
 
         # Rank - small text
         with col_rank:
