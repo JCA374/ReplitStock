@@ -38,8 +38,7 @@ def render_scanner_selection():
                                           "Selected Watchlist",
                                           "All Small Cap (updated_small.csv)",
                                           "All Mid Cap (updated_mid.csv)",
-                                          "All Large Cap (updated_large.csv)",
-                                          "Manual Entry"
+                                          "All Large Cap (updated_large.csv)"
                                       ],
                                       index=0,  # Default to "All Watchlist Stocks"
                                       key="scanner_universe")
@@ -751,7 +750,7 @@ def display_batch_analysis():
     # Get tickers for selected universe
     tickers = get_tickers_for_universe(stock_universe)
 
-    if not tickers and stock_universe != "Manual Entry":
+    if not tickers:
         st.warning(f"No tickers found for {stock_universe}")
     elif tickers and not should_scan:
         st.info(f"Ready to scan {len(tickers)} stocks from {stock_universe}")
