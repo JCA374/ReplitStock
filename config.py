@@ -13,7 +13,7 @@ PREFERRED_API_SOURCE = 'alphavantage'  # Alpha Vantage as preferred API
 # Database configuration
 # Use SQLite as reliable fallback when Supabase is unavailable
 DB_PATH = "stock_data.db"  # Fallback local database
-DATABASE_URL = os.getenv("DATABASE_URL", "")  # Cloud database URL
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")  # Supabase URL
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")  # Supabase API key
 
 # OPTIMIZED Data refresh settings (in seconds) - More aggressive caching

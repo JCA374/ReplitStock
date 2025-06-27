@@ -53,7 +53,7 @@ def get_credentials():
     secrets_file = SECRETS_PATH
     if os.path.exists(secrets_file):
         secrets = parse_toml(secrets_file)
-        credentials["supabase_url"] = secrets.get("DATABASE_URL")
+        credentials["supabase_url"] = secrets.get("SUPABASE_URL")
         credentials["supabase_key"] = secrets.get("SUPABASE_KEY")
         credentials["database_password"] = secrets.get("DATABASE_PASSWORD")
 
@@ -66,7 +66,7 @@ def get_credentials():
         os.path.dirname(os.path.abspath(__file__))), SECRETS_PATH)
     if os.path.exists(root_secrets):
         secrets = parse_toml(root_secrets)
-        credentials["supabase_url"] = secrets.get("DATABASE_URL")
+        credentials["supabase_url"] = secrets.get("SUPABASE_URL")
         credentials["supabase_key"] = secrets.get("SUPABASE_KEY")
         credentials["database_password"] = secrets.get("DATABASE_PASSWORD")
 
@@ -77,7 +77,7 @@ def get_credentials():
     # Try Streamlit secrets if running in Streamlit
     try:
         import streamlit as st
-        credentials["supabase_url"] = st.secrets["DATABASE_URL"]
+        credentials["supabase_url"] = st.secrets["SUPABASE_URL"]
         credentials["supabase_key"] = st.secrets["SUPABASE_KEY"]
         credentials["database_password"] = st.secrets["DATABASE_PASSWORD"]
 
@@ -88,7 +88,7 @@ def get_credentials():
         print("Not running in Streamlit or secrets not available")
 
     # Try environment variables
-    credentials["supabase_url"] = os.environ.get("DATABASE_URL")
+    credentials["supabase_url"] = os.environ.get("SUPABASE_URL")
     credentials["supabase_key"] = os.environ.get("SUPABASE_KEY")
     credentials["database_password"] = os.environ.get("DATABASE_PASSWORD")
 

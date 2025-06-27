@@ -10,7 +10,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 
-from config import DB_PATH, DATABASE_URL, CACHE_EXPIRATION, DATA_REFRESH_INTERVAL, SUPABASE_KEY
+from config import DB_PATH, CACHE_EXPIRATION, DATA_REFRESH_INTERVAL
 
 # Create SQLAlchemy Base
 Base = declarative_base()
@@ -137,7 +137,9 @@ def initialize_database():
         print("SQLite database initialized successfully!")
 
         # Try connecting to Supabase if credentials are available
-        if DATABASE_URL and SUPABASE_KEY:
+        supabase_url = os.getenv("SUPABASE_URL")
+        supabase_key = os.getenv("SUPABASE_KEY")
+        if supabase_url and supabase_key:
             try:
                 print("Testing Supabase connection...")
                 from data.supabase_client import get_supabase_db
@@ -164,7 +166,8 @@ def add_to_watchlist(ticker, name, exchange="", sector=""):
     """Add a ticker to the watchlist."""
     current_date = datetime.now().strftime("%Y-%m-%d")
     
-    if DATABASE_URL:
+    supabase_url = os.getenv("SUPABASE_URL")
+    if supabase_url:
         # Use SQLAlchemy for PostgreSQL
         session = get_db_session()
         try:
@@ -212,7 +215,8 @@ def add_to_watchlist(ticker, name, exchange="", sector=""):
 
 def remove_from_watchlist(ticker):
     """Remove a ticker from the watchlist."""
-    if DATABASE_URL:
+    supabase_url = os.getenv("SUPABASE_URL")
+    if supabase_url:
         # Use SQLAlchemy for PostgreSQL
         session = get_db_session()
         try:
@@ -235,7 +239,8 @@ def remove_from_watchlist(ticker):
 
 def get_watchlist():
     """Get all tickers in the watchlist."""
-    if DATABASE_URL:
+    supabase_url = os.getenv("SUPABASE_URL")
+    if supabase_url:
         # Use SQLAlchemy for PostgreSQL
         session = get_db_session()
         try:
@@ -304,7 +309,8 @@ def cache_stock_data(ticker, timeframe, period, data, source):
     json_data = data.to_json()
     current_timestamp = int(time.time())
     
-    if DATABASE_URL:
+    supabase_url = os.getenv("SUPABASE_URL")
+    if supabase_url:
         # Use SQLAlchemy for PostgreSQL
         session = get_db_session()
         try:
@@ -360,7 +366,8 @@ def get_cached_stock_data(ticker, timeframe, period, source):
     timestamp = None
     data = None
     
-    if DATABASE_URL:
+    supabase_url = os.getenv("SUPABASE_URL")
+    if supabase_url:
         # Use SQLAlchemy for PostgreSQL
         session = get_db_session()
         try:
@@ -407,7 +414,8 @@ def cache_fundamentals(ticker, fundamentals_data):
     """Cache fundamental data for a ticker."""
     current_timestamp = int(time.time())
     
-    if DATABASE_URL:
+    supabase_url = os.getenv("SUPABASE_URL")
+    if supabase_url:
         # Use SQLAlchemy for PostgreSQL
         session = get_db_session()
         try:
@@ -479,7 +487,8 @@ def get_cached_fundamentals(ticker):
     """Retrieve cached fundamental data if available and not expired."""
     current_timestamp = int(time.time())
     
-    if DATABASE_URL:
+    supabase_url = os.getenv("SUPABASE_URL")
+    if supabase_url:
         # Use SQLAlchemy for PostgreSQL
         session = get_db_session()
         try:
@@ -524,7 +533,8 @@ def get_cached_fundamentals(ticker):
 
 def get_all_cached_stocks():
     """Get all unique stock tickers in the cache."""
-    if DATABASE_URL:
+    supabase_url = os.getenv("SUPABASE_URL")
+    if supabase_url:
         # Use SQLAlchemy for PostgreSQL
         session = get_db_session()
         try:
@@ -545,7 +555,8 @@ def get_all_cached_stocks():
 
 def get_all_fundamentals():
     """Get fundamental data for all stocks in cache."""
-    if DATABASE_URL:
+    supabase_url = os.getenv("SUPABASE_URL")
+    if supabase_url:
         # Use SQLAlchemy for PostgreSQL
         session = get_db_session()
         try:
