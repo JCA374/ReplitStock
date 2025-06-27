@@ -98,7 +98,7 @@ def main():
             page_title="Stock Analysis Tool",
             page_icon="📈",
             layout="wide",
-            initial_sidebar_state="expanded",
+            initial_sidebar_state="collapsed",
         )
 
         # Attempt database connection and show status
