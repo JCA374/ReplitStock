@@ -96,6 +96,14 @@ This is a comprehensive stock analysis application built with **Streamlit** as t
 - SQLite database for immediate functionality
 - Environment variables for API configuration
 - Streamlit development server
+- VS Code integration with automated setup scripts
+
+### VS Code Preview Setup
+- **Windows**: `setup-windows.bat` for automated environment setup
+- **Mac/Linux**: `setup-linux-mac.sh` for automated environment setup
+- **VS Code Configuration**: `.vscode/` folder with tasks, debugging, and settings
+- **Quick Launch**: Integrated tasks for one-click app startup
+- **Debug Support**: Full debugging capabilities with breakpoints
 
 ### Cloud Deployment
 - Supabase PostgreSQL for production database
@@ -112,6 +120,7 @@ This is a comprehensive stock analysis application built with **Streamlit** as t
 - June 27, 2025. Initial setup
 - June 27, 2025. Migrated from Replit Agent to standard environment, improved batch analysis table readability with consistent font sizing, set app to start on batch scan with first watchlist as default
 - June 27, 2025. Optimized batch scanner for mobile devices: added full-width responsive layout, simplified controls to 2-column layout, reduced table from 8 to 5 columns, added collapsible filters, removed "Manual Entry" option and "BUY Signals" counter
+- June 27, 2025. Added VS Code preview support for Windows users: created automated setup scripts (.bat and .sh), VS Code configuration files (settings, tasks, debugging), comprehensive README documentation for GitHub downloads, and one-click launch capabilities
 
 ## User Preferences
 
