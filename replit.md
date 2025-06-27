@@ -110,6 +110,7 @@ This is a comprehensive stock analysis application built with **Streamlit** as t
 ## Changelog
 
 - June 27, 2025. Initial setup
+- June 27, 2025. Migrated from Replit Agent to standard environment, improved batch analysis table readability with consistent font sizing
 
 ## User Preferences
 

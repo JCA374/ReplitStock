@@ -449,22 +449,37 @@ def render_compact_results_table(filtered_df):
     
     st.markdown("---")
     
-    # Custom CSS for ultra-compact rows
+    # Custom CSS for consistent, readable table
     st.markdown("""
     <style>
-    .compact-row {
-        padding: 2px 0px !important;
-        margin: 0px !important;
-        min-height: 25px !important;
+    .batch-table-row {
+        padding: 4px 0px !important;
+        margin: 2px 0px !important;
+        min-height: 32px !important;
+        border-bottom: 1px solid #e6e6e6;
     }
     div[data-testid="stHorizontalBlock"] > div {
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
+        padding-top: 0.2rem !important;
+        padding-bottom: 0.2rem !important;
     }
     .stButton > button {
-        height: 25px !important;
-        padding: 0px 6px !important;
-        min-height: 25px !important;
+        height: 28px !important;
+        padding: 2px 8px !important;
+        min-height: 28px !important;
+        font-size: 14px !important;
+    }
+    .batch-text {
+        font-size: 14px !important;
+        line-height: 1.4 !important;
+        margin: 0 !important;
+    }
+    .batch-link {
+        font-size: 14px !important;
+        text-decoration: none !important;
+    }
+    .batch-indicator {
+        font-size: 16px !important;
+        line-height: 1.2 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -483,61 +498,61 @@ def render_compact_results_table(filtered_df):
             if st.button("➕", key=f"add_{ticker}_{idx}", help=f"Add {ticker}"):
                 add_single_to_watchlist(ticker, name)
 
-        # Ask GPT link - simple text link
+        # Ask GPT link - consistent font
         with col_gpt:
             if ticker != 'N/A':
                 link, clean_ticker = generate_chatgpt_link(ticker)
-                st.markdown(f'<a href="{link}" target="_blank" style="font-size: 12px;">Ask GPT</a>', unsafe_allow_html=True)
+                st.markdown(f'<a href="{link}" target="_blank" class="batch-link">Ask GPT</a>', unsafe_allow_html=True)
 
-        # Rank - small text
+        # Rank - consistent font
         with col_rank:
-            st.markdown(f"<small>#{row.get('Rank', idx+1)}</small>", unsafe_allow_html=True)
+            st.markdown(f'<div class="batch-text">#{row.get("Rank", idx+1)}</div>', unsafe_allow_html=True)
         
-        # Ticker with Yahoo Finance link - compact
+        # Ticker with Yahoo Finance link - consistent font
         with col_ticker:
             if ticker != 'N/A':
                 clean_ticker = ticker.replace('[', '').replace(']', '').split('(')[0].strip()
                 yahoo_url = f"https://finance.yahoo.com/quote/{clean_ticker}"
-                st.markdown(f"**[{clean_ticker}]({yahoo_url})**")
+                st.markdown(f'<a href="{yahoo_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong></a>', unsafe_allow_html=True)
             else:
-                st.markdown("**N/A**")
+                st.markdown('<div class="batch-text"><strong>N/A</strong></div>', unsafe_allow_html=True)
         
-        # Company name - truncated
+        # Company name - consistent font
         with col_company:
             if name != 'N/A' and name != ticker:
                 display_name = name[:30] + "..." if len(name) > 30 else name
                 google_search = f"https://www.google.com/search?q={name.replace(' ', '+')}"
-                st.markdown(f"[{display_name}]({google_search})")
+                st.markdown(f'<a href="{google_search}" target="_blank" class="batch-link">{display_name}</a>', unsafe_allow_html=True)
             else:
-                st.markdown(name if name != ticker else "—")
+                display_text = name if name != ticker else "—"
+                st.markdown(f'<div class="batch-text">{display_text}</div>', unsafe_allow_html=True)
         
-        # Signal - compact colored badge
+        # Signal - consistent font with color
         with col_signal:
             signal = row.get('Signal', 'HOLD')
             if signal == 'BUY':
-                st.markdown("🟢 **BUY**")
+                st.markdown('<div class="batch-text">🟢 <strong>BUY</strong></div>', unsafe_allow_html=True)
             elif signal == 'SELL':
-                st.markdown("🔴 **SELL**")
+                st.markdown('<div class="batch-text">🔴 <strong>SELL</strong></div>', unsafe_allow_html=True)
             else:
-                st.markdown("🟡 **HOLD**")
+                st.markdown('<div class="batch-text">🟡 <strong>HOLD</strong></div>', unsafe_allow_html=True)
         
-        # Score - compact with mini progress
+        # Score - consistent font with color
         with col_score:
             score = int(row.get('Score', 0))
-            # Inline score with mini progress bar
             if score >= 70:
-                st.markdown(f"**{score}** 🟢")
+                st.markdown(f'<div class="batch-text"><strong>{score}</strong> 🟢</div>', unsafe_allow_html=True)
             elif score >= 50:
-                st.markdown(f"**{score}** 🟡")
+                st.markdown(f'<div class="batch-text"><strong>{score}</strong> 🟡</div>', unsafe_allow_html=True)
             else:
-                st.markdown(f"**{score}** 🔴")
+                st.markdown(f'<div class="batch-text"><strong>{score}</strong> 🔴</div>', unsafe_allow_html=True)
         
-        # Technical indicators - ultra compact
+        # Technical indicators - consistent font
         with col_indicators:
             ma40 = '🟢' if row.get('MA40') == '✓' else '🔴'
             rsi = '🟢' if row.get('RSI>50') == '✓' else '🔴'
             profit = '🟢' if row.get('Profitable') == '✓' else '🔴'
-            st.markdown(f"<small>{ma40}{rsi}{profit}</small>", unsafe_allow_html=True)
+            st.markdown(f'<div class="batch-indicator">{ma40}{rsi}{profit}</div>', unsafe_allow_html=True)
     
     # Footer with selection info
     st.caption(f"💡 Tip: Click ticker symbols to view on Yahoo Finance • Company names link to Google search")
