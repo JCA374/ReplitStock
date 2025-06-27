@@ -41,6 +41,7 @@ def render_scanner_selection():
                                           "All Large Cap (updated_large.csv)",
                                           "Manual Entry"
                                       ],
+                                      index=0,  # Default to "All Watchlist Stocks"
                                       key="scanner_universe")
 
     with col2:
