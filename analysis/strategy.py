@@ -133,39 +133,61 @@ class ValueMomentumStrategy:
             # Step 3: Calculate price
             price = stock_data['close'].iloc[-1] if not stock_data.empty else 0
 
-            # Step 4: Calculate technical and fundamental indicators
-            tech_analysis = self._calculate_technical_indicators(stock_data)
-            fund_analysis = self._calculate_fundamental_indicators(fundamentals, stock_info)
-
-            # Step 5: Calculate signals and scores
-            tech_score = self.calculate_tech_score(tech_analysis)
-            fund_check = fund_analysis['fundamental_check']
-            buy_signal = tech_score >= 70 and fund_check
-            sell_signal = tech_score < 40 or not tech_analysis['above_ma40']
+            # Step 4: Calculate signals and scores using BATCH ANALYSIS METHOD
+            # Calculate technical indicators first
+            from analysis.technical import calculate_all_indicators, generate_technical_signals
+            indicators = calculate_all_indicators(stock_data)
+            signals = generate_technical_signals(indicators)
+            
+            # Use the same tech score calculation as batch analysis
+            tech_score = self.calculate_tech_score(signals)
+            signals['tech_score'] = tech_score
+            
+            # Analyze fundamentals the same way as batch analysis
+            from analysis.fundamental import analyze_fundamentals
+            fundamental_analysis = analyze_fundamentals(fundamentals or {})
+            
+            # Use the EXACT same Value & Momentum logic as batch analysis
+            fundamental_pass = fundamental_analysis['overall'].get('value_momentum_pass', False)
+            
+            if tech_score >= 70 and fundamental_pass:
+                value_momentum_signal = "BUY"
+            elif tech_score < 40 or not signals.get('above_ma40', False):
+                value_momentum_signal = "SELL"
+            else:
+                value_momentum_signal = "HOLD"
+            
+            # Convert to Swedish for compatibility
+            buy_signal = value_momentum_signal == "BUY"
+            sell_signal = value_momentum_signal == "SELL"
+            fund_check = fundamental_pass
 
             # Step 6: Process historical data to add indicators
             processed_hist = self._process_historical_data(stock_data)
 
-            # Step 7: Create results dictionary
+            # Step 7: Create results dictionary (ALIGNED WITH BATCH ANALYSIS)
             result = {
                 "ticker": ticker,
                 "name": name,
                 "price": price,
+                "last_price": price,  # Add for batch compatibility
                 "date": datetime.now().strftime("%Y-%m-%d"),
                 "tech_score": tech_score,
                 "signal": "KÖP" if buy_signal else "SÄLJ" if sell_signal else "HÅLL",
+                "value_momentum_signal": value_momentum_signal,  # Add batch-compatible signal
                 "buy_signal": buy_signal,
                 "sell_signal": sell_signal,
                 "fundamental_check": fund_check,
+                "fundamental_pass": fundamental_pass,  # Add for batch compatibility
                 "technical_check": tech_score >= 60,
                 "historical_data": processed_hist,
-                "rsi": tech_analysis.get('rsi', None),
+                "rsi": signals.get('rsi_value', None),  # Use signals instead of tech_analysis
                 "data_source": data_source
             }
 
-            # Combine technical and fundamental indicators into result
-            result.update(tech_analysis)
-            result.update(fund_analysis)
+            # Add all technical signals for full compatibility
+            result.update(signals)
+            result.update(fundamental_analysis)
 
             self.logger.info(f"Successfully analyzed {ticker}")
             return result
