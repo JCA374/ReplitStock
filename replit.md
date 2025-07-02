@@ -122,6 +122,9 @@ This is a comprehensive stock analysis application built with **Streamlit** as t
 - June 27, 2025. Optimized batch scanner for mobile devices: added full-width responsive layout, simplified controls to 2-column layout, reduced table from 8 to 5 columns, added collapsible filters, removed "Manual Entry" option and "BUY Signals" counter
 - June 27, 2025. Added VS Code preview support for Windows users: created automated setup scripts (.bat and .sh), VS Code configuration files (settings, tasks, debugging), comprehensive README documentation for GitHub downloads, and one-click launch capabilities
 - June 27, 2025. Fixed stock scanning CSV data loading: created ticker cleaning utility to handle malformed tickers (ACADST -> ACAD.ST), populated default watchlist with 29 Swedish companies, fixed port configuration for Streamlit Cloud compatibility (8501), now properly loads 351 total stocks (108 small, 143 mid, 100 large cap)
+- July 2, 2025. Added comprehensive watchlist import/export functionality: CSV file upload with smart ticker detection, automatic Swedish market formatting (.ST suffix), duplicate handling, and prominent placement in Watchlist tab
+- July 2, 2025. Reorganized batch analysis interface with logical flow: Stock Universe selection first, then Watchlist selection (when applicable), then scan options, and finally scan button with clear step-by-step progression
+- July 2, 2025. Created Development Notes tab for user communication: includes recent updates, work in progress items, planned improvements, and technical information with expandable sections for easy navigation
 
 ## User Preferences
 

@@ -90,6 +90,92 @@ def display_database_status():
     except Exception as e:
         st.sidebar.error(f"Database status error: {e}")
 
+def display_development_notes():
+    """Display development notes and updates for users"""
+    st.header("📝 Development Notes")
+    st.markdown("Latest updates and improvements to the Stock Analysis Tool")
+    
+    # Recent Updates Section
+    st.subheader("🔄 Recent Updates")
+    
+    with st.expander("✅ Fixed: Import and Export of Watchlists", expanded=True):
+        st.markdown("""
+        **Added comprehensive watchlist import/export functionality:**
+        
+        **Import Features:**
+        - Upload CSV files with ticker symbols
+        - Automatic detection of ticker columns (supports 'ticker', 'symbol', 'Ticker', 'Symbol', etc.)
+        - Smart ticker cleaning and Swedish market formatting (automatically adds .ST suffix)
+        - Duplicate detection and handling
+        - Progress feedback showing success and duplicate counts
+        
+        **Export Features:**
+        - Download watchlists as CSV files with timestamp
+        - Includes all stock details (name, sector, price, change %)
+        - Accessible from the top of the Watchlist tab
+        
+        **How to Use:**
+        1. Go to the **Watchlist** tab
+        2. In the **Import/Export** section at the top:
+           - **Import**: Click "Choose a CSV file" and upload your ticker list
+           - **Export**: Click "Download CSV" to save your current watchlist
+        3. Both functions are prominently placed for easy access
+        """)
+    
+    # Work in Progress Section
+    st.subheader("🚧 Work in Progress")
+    
+    with st.expander("🔍 Investigating: Single and Batch Analysis Mismatch", expanded=True):
+        st.markdown("""
+        **Current Investigation:**
+        We're looking into potential differences between Single Stock Analysis and Batch Analysis results.
+        
+        **What we're checking:**
+        - Data source consistency between analysis methods
+        - Calculation differences in technical indicators
+        - Timing issues with cached vs fresh data
+        - Signal generation logic alignment
+        
+        **Expected Resolution:**
+        This investigation aims to ensure both analysis methods produce identical results for the same stock.
+        
+        **User Impact:**
+        Currently, both analysis methods work correctly, but there may be minor variations in specific metrics.
+        """)
+    
+    # Future Improvements Section
+    st.subheader("🚀 Planned Improvements")
+    
+    with st.expander("📋 Upcoming Features"):
+        st.markdown("""
+        - **Enhanced Import Options**: Support for more file formats (Excel, JSON)
+        - **Watchlist Categories**: Organize watchlists by themes (growth, value, dividend)
+        - **Analysis Synchronization**: Ensure perfect alignment between single and batch analysis
+        - **Performance Metrics**: Add portfolio-level performance tracking
+        - **Alert System**: Set up notifications for significant stock movements
+        """)
+    
+    # Technical Notes Section
+    st.subheader("🔧 Technical Notes")
+    
+    with st.expander("⚙️ System Information"):
+        st.markdown("""
+        **Database Status:**
+        - Primary: SQLite (local storage)
+        - Backup: Supabase (cloud storage, when available)
+        - Watchlist data: Stored locally for fast access
+        
+        **Data Sources:**
+        - Yahoo Finance (primary for price data)
+        - Alpha Vantage (fundamentals, when API key provided)
+        - Swedish market focus with .ST ticker support
+        
+        **Performance:**
+        - Cached data reduces API calls
+        - Parallel processing for batch analysis
+        - Mobile-responsive interface
+        """)
+
 def main():
     try:
         # Set page title and configuration
@@ -181,10 +267,11 @@ def main():
 
 
         # Main navigation tabs at the top of the page - start with Batch Analysis
-        tab1, tab2, tab3 = st.tabs([
+        tab1, tab2, tab3, tab4 = st.tabs([
             "📈 Batch Analysis", 
             "📊 Single Stock", 
-            "📋 Watchlist"
+            "📋 Watchlist",
+            "📝 Development Notes"
         ])
 
         with tab1:
@@ -196,8 +283,10 @@ def main():
         with tab3:
             display_watchlist()
             
+        with tab4:
+            display_development_notes()
+            
         # Hidden tabs - commented out
-        # with tab4:
         #     display_company_explorer()
         #     
         # with tab5:
