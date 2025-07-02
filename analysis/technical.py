@@ -383,7 +383,8 @@ def generate_technical_signals(indicators):
         # 6. Breakouts
         if 'breakout' in indicators:
             breakout = indicators['breakout']
-            signals['breakout_up'] = breakout.get('breakout_up', None)
+            signals['breakout'] = breakout.get('breakout_up', None)
+            signals['breakout_up'] = breakout.get('breakout_up', None)  # Keep for backward compatibility
 
         # ------- Standard Technical Signals (for compatibility) -------
 
@@ -400,50 +401,11 @@ def generate_technical_signals(indicators):
             signals['macd_bullish_cross'] = None
             signals['macd_bearish_cross'] = None
 
-        # ------- Calculate Tech Score (0-100) -------
-
-        # Key technical factors for Value & Momentum Strategy
-        tech_factors = [
-            signals.get('above_ma40', False),          # Primary trend positive
-            # Short-term momentum positive
-            signals.get('above_ma4', False),
-            signals.get('rsi_above_50', False),        # RSI momentum positive
-            # Price structure strengthening
-            signals.get('higher_lows', False),
-            signals.get('near_52w_high', False),       # Near 52-week high
-            signals.get('breakout_up', False),         # Recent breakout
-            # Above 50-day SMA (additional confirmation)
-            signals.get('price_above_sma_medium', False)
-        ]
-
-        # Calculate tech score (0-100)
-        valid_factors = [
-            factor for factor in tech_factors if factor is not None]
-
-        # Make sure we have at least some valid factors, otherwise use a default score
-        if not valid_factors:
-            # Default to neutral score when no factors are available
-            tech_score = 50
-        else:
-            total_factors = len(valid_factors)
-            positive_factors = sum(1 for factor in valid_factors if factor)
-            tech_score = int((positive_factors / total_factors) * 100)
-
-        # Make sure score is at least 1, never zero
-        tech_score = max(1, tech_score)
-
-        # Signal Classification based on Tech Score and Primary Trend
-        if tech_score >= 70 and signals.get('above_ma40', False):
-            overall_signal = "BUY"  # Strong technical score and above primary trend
-        elif tech_score < 40 or signals.get('above_ma40') is False:
-            overall_signal = "SELL"  # Weak technical score OR below primary trend
-        else:
-            overall_signal = "HOLD"  # Average technical score
-
-        signals['tech_score'] = tech_score
-        signals['overall_signal'] = overall_signal
-        # For compatibility with existing code
-        signals['signal_strength'] = tech_score
+        # Tech score will be calculated by the strategy class
+        # This ensures consistency across single and batch analysis
+        signals['tech_score'] = None  # Will be calculated by strategy
+        signals['overall_signal'] = None  # Will be determined by strategy
+        signals['signal_strength'] = None  # Will be set by strategy
 
         return signals
 

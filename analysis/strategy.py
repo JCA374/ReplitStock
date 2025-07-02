@@ -138,7 +138,7 @@ class ValueMomentumStrategy:
             fund_analysis = self._calculate_fundamental_indicators(fundamentals, stock_info)
 
             # Step 5: Calculate signals and scores
-            tech_score = self._calculate_tech_score(tech_analysis)
+            tech_score = self.calculate_tech_score(tech_analysis)
             fund_check = fund_analysis['fundamental_check']
             buy_signal = tech_score >= 70 and fund_check
             sell_signal = tech_score < 40 or not tech_analysis['above_ma40']
@@ -390,7 +390,7 @@ class ValueMomentumStrategy:
             self.logger.error(f"Error calculating fundamental indicators: {e}")
             return results
 
-    def _calculate_tech_score(self, tech_analysis):
+    def calculate_tech_score(self, tech_analysis):
         """Calculate a technical score from 0-100 based on technical indicators"""
         # Define the weight of each technical factor
         weights = {

@@ -127,6 +127,7 @@ This is a comprehensive stock analysis application built with **Streamlit** as t
 - July 2, 2025. Created Development Notes tab for user communication: includes recent updates, work in progress items, planned improvements, and technical information with expandable sections for easy navigation
 - July 2, 2025. Enhanced batch analysis with advanced watchlist management: added delete functionality (🗑️ button for stocks in watchlists), improved add functionality with dropdown selection of target watchlists, smart button visibility based on current watchlist membership, and automatic interface refresh after changes
 - July 2, 2025. Implemented improvements from fix.md: enhanced fundamental analysis with debt-to-equity, ROE, and P/B ratios; added Bollinger Bands and volume profile technical indicators; added performance monitoring class for API calls and cache efficiency; moved "Create New Watchlist" from sidebar to main Watchlist tab with better layout
+- July 2, 2025. Completed Scanner Alignment Fix from fix.md: unified technical scoring across all analysis methods using weighted scoring system from strategy.py; made calculate_tech_score method public; ensured consistent signals between single stock and batch analysis; fixed signal name mismatch with breakout indicators; now all analysis methods use single source of truth for scoring logic
 
 ## User Preferences
 

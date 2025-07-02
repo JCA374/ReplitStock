@@ -106,9 +106,17 @@ class OptimizedStockAnalyzer:
             # Analyze fundamentals (computational work, no I/O)
             fundamental_analysis = analyze_fundamentals(fundamentals or {})
 
+            # Use strategy instance for consistent scoring
+            if not hasattr(self, '_strategy'):
+                from analysis.strategy import ValueMomentumStrategy
+                self._strategy = ValueMomentumStrategy()
+
+            # Recalculate tech score using strategy's method
+            tech_score = self._strategy.calculate_tech_score(signals)
+            signals['tech_score'] = tech_score
+
             # Build result (all data operations are in-memory)
             current_price = stock_data['close'].iloc[-1]
-            tech_score = signals.get('tech_score', 0)
 
             # Value & Momentum Strategy logic
             fundamental_pass = fundamental_analysis['overall'].get(

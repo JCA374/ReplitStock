@@ -346,14 +346,19 @@ class OptimizedBulkScanner:
                     # Get current price
                     current_price = stock_data['close'].iloc[-1]
 
-                    # Get tech score
-                    tech_score = signals.get('tech_score', 0)
+                    # Calculate tech score using the strategy's weighted method
+                    if not hasattr(self, '_strategy'):
+                        from analysis.strategy import ValueMomentumStrategy
+                        self._strategy = ValueMomentumStrategy()
+
+                    tech_score = self._strategy.calculate_tech_score(signals)
+                    signals['tech_score'] = tech_score  # Update signals with calculated score
 
                     # Check fundamental pass
                     fundamental_pass = fundamental_analysis['overall'].get(
                         'value_momentum_pass', False)
 
-                    # Generate Value & Momentum signal
+                    # Generate Value & Momentum signal (using strategy's logic)
                     if tech_score >= 70 and fundamental_pass:
                         value_momentum_signal = "BUY"
                     elif tech_score < 40 or not signals.get('above_ma40', False):
