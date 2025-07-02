@@ -271,6 +271,74 @@ def add_single_to_watchlist(ticker, name, selected_watchlist_id=None):
         st.error(f"Error adding {ticker}: {str(e)}")
 
 
+def remove_single_from_watchlist(ticker, watchlist_id=None):
+    """Remove single stock from specified or all watchlists"""
+    try:
+        if 'watchlist_manager' not in st.session_state:
+            from services.watchlist_manager import SimpleWatchlistManager
+            st.session_state.watchlist_manager = SimpleWatchlistManager()
+
+        manager = st.session_state.watchlist_manager
+        watchlists = manager.get_all_watchlists()
+        
+        removed_from = []
+        
+        if watchlist_id:
+            # Remove from specific watchlist
+            target_wl = next((w for w in watchlists if w['id'] == watchlist_id), None)
+            if target_wl:
+                success = manager.remove_stock_from_watchlist(target_wl['id'], ticker)
+                if success:
+                    removed_from.append(target_wl['name'])
+        else:
+            # Remove from all watchlists that contain this ticker
+            for watchlist in watchlists:
+                stocks = manager.get_watchlist_stocks(watchlist['id'])
+                for stock in stocks:
+                    stock_ticker = stock.get('ticker', '') if isinstance(stock, dict) else str(stock)
+                    if stock_ticker == ticker:
+                        success = manager.remove_stock_from_watchlist(watchlist['id'], ticker)
+                        if success:
+                            removed_from.append(watchlist['name'])
+                        break
+        
+        if removed_from:
+            if len(removed_from) == 1:
+                st.success(f"✅ Removed {ticker} from '{removed_from[0]}'!")
+            else:
+                st.success(f"✅ Removed {ticker} from {len(removed_from)} watchlists: {', '.join(removed_from)}")
+            st.rerun()  # Refresh the interface
+        else:
+            st.info(f"ℹ️ {ticker} not found in any watchlist")
+            
+    except Exception as e:
+        st.error(f"Error removing {ticker}: {str(e)}")
+
+
+def check_stock_in_watchlists(ticker):
+    """Check which watchlists contain this ticker"""
+    try:
+        if 'watchlist_manager' not in st.session_state:
+            return []
+            
+        manager = st.session_state.watchlist_manager
+        watchlists = manager.get_all_watchlists()
+        containing_watchlists = []
+        
+        for watchlist in watchlists:
+            stocks = manager.get_watchlist_stocks(watchlist['id'])
+            for stock in stocks:
+                stock_ticker = stock.get('ticker', '') if isinstance(stock, dict) else str(stock)
+                if stock_ticker == ticker:
+                    containing_watchlists.append(watchlist)
+                    break
+                
+        return containing_watchlists
+    except Exception as e:
+        logger.error(f"Error checking watchlists for {ticker}: {e}")
+        return []
+
+
 def bulk_add_to_watchlist(buy_signals_df, selected_watchlist_id=None):
     """Add all BUY signals to a specified watchlist"""
     try:
@@ -407,11 +475,13 @@ def render_compact_results_table(filtered_df):
         if st.button("🔄 Refresh", use_container_width=True):
             trigger_new_scan()
 
-    # Mobile-responsive table headers with minimal spacing
-    col_add, col_gpt, col_ticker, col_signal, col_score, col_indicators = st.columns([0.8, 0.8, 1.5, 1, 1, 1.2])
+    # Mobile-responsive table headers with minimal spacing - added delete column
+    col_add, col_del, col_gpt, col_ticker, col_signal, col_score, col_indicators = st.columns([0.7, 0.7, 0.7, 1.3, 1, 1, 1.2])
 
     with col_add:
         st.markdown("**Add**")
+    with col_del:
+        st.markdown("**Del**")
     with col_gpt:
         st.markdown("**GPT**")
     with col_ticker:
@@ -538,15 +608,28 @@ def render_compact_results_table(filtered_df):
 
     # Ultra-compact table with individual buttons
     for idx, row in filtered_df.iterrows():
-        # Mobile-responsive row layout with GPT
-        col_add, col_gpt, col_ticker, col_signal, col_score, col_indicators = st.columns([0.8, 0.8, 1.5, 1, 1, 1.2])
+        # Mobile-responsive row layout with delete column
+        col_add, col_del, col_gpt, col_ticker, col_signal, col_score, col_indicators = st.columns([0.7, 0.7, 0.7, 1.3, 1, 1, 1.2])
 
+        # Extract ticker information
+        ticker = row.get('Ticker', 'N/A')
+        name = row.get('Name', ticker)
+        
+        # Check if stock is in any watchlist
+        containing_watchlists = check_stock_in_watchlists(ticker)
+        
         # Add button
         with col_add:
-            ticker = row.get('Ticker', 'N/A')
-            name = row.get('Name', ticker)
             if st.button("➕", key=f"add_{ticker}_{idx}", help=f"Add {ticker}"):
                 add_single_to_watchlist(ticker, name)
+
+        # Delete button - only show if stock is in watchlists
+        with col_del:
+            if containing_watchlists:
+                if st.button("🗑️", key=f"del_{ticker}_{idx}", help=f"Remove {ticker} from watchlists"):
+                    remove_single_from_watchlist(ticker)
+            else:
+                st.markdown('<div class="batch-text">—</div>', unsafe_allow_html=True)
 
         # GPT link - compact for mobile
         with col_gpt:
