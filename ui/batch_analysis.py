@@ -25,10 +25,11 @@ def get_scanner_engine():
 
 
 def render_scanner_selection():
-    """Mobile-friendly scanner selection interface"""
+    """Reorganized scanner selection interface with logical flow"""
     
-    # Main selection - full width on mobile
-    stock_universe = st.selectbox("📈 Select Stock Universe",
+    # Step 1: Stock Universe Selection
+    st.subheader("📈 Select Stock Universe")
+    stock_universe = st.selectbox("Choose stock universe:",
                                   options=[
                                       "All Watchlist Stocks",
                                       "Selected Watchlist", 
@@ -36,10 +37,39 @@ def render_scanner_selection():
                                       "All Mid Cap",
                                       "All Large Cap"
                                   ],
-                                  index=0,
-                                  key="scanner_universe")
+                                  index=1,  # Default to "Selected Watchlist"
+                                  key="scanner_universe",
+                                  label_visibility="collapsed")
 
-    # Mobile-friendly controls layout
+    # Step 2: Watchlist Selection (only show if "Selected Watchlist" is chosen)
+    selected_watchlist = None
+    if stock_universe == "Selected Watchlist":
+        st.subheader("📋 Select Watchlist")
+        
+        # Get all watchlists
+        if 'watchlist_manager' not in st.session_state:
+            from services.watchlist_manager import SimpleWatchlistManager
+            st.session_state.watchlist_manager = SimpleWatchlistManager()
+
+        manager = st.session_state.watchlist_manager
+        watchlists = manager.get_all_watchlists()
+
+        if not watchlists:
+            st.warning("No watchlists available")
+            return False, stock_universe, False, False, None
+
+        selected_watchlist = st.selectbox("Choose watchlist:",
+                                          options=watchlists,
+                                          format_func=lambda x: f"{x['name']} {'(Default)' if x.get('is_default', False) else ''}",
+                                          key="batch_watchlist_select",
+                                          label_visibility="collapsed")
+        
+        if selected_watchlist:
+            stock_count = len(manager.get_watchlist_stocks(selected_watchlist['id']))
+            st.info(f"Ready to scan {stock_count} stocks from '{selected_watchlist['name']}'")
+
+    # Step 3: Scan Options
+    st.subheader("⚙️ Scan Options")
     col1, col2 = st.columns(2)
     
     with col1:
@@ -48,14 +78,15 @@ def render_scanner_selection():
     with col2:
         auto_add_buys = st.checkbox("Auto-add BUYs", value=False, key="auto_add_buy_signals")
 
-    # Large scan button for mobile
-    if st.button("🚀 SCAN", type="primary", use_container_width=True):
-        return True, stock_universe, show_errors, auto_add_buys
+    # Step 4: Scan Button
+    st.subheader("🚀 Execute Scan")
+    if st.button("SCAN", type="primary", use_container_width=True):
+        return True, stock_universe, show_errors, auto_add_buys, selected_watchlist
 
-    return False, stock_universe, show_errors, auto_add_buys
+    return False, stock_universe, show_errors, auto_add_buys, selected_watchlist
 
 
-def get_tickers_for_universe(stock_universe):
+def get_tickers_for_universe(stock_universe, selected_watchlist=None):
     """Get tickers based on selected universe"""
     try:
         if stock_universe == "All Watchlist Stocks":
@@ -63,25 +94,13 @@ def get_tickers_for_universe(stock_universe):
             return [item['ticker'] for item in watchlist] if watchlist else []
 
         elif stock_universe == "Selected Watchlist":
-            # Get all watchlists
-            if 'watchlist_manager' not in st.session_state:
-                from services.watchlist_manager import SimpleWatchlistManager
-                st.session_state.watchlist_manager = SimpleWatchlistManager()
+            if selected_watchlist:
+                if 'watchlist_manager' not in st.session_state:
+                    from services.watchlist_manager import SimpleWatchlistManager
+                    st.session_state.watchlist_manager = SimpleWatchlistManager()
 
-            manager = st.session_state.watchlist_manager
-            watchlists = manager.get_all_watchlists()
-
-            if not watchlists:
-                st.warning("No watchlists available")
-                return []
-
-            selected_wl = st.selectbox("Select Watchlist:",
-                                       options=watchlists,
-                                       format_func=lambda x: x['name'],
-                                       key="batch_watchlist_select")
-
-            if selected_wl:
-                return manager.get_watchlist_stocks(selected_wl['id'])
+                manager = st.session_state.watchlist_manager
+                return manager.get_watchlist_stocks(selected_watchlist['id'])
             return []
 
         elif stock_universe == "All Small Cap":
@@ -729,12 +748,11 @@ def display_batch_analysis():
     # Show scanner status
     show_scanner_status()
 
-    # Simplified scanner selection
-    should_scan, stock_universe, show_errors, auto_add_buys = render_scanner_selection(
-    )
+    # Reorganized scanner selection
+    should_scan, stock_universe, show_errors, auto_add_buys, selected_watchlist = render_scanner_selection()
 
     # Get tickers for selected universe
-    tickers = get_tickers_for_universe(stock_universe)
+    tickers = get_tickers_for_universe(stock_universe, selected_watchlist)
 
     if not tickers:
         st.warning(f"No tickers found for {stock_universe}")
