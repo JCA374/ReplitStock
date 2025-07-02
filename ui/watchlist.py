@@ -233,9 +233,9 @@ def display_watchlist():
                 # Store watchlist tickers in session state for batch analysis
                 tickers = [s['ticker'] for s in stock_details]
                 st.session_state['batch_analysis_tickers'] = tickers
-                st.session_state['selected_page'] = 'Batch Analysis'
-                st.session_state['batch_analysis_mode'] = 'Selected Stocks'
-                st.success(f"Ready to analyze {len(tickers)} stocks. Switch to Batch Analysis tab.")
-                st.rerun()
+                st.session_state['batch_analysis_source'] = 'watchlist'
+                st.session_state['batch_analysis_watchlist_name'] = selected_watchlist['name']
+                st.success(f"Ready to analyze {len(tickers)} stocks from '{selected_watchlist['name']}'. Please switch to the Batch Analysis tab to view results.")
+                # Don't use st.rerun() here as it can cause issues with navigation
         else:
             st.info("This watchlist is empty. Add stocks using the form above.")
