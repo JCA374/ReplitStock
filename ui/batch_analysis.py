@@ -475,9 +475,11 @@ def render_compact_results_table(filtered_df):
         if st.button("🔄 Refresh", use_container_width=True):
             trigger_new_scan()
 
-    # Mobile-responsive table headers with minimal spacing - added delete column
-    col_add, col_del, col_gpt, col_ticker, col_signal, col_score, col_indicators = st.columns([0.7, 0.7, 0.7, 1.3, 1, 1, 1.2])
+    # Mobile-responsive table headers with minimal spacing - added single analysis column
+    col_single, col_add, col_del, col_gpt, col_ticker, col_signal, col_score, col_indicators = st.columns([0.7, 0.7, 0.7, 0.7, 1.3, 1, 1, 1.2])
 
+    with col_single:
+        st.markdown("**Single**")
     with col_add:
         st.markdown("**Add**")
     with col_del:
@@ -608,8 +610,8 @@ def render_compact_results_table(filtered_df):
 
     # Ultra-compact table with individual buttons
     for idx, row in filtered_df.iterrows():
-        # Mobile-responsive row layout with delete column
-        col_add, col_del, col_gpt, col_ticker, col_signal, col_score, col_indicators = st.columns([0.7, 0.7, 0.7, 1.3, 1, 1, 1.2])
+        # Mobile-responsive row layout with single analysis column
+        col_single, col_add, col_del, col_gpt, col_ticker, col_signal, col_score, col_indicators = st.columns([0.7, 0.7, 0.7, 0.7, 1.3, 1, 1, 1.2])
 
         # Extract ticker information
         ticker = row.get('Ticker', 'N/A')
@@ -617,6 +619,18 @@ def render_compact_results_table(filtered_df):
         
         # Check if stock is in any watchlist
         containing_watchlists = check_stock_in_watchlists(ticker)
+        
+        # Single analysis button
+        with col_single:
+            if ticker != 'N/A':
+                if st.button("📊", key=f"single_{ticker}_{idx}", help=f"Single analysis for {ticker}"):
+                    # Set the ticker for single analysis
+                    st.session_state.analyze_ticker = ticker
+                    # Show success message and inform user to switch to Single Stock tab
+                    st.success(f"📊 {ticker} ready for single analysis! Please switch to the 'Single Stock' tab to view the detailed analysis.")
+                    st.rerun()
+            else:
+                st.markdown('<div class="batch-text">—</div>', unsafe_allow_html=True)
         
         # Add button with watchlist selection
         with col_add:
