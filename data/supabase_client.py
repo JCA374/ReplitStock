@@ -13,9 +13,25 @@ class SupabaseDB:
     """
     
     def __init__(self):
-        # Get Supabase credentials from environment variables
-        self.supabase_url = os.getenv("SUPABASE_URL", "")
-        self.supabase_key = os.getenv("SUPABASE_KEY", "")
+        # Get Supabase credentials - prioritize Streamlit secrets
+        self.supabase_url = ""
+        self.supabase_key = ""
+        
+        # Try Streamlit secrets first
+        try:
+            import streamlit as st
+            if hasattr(st, 'secrets'):
+                self.supabase_url = st.secrets.get("SUPABASE_URL", "")
+                self.supabase_key = st.secrets.get("SUPABASE_KEY", "")
+                print("Using Streamlit secrets for Supabase connection")
+        except:
+            pass
+        
+        # Fall back to environment variables if secrets not found
+        if not self.supabase_url or not self.supabase_key:
+            self.supabase_url = os.getenv("SUPABASE_URL", "")
+            self.supabase_key = os.getenv("SUPABASE_KEY", "")
+            print("Using environment variables for Supabase connection")
         
         # Ensure URL starts with https://
         if self.supabase_url and not self.supabase_url.startswith("https://"):
@@ -24,12 +40,30 @@ class SupabaseDB:
         self.client = None
         if self.supabase_url and self.supabase_key:
             try:
+                print(f"Attempting to connect to Supabase...")
+                print(f"URL: {self.supabase_url}")
+                print(f"Key length: {len(self.supabase_key)} characters")
+                
                 self.client = create_client(self.supabase_url, self.supabase_key)
-                print(f"Connected to Supabase at {self.supabase_url}")
+                
+                # Test the connection immediately
+                test_result = self.client.table("watchlist").select("count").limit(1).execute()
+                print(f"✓ Connected to Supabase successfully!")
+                
                 # Initialize tables after successful connection
                 self._create_tables_if_not_exist()
             except Exception as e:
-                print(f"Error connecting to Supabase: {str(e)}")
+                error_msg = str(e)
+                print(f"❌ Error connecting to Supabase: {error_msg}")
+                
+                # Provide specific guidance based on error type
+                if "Invalid API key" in error_msg:
+                    print("The API key appears to be invalid. Please ensure you're using the 'anon' or 'service_role' key from your Supabase project settings.")
+                elif "Invalid JWT" in error_msg:
+                    print("The JWT token is malformed. Please check the SUPABASE_KEY value.")
+                elif "404" in error_msg or "not found" in error_msg.lower():
+                    print("The Supabase URL appears to be incorrect. Please verify the SUPABASE_URL.")
+                
                 self.client = None
 
     def is_connected(self):
