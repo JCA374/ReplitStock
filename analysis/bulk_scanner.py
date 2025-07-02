@@ -23,6 +23,39 @@ from data.stock_data import StockDataFetcher
 logger = logging.getLogger(__name__)
 
 
+class PerformanceMonitor:
+    """Track and log performance metrics"""
+    
+    def __init__(self):
+        self.metrics = {
+            'api_calls': 0,
+            'cache_hits': 0,
+            'processing_times': [],
+            'error_count': 0
+        }
+    
+    def log_api_call(self, source):
+        self.metrics['api_calls'] += 1
+        logger.info(f"API call #{self.metrics['api_calls']} to {source}")
+    
+    def log_cache_hit(self):
+        self.metrics['cache_hits'] += 1
+    
+    def log_error(self):
+        self.metrics['error_count'] += 1
+    
+    def get_summary(self):
+        """Get performance summary"""
+        total_requests = self.metrics['api_calls'] + self.metrics['cache_hits']
+        cache_rate = (self.metrics['cache_hits'] / total_requests * 100) if total_requests > 0 else 0
+        
+        return {
+            'cache_hit_rate': f"{cache_rate:.1f}%",
+            'total_api_calls': self.metrics['api_calls'],
+            'error_rate': f"{(self.metrics['error_count'] / total_requests * 100):.1f}%" if total_requests > 0 else "0%"
+        }
+
+
 class BulkDatabaseLoader:
     """
     Loads ALL data from databases in bulk operations to minimize round trips

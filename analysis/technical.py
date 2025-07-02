@@ -60,18 +60,22 @@ def calculate_macd(data, fast_period=DEFAULT_MACD_FAST, slow_period=DEFAULT_MACD
     })
 
 def calculate_bollinger_bands(data, window=20, num_std=2):
-    """Calculate Bollinger Bands."""
-    sma = data['close'].rolling(window=window).mean()
-    std = data['close'].rolling(window=window).std()
+    """Calculate Bollinger Bands for volatility analysis"""
+    if isinstance(data, pd.DataFrame):
+        prices = data['close']
+    else:
+        prices = data
     
+    sma = prices.rolling(window=window).mean()
+    std = prices.rolling(window=window).std()
     upper_band = sma + (std * num_std)
     lower_band = sma - (std * num_std)
     
-    return pd.DataFrame({
-        'middle': sma,
+    return {
         'upper': upper_band,
+        'middle': sma,
         'lower': lower_band
-    })
+    }
 
 def detect_price_pattern(data):
     """Detect basic price patterns."""
@@ -451,5 +455,22 @@ def generate_technical_signals(indicators):
             'signal_strength': 0.5,
             'error': str(e)
         }
+
+
+
+def calculate_volume_profile(volume, prices, bins=10):
+    """Calculate volume profile for support/resistance levels"""
+    try:
+        if isinstance(prices, pd.DataFrame):
+            prices = prices['close']
+        if isinstance(volume, pd.DataFrame):
+            volume = volume['volume']
+            
+        price_bins = pd.cut(prices, bins=bins)
+        volume_profile = volume.groupby(price_bins).sum()
+        return volume_profile
+    except Exception as e:
+        print(f"Error calculating volume profile: {e}")
+        return pd.Series()
 
 

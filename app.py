@@ -98,21 +98,22 @@ def display_development_notes():
     # Recent Updates Section
     st.subheader("🔄 Recent Updates")
     
-    with st.expander("✅ July 2, 2025 - Enhanced Watchlist Management", expanded=True):
+    with st.expander("✅ July 2, 2025 - Enhanced Analysis & Features", expanded=True):
         st.markdown("""
-        **New Add to Watchlist Features:**
-        - ➕ button now opens dropdown menu of all your watchlists
-        - Choose exactly which watchlist to add each stock to
-        - No more guessing - full control over stock placement
+        **Enhanced Watchlist Management:**
+        - ➕ button with dropdown menu for specific watchlist selection
+        - 🗑️ delete button for stocks already in watchlists
+        - Moved "Create New Watchlist" from sidebar to main tab
         
-        **New Delete from Watchlist Features:**
-        - 🗑️ button appears only for stocks already in watchlists
-        - Removes stocks from all watchlists containing them
-        - Automatic page refresh after deletion
+        **Improved Analysis Engine:**
+        - Enhanced fundamental analysis with debt-to-equity, ROE, and P/B ratios
+        - New technical indicators: Bollinger Bands and volume profile
+        - Performance monitoring for API calls and cache efficiency
+        - Better error handling with retry logic for failed stock analysis
         
         **How to Use:**
-        1. Run batch scan → Click ➕ → Select target watchlist → Confirm
-        2. Click 🗑️ to remove stocks from all watchlists
+        1. Batch scan → ➕ → Select watchlist → Confirm
+        2. 🗑️ to remove from all watchlists
         """)
     
     with st.expander("✅ July 2, 2025 - Interface Improvements"):

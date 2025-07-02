@@ -297,36 +297,64 @@ class ValueMomentumStrategy:
         }
 
     def _calculate_fundamental_indicators(self, fundamentals, stock_info):
-        """Calculate fundamental indicators from stock info"""
+        """Enhanced fundamental analysis with additional metrics"""
         # Initialize results dictionary with default values
         results = {
-            "is_profitable": False,
             "pe_ratio": None,
+            "profit_margin": None, 
             "revenue_growth": None,
-            "profit_margin": None,
+            "is_profitable": False,
+            "reasonable_pe": True,
+            "fundamental_check": False,
             "earnings_trend": "Unknown",
-            "fundamental_check": False
+            # NEW METRICS
+            "debt_to_equity": None,
+            "return_on_equity": None,
+            "price_to_book": None,
+            "fundamental_score": 0
         }
 
         try:
             # Check if company is profitable
-            profit_margin = fundamentals.get(
-                'profit_margin') if fundamentals else None
+            profit_margin = fundamentals.get('profit_margin') if fundamentals else None
             results["is_profitable"] = profit_margin is not None and profit_margin > 0
 
             # Get P/E ratio
-            results["pe_ratio"] = fundamentals.get(
-                'pe_ratio') if fundamentals else None
+            pe_ratio = fundamentals.get('pe_ratio') if fundamentals else None
+            results["pe_ratio"] = pe_ratio
 
             # Get revenue growth
-            revenue_growth = fundamentals.get(
-                'revenue_growth') if fundamentals else None
+            revenue_growth = fundamentals.get('revenue_growth') if fundamentals else None
             if revenue_growth is not None and pd.notna(revenue_growth):
                 results["revenue_growth"] = revenue_growth
 
             # Get profit margin
             if profit_margin is not None and pd.notna(profit_margin):
                 results["profit_margin"] = profit_margin
+
+            # NEW: Add debt analysis
+            debt_to_equity = fundamentals.get('debt_to_equity') if fundamentals else None
+            if debt_to_equity is not None:
+                results["debt_to_equity"] = debt_to_equity
+                # Healthy debt levels (< 1.5)
+                if debt_to_equity < 1.5:
+                    results["fundamental_score"] += 20
+            
+            # NEW: Add ROE analysis
+            roe = fundamentals.get('return_on_equity') if fundamentals else None
+            if roe is not None:
+                results["return_on_equity"] = roe
+                # Good ROE (> 15%)
+                if roe > 0.15:
+                    results["fundamental_score"] += 20
+            
+            # NEW: Add P/B analysis
+            pb_ratio = fundamentals.get('price_to_book') if fundamentals else None
+            if pb_ratio is not None:
+                results["price_to_book"] = pb_ratio
+                # Value play (P/B < 3)
+                if pb_ratio < 3 and pb_ratio > 0:
+                    results["fundamental_score"] += 10
 
             # Get earnings trend data
             try:
@@ -336,16 +364,22 @@ class ValueMomentumStrategy:
                 results["earnings_trend"] = "Data saknas"
 
             # Determine if the fundamentals pass the criteria
-            # Is the company profitable?
             profitable = results["is_profitable"]
 
             # Does it have a reasonable P/E ratio?
-            pe_ratio = results["pe_ratio"]
-            reasonable_pe = pe_ratio is None or (
-                pe_ratio is not None and pe_ratio <= self.pe_max and pe_ratio > 0)
+            reasonable_pe = pe_ratio is None or (pe_ratio is not None and pe_ratio <= self.pe_max and pe_ratio > 0)
+            results["reasonable_pe"] = reasonable_pe
 
             # Check growth rates if available
             has_growth = results["revenue_growth"] is not None and results["revenue_growth"] > 0
+
+            # Enhanced fundamental scoring
+            if results["is_profitable"]:
+                results["fundamental_score"] += 30
+            if results["reasonable_pe"]:
+                results["fundamental_score"] += 20
+            if has_growth:
+                results["fundamental_score"] += 10
 
             # Pass the fundamental check if profitable and reasonable P/E
             results["fundamental_check"] = profitable and reasonable_pe

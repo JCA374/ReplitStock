@@ -1,189 +1,233 @@
-I'll help you implement permanent storage for the watchlist in Supabase. Let me first check the technical_spec.md file to understand the project structure and requirements.Based on my review of the project, I can see that **the Supabase integration for watchlists is already implemented** but currently disabled. Here's exactly what you need to do to enable permanent watchlist storage in Supabase:
+I'll search for the technical_spec.md file to understand the project overview and plan, then review the batch scanning logic.Now let me search for the batch scanning logic to review it:Let me continue searching for more batch scanning logic:Based on my review of the technical_spec.md and the batch scanning logic, I'll provide a thorough analysis and recommendations for improvements.
 
-## Step 1: Create Supabase Tables
+## Current State Analysis
 
-First, create the required tables in your Supabase dashboard by running this SQL:
+The batch scanning logic is **well-implemented** and follows best practices for both technical and fundamental analysis. Here's what's currently working well:
 
-```sql
--- Create watchlist_collections table
-CREATE TABLE IF NOT EXISTS public.watchlist_collections (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    description VARCHAR(200),
-    created_date VARCHAR(20),
-    is_default BOOLEAN DEFAULT FALSE
-);
+### ✅ Strong Points:
 
--- Create watchlist_memberships table
-CREATE TABLE IF NOT EXISTS public.watchlist_memberships (
-    id SERIAL PRIMARY KEY,
-    collection_id INTEGER NOT NULL,
-    ticker VARCHAR(20) NOT NULL,
-    added_date VARCHAR(20),
-    UNIQUE(collection_id, ticker)
-);
+1. **Efficient Data Flow**:
+   - Database-first approach (SQLite → Supabase → APIs)
+   - Bulk loading of all data in 1-2 queries
+   - Proper caching with TTL management
 
--- Create indexes for better performance
-CREATE INDEX idx_membership_collection ON watchlist_memberships(collection_id);
-CREATE INDEX idx_membership_ticker ON watchlist_memberships(ticker);
-```
+2. **Performance Optimizations**:
+   - Parallel processing with ThreadPoolExecutor
+   - Batch API calls with proper rate limiting
+   - Memory-efficient processing of large datasets
 
-## Step 2: Enable Supabase for Watchlists
+3. **Technical Analysis** (well-implemented):
+   - RSI, MACD, Moving Averages
+   - 52-week high/low detection
+   - Volume analysis
+   - Price pattern recognition
 
-**File to modify:** `data/db_integration.py`
+4. **Fundamental Analysis** (solid approach):
+   - P/E ratio validation
+   - Profit margin analysis
+   - Revenue growth tracking
+   - Profitability checks
 
-**Remove this code (around line 30):**
+## Code to Remove/Replace
+
+Based on the technical spec, here are the specific changes needed:
+
+### 1. **Update Import Statements** (CRITICAL)
+
+**Remove this code** from `app.py`:
 ```python
-USE_SUPABASE = False  # Disabled Supabase for watchlist operations
+# OLD - REMOVE THIS
+from tabs.strategy import ValueMomentumStrategy
+from tabs.enhanced_scanner_tab import render_enhanced_scanner_ui
 ```
 
-**Replace with:**
+**Replace with**:
 ```python
-USE_SUPABASE = supabase_db.is_connected()  # Use Supabase if connected
+# NEW - ADD THIS
+from analysis.strategy import ValueMomentumStrategy
+from ui.enhanced_scanner import render_enhanced_scanner_ui
 ```
 
-That's it! The system will now automatically:
-- Use Supabase for watchlist storage when connected
-- Fall back to SQLite if Supabase is unavailable
-- Handle all the database operations transparently
+### 2. **Update any other files with old imports**
 
-## Step 3: Optional - Migrate Existing Data
+Check these files and update imports if they exist:
+- `ui/batch_analysis.py`
+- `analysis/bulk_scanner.py`
+- Any other files importing from `tabs/`
 
-If you have existing watchlists in SQLite that you want to preserve, create this migration script:Save this script as `scripts/migrate_watchlists.py` and run it with:
-```bash
-python scripts/migrate_watchlists.py
+## Improvements for Batch Scanning Logic
+
+While the current implementation is good, here are some improvements that could enhance it further:
+
+### 1. **Enhanced Technical Indicators**
+
+**Add to** `analysis/technical.py`:
+```python
+def calculate_bollinger_bands(prices, window=20, num_std=2):
+    """Calculate Bollinger Bands for volatility analysis"""
+    sma = prices.rolling(window=window).mean()
+    std = prices.rolling(window=window).std()
+    upper_band = sma + (std * num_std)
+    lower_band = sma - (std * num_std)
+    return upper_band, sma, lower_band
+
+def calculate_volume_profile(volume, prices, bins=10):
+    """Calculate volume profile for support/resistance levels"""
+    price_bins = pd.cut(prices, bins=bins)
+    volume_profile = volume.groupby(price_bins).sum()
+    return volume_profile
 ```
 
-## Summary of Changes
+### 2. **Improved Fundamental Scoring**
 
-### What you need to REMOVE:
-- **Nothing!** All the code is already in place.
-
-### What you need to CHANGE:
-- In `data/db_integration.py`, change line 30 from:
-  ```python
-  USE_SUPABASE = False  # Disabled Supabase for watchlist operations
-  ```
-  To:
-  ```python
-  USE_SUPABASE = supabase_db.is_connected()  # Use Supabase if connected
-  ```
-
-### What happens after this change:
-1. When your app starts, it will check if Supabase is connected
-2. If connected, all watchlist operations will use Supabase (permanent cloud storage)
-3. If not connected, it will fall back to SQLite (local storage)
-4. The UI and functionality remain exactly the same
-
-## Testing the Changes
-
-1. **Verify Supabase Connection:**
-   - Look at the header in your Streamlit app
-   - Should show "✅ Connected to Supabase"
-
-2. **Test Watchlist Operations:**
-   - Create a new watchlist
-   - Add stocks to watchlist
-   - Remove stocks from watchlist
-   - Restart the app and verify data persists
-
-## Important Notes
-
-According to the technical spec, this change follows the established pattern:
-- ✅ Uses the database-first approach (checks Supabase first)
-- ✅ Has automatic fallback to SQLite
-- ✅ Doesn't modify core data structures
-- ✅ Maintains all existing functionality
-
-The beauty of this implementation is that **everything is already coded and tested** - you just need to enable it by changing that one configuration line!
-
-
-#!/usr/bin/env python3
-"""
-Watchlist Migration Script
-Migrates all watchlist data from SQLite to Supabase.
-"""
-
-import sys
-import os
-
-# Add parent directory to path so we can import modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from data.db_manager import get_db_session
-from data.db_models import WatchlistCollection, WatchlistMembership
-from data.supabase_client import get_supabase_db
-
-def migrate_watchlists_to_supabase():
-    """Migrate all watchlist data from SQLite to Supabase."""
-    print("Starting watchlist migration from SQLite to Supabase...")
-    
-    session = get_db_session()
-    supabase = get_supabase_db()
-    
-    if not supabase.is_connected():
-        print("❌ Cannot connect to Supabase. Migration aborted.")
-        return False
+**Add to** `analysis/strategy.py` in the `_calculate_fundamental_indicators` method:
+```python
+# Add these additional checks for better fundamental analysis
+def _calculate_fundamental_indicators(self, fundamentals):
+    """Enhanced fundamental analysis with additional metrics"""
+    results = {
+        "pe_ratio": None,
+        "profit_margin": None, 
+        "revenue_growth": None,
+        "is_profitable": False,
+        "reasonable_pe": True,
+        "fundamental_check": False,
+        # NEW METRICS
+        "debt_to_equity": None,
+        "return_on_equity": None,
+        "price_to_book": None,
+        "fundamental_score": 0
+    }
     
     try:
-        # Migrate collections
-        print("\n🔄 Migrating watchlist collections...")
-        collections = session.query(WatchlistCollection).all()
-        collection_mapping = {}  # old_id -> new_id
+        # Existing code...
         
-        if not collections:
-            print("ℹ️  No watchlist collections found in SQLite.")
+        # NEW: Add debt analysis
+        debt_to_equity = fundamentals.get('debt_to_equity')
+        if debt_to_equity is not None:
+            results["debt_to_equity"] = debt_to_equity
+            # Healthy debt levels (< 1.5)
+            if debt_to_equity < 1.5:
+                results["fundamental_score"] += 20
         
-        for col in collections:
-            print(f"   Migrating collection: {col.name}")
-            try:
-                new_col = supabase.create_watchlist_collection(
-                    col.name, 
-                    col.description or "", 
-                    col.is_default
-                )
-                if new_col:
-                    collection_mapping[col.id] = new_col['id']
-                    print(f"   ✅ Created collection '{col.name}' with ID {new_col['id']}")
-                else:
-                    print(f"   ❌ Failed to create collection '{col.name}'")
-            except Exception as e:
-                print(f"   ❌ Error creating collection '{col.name}': {e}")
+        # NEW: Add ROE analysis
+        roe = fundamentals.get('return_on_equity')
+        if roe is not None:
+            results["return_on_equity"] = roe
+            # Good ROE (> 15%)
+            if roe > 0.15:
+                results["fundamental_score"] += 20
         
-        # Migrate memberships
-        print(f"\n🔄 Migrating watchlist memberships...")
-        memberships = session.query(WatchlistMembership).all()
+        # NEW: Add P/B analysis
+        pb_ratio = fundamentals.get('price_to_book')
+        if pb_ratio is not None:
+            results["price_to_book"] = pb_ratio
+            # Value play (P/B < 3)
+            if pb_ratio < 3 and pb_ratio > 0:
+                results["fundamental_score"] += 10
         
-        if not memberships:
-            print("ℹ️  No watchlist memberships found in SQLite.")
-        
-        migrated_count = 0
-        for mem in memberships:
-            if mem.collection_id in collection_mapping:
-                new_collection_id = collection_mapping[mem.collection_id]
-                try:
-                    success = supabase.add_to_watchlist_collection(new_collection_id, mem.ticker)
-                    if success:
-                        print(f"   ✅ Added {mem.ticker} to collection {new_collection_id}")
-                        migrated_count += 1
-                    else:
-                        print(f"   ❌ Failed to add {mem.ticker} to collection {new_collection_id}")
-                except Exception as e:
-                    print(f"   ❌ Error adding {mem.ticker}: {e}")
-            else:
-                print(f"   ⚠️  Skipping {mem.ticker} - collection {mem.collection_id} not found")
-        
-        print(f"\n✅ Migration completed successfully!")
-        print(f"   Migrated {len(collection_mapping)} collections")
-        print(f"   Migrated {migrated_count} stock memberships")
-        
-        return True
-        
-    except Exception as e:
-        print(f"\n❌ Migration error: {e}")
-        return False
-    finally:
-        session.close()
+        # Existing scoring...
+        if results["is_profitable"]:
+            results["fundamental_score"] += 30
+        if results["reasonable_pe"]:
+            results["fundamental_score"] += 20
+            
+        return results
+```
 
-if __name__ == "__main__":
-    migrate_watchlists_to_supabase()
+### 3. **Batch Processing Optimization**
+
+**Update** `analysis/bulk_scanner.py` for better error handling:
+```python
+def _analyze_all_stocks(self, all_stock_data, progress_callback=None):
+    """Enhanced batch processing with retry logic"""
+    results = []
+    tickers = list(all_stock_data.keys())
+    
+    if not tickers:
+        return results
+    
+    # Initialize fetcher with retry capability
+    from data.stock_data import StockDataFetcher
+    fresh_fetcher = StockDataFetcher()
+    
+    # Track failed tickers for retry
+    failed_tickers = []
+    
+    # First pass - process all tickers
+    for ticker in tickers:
+        try:
+            # Existing processing logic...
+            result = self._process_single_stock(ticker, all_stock_data, fresh_fetcher)
+            results.append(result)
+        except Exception as e:
+            logger.warning(f"First pass failed for {ticker}: {e}")
+            failed_tickers.append(ticker)
+    
+    # Retry failed tickers once
+    if failed_tickers:
+        logger.info(f"Retrying {len(failed_tickers)} failed tickers...")
+        for ticker in failed_tickers:
+            try:
+                # Use Yahoo as fallback for retry
+                result = self._process_single_stock(ticker, all_stock_data, fresh_fetcher, use_yahoo=True)
+                results.append(result)
+            except Exception as e:
+                logger.error(f"Retry also failed for {ticker}: {e}")
+                # Add minimal result to avoid missing stocks
+                results.append(self._create_error_result(ticker, str(e)))
+    
+    return results
+```
+
+### 4. **Performance Monitoring**
+
+**Add to** `analysis/bulk_scanner.py`:
+```python
+class PerformanceMonitor:
+    """Track and log performance metrics"""
+    
+    def __init__(self):
+        self.metrics = {
+            'api_calls': 0,
+            'cache_hits': 0,
+            'processing_times': [],
+            'error_count': 0
+        }
+    
+    def log_api_call(self, source):
+        self.metrics['api_calls'] += 1
+        logger.info(f"API call #{self.metrics['api_calls']} to {source}")
+    
+    def log_cache_hit(self):
+        self.metrics['cache_hits'] += 1
+    
+    def get_summary(self):
+        """Get performance summary"""
+        total_requests = self.metrics['api_calls'] + self.metrics['cache_hits']
+        cache_rate = (self.metrics['cache_hits'] / total_requests * 100) if total_requests > 0 else 0
+        
+        return {
+            'cache_hit_rate': f"{cache_rate:.1f}%",
+            'total_api_calls': self.metrics['api_calls'],
+            'error_rate': f"{(self.metrics['error_count'] / total_requests * 100):.1f}%" if total_requests > 0 else "0%"
+        }
+```
+
+## Summary
+
+The current batch scanning implementation is **good enough** for production use. It follows best practices for:
+- Database-first data access
+- Efficient bulk operations
+- Proper error handling
+- Rate limit management
+
+The suggested improvements are **optional enhancements** that would:
+1. Add more sophisticated technical indicators
+2. Provide richer fundamental analysis
+3. Improve error recovery
+4. Add performance monitoring
+
+**Immediate action required**: Only update the import statements as specified in the technical spec.
+
+The core logic is solid and performant. Focus on using the existing system effectively rather than major rewrites.
