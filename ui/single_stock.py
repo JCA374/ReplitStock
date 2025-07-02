@@ -8,6 +8,7 @@ from data.stock_data import StockDataFetcher
 from data.db_manager import add_to_watchlist
 from analysis.technical import calculate_all_indicators, generate_technical_signals
 from analysis.fundamental import analyze_fundamentals
+from analysis.strategy import ValueMomentumStrategy
 from utils.ticker_mapping import normalize_ticker
 from config import TIMEFRAMES, PERIOD_OPTIONS, STOCKHOLM_EXCHANGE_SUFFIX
 
@@ -66,8 +67,28 @@ def display_single_stock_analysis():
             # Generate signals
             signals = generate_technical_signals(indicators)
 
+            # Calculate tech score using strategy's method for consistency
+            strategy = ValueMomentumStrategy()
+            tech_score = strategy.calculate_tech_score(signals)
+            signals['tech_score'] = tech_score
+
             # Analyze fundamentals
             fundamental_analysis = analyze_fundamentals(fundamentals)
+            
+            # Calculate Value & Momentum signal for consistency with batch analysis
+            fundamental_pass = fundamental_analysis['overall'].get('value_momentum_pass', False)
+            
+            if tech_score >= 70 and fundamental_pass:
+                value_momentum_signal = "BUY"
+            elif tech_score < 40 or not signals.get('above_ma40', False):
+                value_momentum_signal = "SELL"
+            else:
+                value_momentum_signal = "HOLD"
+            
+            # Update signals with consistent values
+            signals['overall_signal'] = value_momentum_signal.lower()
+            signals['signal_strength'] = tech_score / 100
+            signals['value_momentum_signal'] = value_momentum_signal
 
         # Display stock header with company information
         st.subheader(f"{stock_info['name']} ({ticker})")
@@ -345,6 +366,10 @@ def display_single_stock_analysis():
 
             # Display technical analysis summary
             st.subheader("Technical Analysis Summary")
+            
+            # Display tech score prominently
+            tech_score = signals.get('tech_score', 0)
+            st.metric("Tech Score", f"{tech_score}/100", help="Technical strength score based on multiple indicators")
 
             # Create columns for different indicator groups
             col1, col2, col3 = st.columns(3)
