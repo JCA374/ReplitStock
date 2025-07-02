@@ -158,11 +158,10 @@ def display_development_notes():
     
     with st.expander("⚙️ System Information"):
         st.markdown("""
-        **Database:** ✅ **Dual System Active** - Supabase (cloud) + SQLite (local fallback)
-        **Data Sources:** Yahoo Finance (prices), Alpha Vantage (fundamentals with fallback)
-        **Performance:** Enhanced caching, parallel processing, mobile-responsive design
-        **Market Focus:** Swedish stocks with comprehensive .ST ticker support
-        **Analysis:** Enhanced fundamental scoring with debt-to-equity, ROE, P/B ratios
+        **Database:** SQLite (primary), Supabase (backup when available)
+        **Data Sources:** Yahoo Finance (prices), Alpha Vantage (fundamentals)
+        **Performance:** Cached data, parallel processing, mobile-responsive
+        **Market Focus:** Swedish stocks with .ST ticker support
         """)
 
 def main():
