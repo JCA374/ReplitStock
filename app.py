@@ -98,54 +98,46 @@ def display_development_notes():
     # Recent Updates Section
     st.subheader("🔄 Recent Updates")
     
-    with st.expander("✅ Enhanced: Watchlist Management in Batch Analysis", expanded=True):
+    with st.expander("✅ July 2, 2025 - Enhanced Watchlist Management", expanded=True):
         st.markdown("""
-        **Added comprehensive watchlist management to batch analysis:**
-        
-        **Add to Watchlist Features:**
-        - Click the ➕ button to open a dropdown menu of your watchlists
+        **New Add to Watchlist Features:**
+        - ➕ button now opens dropdown menu of all your watchlists
         - Choose exactly which watchlist to add each stock to
-        - No more guessing which watchlist stocks will be added to
-        - Confirmation feedback showing which watchlist was used
+        - No more guessing - full control over stock placement
         
-        **Delete from Watchlist Features:**
-        - 🗑️ delete button only appears for stocks already in your watchlists
+        **New Delete from Watchlist Features:**
+        - 🗑️ button appears only for stocks already in watchlists
         - Removes stocks from all watchlists containing them
-        - Automatic interface refresh after deletion
-        - Clear feedback showing which watchlists stocks were removed from
+        - Automatic page refresh after deletion
         
-        **Import/Export Features:**
-        - Upload CSV files with ticker symbols in the Watchlist tab
-        - Automatic Swedish market formatting (.ST suffix)
-        - Download watchlists as CSV files with timestamp
-        - Smart duplicate detection and handling
+        **How to Use:**
+        1. Run batch scan → Click ➕ → Select target watchlist → Confirm
+        2. Click 🗑️ to remove stocks from all watchlists
+        """)
+    
+    with st.expander("✅ July 2, 2025 - Import/Export Functionality"):
+        st.markdown("""
+        **Watchlist Import/Export:**
+        - Upload CSV files with ticker symbols (Watchlist tab)
+        - Download watchlists as CSV with timestamp
+        - Smart duplicate detection and Swedish market formatting (.ST)
         
-        **How to Use in Batch Analysis:**
-        1. Run a batch scan on any stock universe
-        2. Click ➕ next to any stock to see your watchlist options
-        3. Select the specific watchlist you want to add to
-        4. Click 🗑️ to remove stocks from all watchlists (only shows if stock is in watchlists)
+        **Reorganized Interface:**
+        - Step-by-step batch analysis flow
+        - Development Notes tab for updates and technical info
         """)
     
     # Work in Progress Section
     st.subheader("🚧 Work in Progress")
     
-    with st.expander("🔍 Investigating: Single and Batch Analysis Mismatch", expanded=True):
+    with st.expander("🔍 Analysis Consistency Investigation"):
         st.markdown("""
-        **Current Investigation:**
-        We're looking into potential differences between Single Stock Analysis and Batch Analysis results.
+        **Investigating potential differences between Single Stock and Batch Analysis:**
+        - Data source consistency
+        - Technical indicator calculations
+        - Signal generation alignment
         
-        **What we're checking:**
-        - Data source consistency between analysis methods
-        - Calculation differences in technical indicators
-        - Timing issues with cached vs fresh data
-        - Signal generation logic alignment
-        
-        **Expected Resolution:**
-        This investigation aims to ensure both analysis methods produce identical results for the same stock.
-        
-        **User Impact:**
-        Currently, both analysis methods work correctly, but there may be minor variations in specific metrics.
+        **Status:** Both methods work correctly, minor variations being resolved
         """)
     
     # Future Improvements Section
@@ -153,11 +145,10 @@ def display_development_notes():
     
     with st.expander("📋 Upcoming Features"):
         st.markdown("""
-        - **Enhanced Import Options**: Support for more file formats (Excel, JSON)
-        - **Watchlist Categories**: Organize watchlists by themes (growth, value, dividend)
-        - **Analysis Synchronization**: Ensure perfect alignment between single and batch analysis
-        - **Performance Metrics**: Add portfolio-level performance tracking
-        - **Alert System**: Set up notifications for significant stock movements
+        - Enhanced import options (Excel, JSON support)
+        - Watchlist categories (growth, value, dividend themes)
+        - Portfolio performance tracking
+        - Stock movement alerts
         """)
     
     # Technical Notes Section
@@ -165,20 +156,10 @@ def display_development_notes():
     
     with st.expander("⚙️ System Information"):
         st.markdown("""
-        **Database Status:**
-        - Primary: SQLite (local storage)
-        - Backup: Supabase (cloud storage, when available)
-        - Watchlist data: Stored locally for fast access
-        
-        **Data Sources:**
-        - Yahoo Finance (primary for price data)
-        - Alpha Vantage (fundamentals, when API key provided)
-        - Swedish market focus with .ST ticker support
-        
-        **Performance:**
-        - Cached data reduces API calls
-        - Parallel processing for batch analysis
-        - Mobile-responsive interface
+        **Database:** SQLite (primary), Supabase (backup when available)
+        **Data Sources:** Yahoo Finance (prices), Alpha Vantage (fundamentals)
+        **Performance:** Cached data, parallel processing, mobile-responsive
+        **Market Focus:** Swedish stocks with .ST ticker support
         """)
 
 def main():
