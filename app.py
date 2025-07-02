@@ -20,7 +20,7 @@ from ui.watchlist import display_watchlist
 
 # Analysis components and services
 from services.company_explorer import CompanyExplorer
-from tabs.analysis_tab import render_analysis_tab
+from ui.analysis_tab import render_analysis_tab
 from ui.enhanced_scanner import render_enhanced_scanner_ui
 from analysis.strategy import ValueMomentumStrategy
 
