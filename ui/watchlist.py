@@ -18,28 +18,37 @@ def display_watchlist():
     # Get all watchlists
     watchlists = manager.get_all_watchlists()
     
-    # Sidebar for watchlist management
-    with st.sidebar:
-        st.subheader("Watchlist Management")
-        
-        # Create new watchlist
-        with st.expander("➕ Create New Watchlist"):
-            new_name = st.text_input("Watchlist Name", key="new_watchlist_name")
-            new_desc = st.text_area("Description (optional)", key="new_watchlist_desc")
-            
-            if st.button("Create", key="create_watchlist_btn"):
-                if new_name:
-                    if manager.create_watchlist(new_name, new_desc):
-                        st.success(f"Created '{new_name}'")
-                        st.rerun()
-                    else:
-                        st.error("Watchlist name already exists")
+    # Create New Watchlist section at the top of main content
+    st.subheader("➕ Create New Watchlist")
+    
+    col1, col2, col3 = st.columns([2, 2, 1])
+    
+    with col1:
+        new_name = st.text_input("Watchlist Name", key="new_watchlist_name", placeholder="Enter watchlist name...")
+    
+    with col2:
+        new_desc = st.text_input("Description (optional)", key="new_watchlist_desc", placeholder="Brief description...")
+    
+    with col3:
+        st.write("")  # Add spacing
+        if st.button("Create", key="create_watchlist_btn", use_container_width=True):
+            if new_name:
+                if manager.create_watchlist(new_name, new_desc):
+                    st.success(f"Created '{new_name}'")
+                    st.rerun()
                 else:
-                    st.warning("Please enter a name")
+                    st.error("Watchlist name already exists")
+            else:
+                st.warning("Please enter a name")
+    
+    st.divider()
+    
+    # Manage Existing Watchlists section
+    st.subheader("📋 Manage Watchlists")
     
     # Main content area
     if not watchlists:
-        st.error("No watchlists found. This should not happen!")
+        st.info("No watchlists found. Create your first watchlist above!")
         return
     
     # Watchlist selector

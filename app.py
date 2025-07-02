@@ -115,16 +115,17 @@ def display_development_notes():
         2. Click 🗑️ to remove stocks from all watchlists
         """)
     
-    with st.expander("✅ July 2, 2025 - Import/Export Functionality"):
+    with st.expander("✅ July 2, 2025 - Interface Improvements"):
         st.markdown("""
-        **Watchlist Import/Export:**
-        - Upload CSV files with ticker symbols (Watchlist tab)
-        - Download watchlists as CSV with timestamp
-        - Smart duplicate detection and Swedish market formatting (.ST)
+        **Watchlist Tab Reorganization:**
+        - Moved "Create New Watchlist" from sidebar to main tab area
+        - Better layout with inline form (Name, Description, Create button)
+        - Clear section separation between creating and managing watchlists
         
-        **Reorganized Interface:**
-        - Step-by-step batch analysis flow
-        - Development Notes tab for updates and technical info
+        **Import/Export Features:**
+        - CSV upload/download functionality in Watchlist tab
+        - Smart duplicate detection and Swedish market formatting (.ST)
+        - Step-by-step batch analysis flow with Development Notes tab
         """)
     
     # Work in Progress Section
