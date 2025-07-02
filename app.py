@@ -98,28 +98,33 @@ def display_development_notes():
     # Recent Updates Section
     st.subheader("🔄 Recent Updates")
     
-    with st.expander("✅ Fixed: Import and Export of Watchlists", expanded=True):
+    with st.expander("✅ Enhanced: Watchlist Management in Batch Analysis", expanded=True):
         st.markdown("""
-        **Added comprehensive watchlist import/export functionality:**
+        **Added comprehensive watchlist management to batch analysis:**
         
-        **Import Features:**
-        - Upload CSV files with ticker symbols
-        - Automatic detection of ticker columns (supports 'ticker', 'symbol', 'Ticker', 'Symbol', etc.)
-        - Smart ticker cleaning and Swedish market formatting (automatically adds .ST suffix)
-        - Duplicate detection and handling
-        - Progress feedback showing success and duplicate counts
+        **Add to Watchlist Features:**
+        - Click the ➕ button to open a dropdown menu of your watchlists
+        - Choose exactly which watchlist to add each stock to
+        - No more guessing which watchlist stocks will be added to
+        - Confirmation feedback showing which watchlist was used
         
-        **Export Features:**
+        **Delete from Watchlist Features:**
+        - 🗑️ delete button only appears for stocks already in your watchlists
+        - Removes stocks from all watchlists containing them
+        - Automatic interface refresh after deletion
+        - Clear feedback showing which watchlists stocks were removed from
+        
+        **Import/Export Features:**
+        - Upload CSV files with ticker symbols in the Watchlist tab
+        - Automatic Swedish market formatting (.ST suffix)
         - Download watchlists as CSV files with timestamp
-        - Includes all stock details (name, sector, price, change %)
-        - Accessible from the top of the Watchlist tab
+        - Smart duplicate detection and handling
         
-        **How to Use:**
-        1. Go to the **Watchlist** tab
-        2. In the **Import/Export** section at the top:
-           - **Import**: Click "Choose a CSV file" and upload your ticker list
-           - **Export**: Click "Download CSV" to save your current watchlist
-        3. Both functions are prominently placed for easy access
+        **How to Use in Batch Analysis:**
+        1. Run a batch scan on any stock universe
+        2. Click ➕ next to any stock to see your watchlist options
+        3. Select the specific watchlist you want to add to
+        4. Click 🗑️ to remove stocks from all watchlists (only shows if stock is in watchlists)
         """)
     
     # Work in Progress Section

@@ -618,10 +618,42 @@ def render_compact_results_table(filtered_df):
         # Check if stock is in any watchlist
         containing_watchlists = check_stock_in_watchlists(ticker)
         
-        # Add button
+        # Add button with watchlist selection
         with col_add:
-            if st.button("➕", key=f"add_{ticker}_{idx}", help=f"Add {ticker}"):
-                add_single_to_watchlist(ticker, name)
+            # Create a unique key for the selectbox
+            selectbox_key = f"watchlist_select_{ticker}_{idx}"
+            
+            # Get available watchlists
+            if 'watchlist_manager' not in st.session_state:
+                from services.watchlist_manager import SimpleWatchlistManager
+                st.session_state.watchlist_manager = SimpleWatchlistManager()
+            
+            manager = st.session_state.watchlist_manager
+            watchlists = manager.get_all_watchlists()
+            
+            if watchlists:
+                # Create a popover for watchlist selection
+                with st.popover("➕", help=f"Add {ticker} to watchlist"):
+                    st.markdown(f"**Add {ticker}**")
+                    
+                    # Watchlist selection
+                    watchlist_options = {f"{wl['name']}": wl['id'] for wl in watchlists}
+                    selected_watchlist_name = st.selectbox(
+                        "Choose watchlist:",
+                        options=list(watchlist_options.keys()),
+                        key=selectbox_key,
+                        label_visibility="collapsed"
+                    )
+                    
+                    # Add button inside popover
+                    if st.button("Add to Watchlist", key=f"add_confirm_{ticker}_{idx}", use_container_width=True):
+                        selected_watchlist_id = watchlist_options[selected_watchlist_name]
+                        add_single_to_watchlist(ticker, name, selected_watchlist_id)
+                        st.rerun()
+            else:
+                # Fallback if no watchlists available
+                if st.button("➕", key=f"add_fallback_{ticker}_{idx}", help=f"Add {ticker}"):
+                    add_single_to_watchlist(ticker, name)
 
         # Delete button - only show if stock is in watchlists
         with col_del:

@@ -125,6 +125,7 @@ This is a comprehensive stock analysis application built with **Streamlit** as t
 - July 2, 2025. Added comprehensive watchlist import/export functionality: CSV file upload with smart ticker detection, automatic Swedish market formatting (.ST suffix), duplicate handling, and prominent placement in Watchlist tab
 - July 2, 2025. Reorganized batch analysis interface with logical flow: Stock Universe selection first, then Watchlist selection (when applicable), then scan options, and finally scan button with clear step-by-step progression
 - July 2, 2025. Created Development Notes tab for user communication: includes recent updates, work in progress items, planned improvements, and technical information with expandable sections for easy navigation
+- July 2, 2025. Enhanced batch analysis with advanced watchlist management: added delete functionality (🗑️ button for stocks in watchlists), improved add functionality with dropdown selection of target watchlists, smart button visibility based on current watchlist membership, and automatic interface refresh after changes
 
 ## User Preferences
 
