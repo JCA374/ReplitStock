@@ -221,6 +221,18 @@ def main():
         # Create tables if they don't exist
         tables_initialized = initialize_tables(engine)
 
+        # Disclaimer banner at the top
+        st.markdown("""
+        <div style="background-color: #f0f2f6; padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid #ff6b6b;">
+            <h4 style="color: #d63031; margin: 0 0 10px 0;">⚠️ Important Disclaimer</h4>
+            <p style="margin: 0; font-size: 14px;">
+                <strong>This is NOT financial advice!</strong> This application is a hobby project built using AI for educational and experimental purposes only. 
+                All analysis, recommendations, and data should not be used for actual investment decisions. 
+                Always consult with qualified financial professionals before making investment decisions.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
         # Header section with status indicator
         col1, col2 = st.columns([3, 1])
         with col1:
