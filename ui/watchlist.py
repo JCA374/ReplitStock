@@ -227,9 +227,9 @@ def display_watchlist():
         stock_details = manager.get_watchlist_details(watchlist_id)
         
         if stock_details:
-            # Add remove buttons column
+            # Add remove buttons column - simplified layout with only ticker and name
             for idx, stock in enumerate(stock_details):
-                col1, col2, col3, col4 = st.columns([0.5, 1.5, 3, 2])
+                col1, col2, col3 = st.columns([0.5, 1.5, 4])
                 
                 with col1:
                     if st.button("❌", key=f"remove_{stock['ticker']}_{idx}"):
@@ -242,9 +242,6 @@ def display_watchlist():
                 
                 with col3:
                     st.write(stock['name'])
-                
-                with col4:
-                    st.write(stock['sector'])
             
             # Action buttons
             st.divider()

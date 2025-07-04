@@ -260,7 +260,7 @@ def add_single_to_watchlist(ticker, name, selected_watchlist_id=None):
                                  None)
 
         if target_wl:
-            success = manager.add_stock_to_watchlist(target_wl['id'], ticker)
+            success = manager.add_stock_to_watchlist(target_wl['id'], ticker, name)
             if success:
                 st.success(f"✅ Added {ticker} to '{target_wl['name']}'!")
             else:
@@ -410,7 +410,7 @@ def add_stock_to_watchlist_with_feedback(ticker, name):
         default_wl = next((w for w in watchlists if w['is_default']), None)
 
         if default_wl:
-            return manager.add_stock_to_watchlist(default_wl['id'], ticker)
+            return manager.add_stock_to_watchlist(default_wl['id'], ticker, name)
         return False
 
     except Exception as e:

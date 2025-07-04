@@ -149,6 +149,7 @@ class WatchlistMembership(Base):
     id = Column(Integer, primary_key=True)
     collection_id = Column(Integer)
     ticker = Column(String(20))
+    name = Column(String(200), nullable=True)  # Add company name field
     added_date = Column(String(20))
     
     __table_args__ = (

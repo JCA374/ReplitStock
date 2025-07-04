@@ -132,8 +132,8 @@ class SimpleWatchlistManager:
         finally:
             session.close()
     
-    def add_stock_to_watchlist(self, watchlist_id: int, ticker: str) -> bool:
-        """Add a stock to a specific watchlist"""
+    def add_stock_to_watchlist(self, watchlist_id: int, ticker: str, name: str = None) -> bool:
+        """Add a stock to a specific watchlist with optional name"""
         session = get_db_session()
         try:
             # Check if already exists
@@ -145,10 +145,15 @@ class SimpleWatchlistManager:
             if existing:
                 return False
             
-            # Add to watchlist
+            # If name not provided, use ticker as name
+            if not name:
+                name = ticker
+            
+            # Add to watchlist with name
             membership = WatchlistMembership(
                 collection_id=watchlist_id,
                 ticker=ticker,
+                name=name,  # Store the company name
                 added_date=datetime.now().strftime("%Y-%m-%d")
             )
             session.add(membership)
@@ -156,12 +161,11 @@ class SimpleWatchlistManager:
             # Also add to legacy watchlist table for compatibility
             from data.db_integration import add_to_watchlist
             try:
-                info = self.data_fetcher.get_stock_info(ticker)
                 add_to_watchlist(
                     ticker,
-                    info.get('name', ticker),
-                    info.get('exchange', ''),
-                    info.get('sector', '')
+                    name,  # Use the provided name
+                    '',    # No exchange data needed
+                    ''     # No sector data needed
                 )
             except:
                 pass
@@ -219,45 +223,27 @@ class SimpleWatchlistManager:
             session.close()
     
     def get_watchlist_details(self, watchlist_id: int) -> List[Dict]:
-        """Get detailed information for all stocks in a watchlist"""
-        tickers = self.get_watchlist_stocks(watchlist_id)
-        details = []
-        
-        for ticker in tickers:
-            try:
-                # Get basic stock info
-                info = self.data_fetcher.get_stock_info(ticker)
-                
-                # Get current price data
-                price_data = self.data_fetcher.get_stock_data(ticker, timeframe='1d', period='5d')
-                
-                current_price = 0.0
-                change_pct = 0.0
-                
-                if price_data is not None and not price_data.empty:
-                    current_price = float(price_data['close'].iloc[-1])
-                    if len(price_data) > 1:
-                        prev_close = float(price_data['close'].iloc[-2])
-                        change_pct = ((current_price - prev_close) / prev_close) * 100
-                
+        """Get ticker and name for all stocks in a watchlist (no API calls)"""
+        session = get_db_session()
+        try:
+            # Query the database directly for stored ticker and name
+            stocks = session.query(WatchlistMembership).filter(
+                WatchlistMembership.collection_id == watchlist_id
+            ).all()
+
+            details = []
+            for stock in stocks:
                 details.append({
-                    'ticker': ticker,
-                    'name': info.get('name', ticker),
-                    'sector': info.get('sector', 'Unknown'),
-                    'current_price': current_price,
-                    'change_pct': change_pct
+                    'ticker': stock.ticker,
+                    'name': getattr(stock, 'name', stock.ticker)  # Use stored name or ticker as fallback
                 })
-            except Exception as e:
-                logger.error(f"Error getting details for {ticker}: {e}")
-                details.append({
-                    'ticker': ticker,
-                    'name': ticker,
-                    'sector': 'Unknown',
-                    'current_price': 0.0,
-                    'change_pct': 0.0
-                })
-        
-        return details
+
+            return details
+        except Exception as e:
+            logger.error(f"Error getting watchlist details: {e}")
+            return []
+        finally:
+            session.close()
     
     def import_watchlist_from_csv(self, watchlist_id: int, csv_content: str) -> tuple[int, int]:
         """
@@ -296,7 +282,17 @@ class SimpleWatchlistManager:
             # Add tickers to watchlist
             for ticker in tickers:
                 total += 1
-                if self.add_stock_to_watchlist(watchlist_id, ticker):
+                # Try to get company name during import (optional enhancement)
+                name = ticker  # Default to ticker if name lookup fails
+                try:
+                    # Optional: Quick lookup for name without full data fetch
+                    info = self.data_fetcher.get_stock_info(ticker)
+                    if info and info.get('name'):
+                        name = str(info.get('name'))  # Ensure it's a string
+                except:
+                    pass
+                
+                if self.add_stock_to_watchlist(watchlist_id, ticker, name):
                     successful += 1
                     
         except Exception as e:
