@@ -207,7 +207,7 @@ def display_watchlist():
             
             # Add remove buttons column
             for idx, stock in enumerate(stock_details):
-                col1, col2, col3, col4, col5, col6 = st.columns([0.5, 1.5, 2, 1.5, 1, 1])
+                col1, col2, col3, col4 = st.columns([0.5, 1.5, 3, 2])
                 
                 with col1:
                     if st.button("❌", key=f"remove_{stock['ticker']}_{idx}"):
@@ -223,16 +223,6 @@ def display_watchlist():
                 
                 with col4:
                     st.write(stock['sector'])
-                
-                with col5:
-                    st.metric("Price", f"${stock['current_price']:.2f}")
-                
-                with col6:
-                    color = "green" if stock['change_pct'] >= 0 else "red"
-                    st.markdown(
-                        f"<span style='color: {color}'>{stock['change_pct']:+.2f}%</span>",
-                        unsafe_allow_html=True
-                    )
             
             # Action buttons
             st.divider()
