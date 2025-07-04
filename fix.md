@@ -1,197 +1,329 @@
-# Reverse Scanner Alignment Fix - Implementation Guide
+# Watchlist Data Minimization Fix - Implementation Guide
 
 ## Overview
-After analyzing your updated project knowledge, I can see that your **batch analysis** (`scanner.py` and `bulk_scanner.py`) now uses the CORRECT method from the strategy. However, your **single stock analysis** may still have inconsistencies. We need to apply the SAME analysis method that batch analysis uses to single analysis.
+This fix updates the watchlist functionality to only store the ticker symbol and company name when adding stocks. No price data, performance metrics, or other values will be collected or stored. The watchlist will be a simple list that loads without any API calls.
 
 ## Current State Analysis
+Currently, the watchlist system:
+- Stores ticker, name, sector, current_price, and change_pct in `get_watchlist_details()`
+- Makes API calls to fetch current prices when viewing watchlists
+- Exports these additional fields when exporting to CSV
 
-### ✅ Batch Analysis (CORRECT - Already Fixed)
-- Uses `strategy.calculate_tech_score()` for weighted scoring
-- Generates signals using consistent Value & Momentum logic
-- Produces reliable, consistent results
+## Required Changes
 
-### ❌ Single Analysis (NEEDS FIXING)
-- May still use older scoring methods
-- Might have different signal generation logic
-- Could produce different results for the same stock (like ORES.ST)
+### 1. Update `services/watchlist_manager.py`
 
-## Implementation Steps
+#### Change 1: Modify `add_stock_to_watchlist()` method
 
-### Step 1: Update `analysis/strategy.py` - `analyze_stock()` method
-
-**FIND this section in the `analyze_stock()` method (around line 200-230):**
+**FIND this section (around line 140-165):**
 ```python
-# Step 5: Calculate signals and scores
-tech_score = self.calculate_tech_score(tech_analysis)
-fund_check = fund_analysis['fundamental_check']
-buy_signal = tech_score >= 70 and fund_check
-sell_signal = tech_score < 40 or not tech_analysis['above_ma40']
+def add_stock_to_watchlist(self, watchlist_id: int, ticker: str) -> bool:
+    """Add a stock to a watchlist"""
+    try:
+        # Check if stock already exists in this watchlist
+        existing = self.db.query(WatchlistStock).filter_by(
+            watchlist_id=watchlist_id,
+            ticker=ticker
+        ).first()
+
+        if existing:
+            return False
+
+        # Add stock to watchlist
+        watchlist_stock = WatchlistStock(
+            watchlist_id=watchlist_id,
+            ticker=ticker
+        )
+
+        self.db.add(watchlist_stock)
+        self.db.commit()
+        return True
 ```
 
 **REPLACE with:**
 ```python
-# Step 5: Calculate signals and scores using BATCH ANALYSIS METHOD
-# Calculate technical indicators first
-indicators = calculate_all_indicators(stock_data)
-signals = generate_technical_signals(indicators)
+def add_stock_to_watchlist(self, watchlist_id: int, ticker: str, name: str = None) -> bool:
+    """Add a stock to a watchlist with optional name"""
+    try:
+        # Check if stock already exists in this watchlist
+        existing = self.db.query(WatchlistStock).filter_by(
+            watchlist_id=watchlist_id,
+            ticker=ticker
+        ).first()
 
-# Use the same tech score calculation as batch analysis
-tech_score = self.calculate_tech_score(signals)
-signals['tech_score'] = tech_score
+        if existing:
+            return False
 
-# Analyze fundamentals the same way as batch analysis
-from analysis.fundamental import analyze_fundamentals
-fundamental_analysis = analyze_fundamentals(fundamentals or {})
+        # If name not provided, use ticker as name
+        if not name:
+            name = ticker
 
-# Use the EXACT same Value & Momentum logic as batch analysis
-fundamental_pass = fundamental_analysis['overall'].get('value_momentum_pass', False)
+        # Add stock to watchlist with name
+        watchlist_stock = WatchlistStock(
+            watchlist_id=watchlist_id,
+            ticker=ticker,
+            name=name  # Store the company name
+        )
 
-if tech_score >= 70 and fundamental_pass:
-    value_momentum_signal = "BUY"
-elif tech_score < 40 or not signals.get('above_ma40', False):
-    value_momentum_signal = "SELL"
-else:
-    value_momentum_signal = "HOLD"
-
-# Convert to Swedish for compatibility
-buy_signal = value_momentum_signal == "BUY"
-sell_signal = value_momentum_signal == "SELL"
-fund_check = fundamental_pass
+        self.db.add(watchlist_stock)
+        self.db.commit()
+        return True
 ```
 
-### Step 2: Add required imports to `analysis/strategy.py`
+#### Change 2: Simplify `get_watchlist_details()` method
 
-**FIND the imports section at the top:**
+**FIND this section (around line 200-240):**
 ```python
-from analysis.technical import calculate_all_indicators, generate_technical_signals
-from analysis.fundamental import analyze_fundamentals
-```
+def get_watchlist_details(self, watchlist_id: int) -> List[dict]:
+    """Get detailed information for all stocks in a watchlist"""
+    stocks = self.get_watchlist_stocks(watchlist_id)
+    details = []
 
-**IF these imports are missing, ADD them:**
-```python
-from analysis.technical import calculate_all_indicators, generate_technical_signals
-from analysis.fundamental import analyze_fundamentals
-```
+    for ticker in stocks:
+        try:
+            # Get basic company info
+            info = yf.Ticker(ticker).info
 
-### Step 3: Update result dictionary in `analyze_stock()` method
+            # Get current price and calculate change
+            current_price = info.get('currentPrice', 0)
+            if not current_price:
+                current_price = info.get('regularMarketPrice', 0)
 
-**FIND this section (around line 250-280):**
-```python
-# Step 7: Create results dictionary
-result = {
-    "ticker": ticker,
-    "name": name,
-    "price": price,
-    "date": datetime.now().strftime("%Y-%m-%d"),
-    "tech_score": tech_score,
-    "signal": "KÖP" if buy_signal else "SÄLJ" if sell_signal else "HÅLL",
-    "buy_signal": buy_signal,
-    "sell_signal": sell_signal,
-    "fundamental_check": fund_check,
-    "technical_check": tech_score >= 60,
-    "historical_data": processed_hist,
-    "rsi": tech_analysis.get('rsi', None),
-    "data_source": data_source
-}
+            previous_close = info.get('previousClose', 0)
+            if current_price and previous_close:
+                change_pct = ((current_price - previous_close) / previous_close) * 100
+            else:
+                change_pct = 0
+
+            details.append({
+                'ticker': ticker,
+                'name': info.get('longName', ticker),
+                'sector': info.get('sector', 'Unknown'),
+                'current_price': current_price,
+                'change_pct': change_pct
+            })
 ```
 
 **REPLACE with:**
 ```python
-# Step 7: Create results dictionary (ALIGNED WITH BATCH ANALYSIS)
-result = {
-    "ticker": ticker,
-    "name": name,
-    "price": price,
-    "last_price": price,  # Add for batch compatibility
-    "date": datetime.now().strftime("%Y-%m-%d"),
-    "tech_score": tech_score,
-    "signal": "KÖP" if buy_signal else "SÄLJ" if sell_signal else "HÅLL",
-    "value_momentum_signal": value_momentum_signal,  # Add batch-compatible signal
-    "buy_signal": buy_signal,
-    "sell_signal": sell_signal,
-    "fundamental_check": fund_check,
-    "fundamental_pass": fundamental_pass,  # Add for batch compatibility
-    "technical_check": tech_score >= 60,
-    "historical_data": processed_hist,
-    "rsi": signals.get('rsi', None),  # Use signals instead of tech_analysis
-    "data_source": data_source
-}
+def get_watchlist_details(self, watchlist_id: int) -> List[dict]:
+    """Get ticker and name for all stocks in a watchlist (no API calls)"""
+    try:
+        # Query the database directly for stored ticker and name
+        stocks = self.db.query(WatchlistStock).filter_by(
+            watchlist_id=watchlist_id
+        ).all()
 
-# Add all technical signals for full compatibility
-result.update(signals)
-result.update(fundamental_analysis)
+        details = []
+        for stock in stocks:
+            details.append({
+                'ticker': stock.ticker,
+                'name': getattr(stock, 'name', stock.ticker)  # Use stored name or ticker as fallback
+            })
+
+        return details
+    except Exception as e:
+        logger.error(f"Error getting watchlist details: {e}")
+        return []
 ```
 
-### Step 4: Update `ui/single_stock.py` for display consistency
+### 2. Update Database Model in `data/db_models.py`
 
-**FIND this section (around line 50-80):**
+**ADD a name column to the WatchlistStock model:**
+
+**FIND this section:**
 ```python
-# Calculate tech score using strategy's method for consistency
-strategy = ValueMomentumStrategy()
-tech_score = strategy.calculate_tech_score(signals)
-signals['tech_score'] = tech_score
+class WatchlistStock(Base):
+    __tablename__ = 'watchlist_stocks'
 
-# Analyze fundamentals
-fundamental_analysis = analyze_fundamentals(fundamentals)
-
-# Calculate Value & Momentum signal for consistency with batch analysis
-fundamental_pass = fundamental_analysis['overall'].get('value_momentum_pass', False)
-
-if tech_score >= 70 and fundamental_pass:
-    value_momentum_signal = "BUY"
-elif tech_score < 40 or not signals.get('above_ma40', False):
-    value_momentum_signal = "SELL"
-else:
-    value_momentum_signal = "HOLD"
+    id = Column(Integer, primary_key=True)
+    watchlist_id = Column(Integer, ForeignKey('watchlists.id'))
+    ticker = Column(String, nullable=False)
+    added_date = Column(DateTime, default=datetime.utcnow)
 ```
 
-**CONFIRM this is already correct** - this shows the single stock UI is already aligned.
+**REPLACE with:**
+```python
+class WatchlistStock(Base):
+    __tablename__ = 'watchlist_stocks'
 
-## Why This is the Correct Approach
+    id = Column(Integer, primary_key=True)
+    watchlist_id = Column(Integer, ForeignKey('watchlists.id'))
+    ticker = Column(String, nullable=False)
+    name = Column(String, nullable=True)  # Add company name field
+    added_date = Column(DateTime, default=datetime.utcnow)
+```
 
-### Current State:
-- **Batch analysis**: Uses modern, optimized method ✅
-- **Single analysis**: Uses older method ❌
+### 3. Update UI Components
 
-### After Fix:
-- **Both methods**: Use identical analysis pipeline ✅
-- **Same results**: ORES.ST shows same score everywhere ✅
-- **Maintainable**: Single source of truth ✅
+#### Update `ui/batch_analysis.py` - Fix add_stock_to_watchlist calls
 
-## Key Benefits
+**FIND all occurrences of:**
+```python
+manager.add_stock_to_watchlist(watchlist_id, ticker)
+```
 
-1. **Consistency**: Single and batch analysis will show identical results
-2. **Reliability**: Uses the proven batch analysis method everywhere  
-3. **Maintainability**: Changes to analysis logic only need to be made in one place
-4. **Performance**: Leverages optimized technical calculation methods
-5. **Future-proof**: New features added to batch analysis automatically work in single analysis
+**REPLACE with:**
+```python
+manager.add_stock_to_watchlist(watchlist_id, ticker, name)
+```
 
-## Testing After Implementation
+**Specifically update these functions:**
+- `add_single_to_watchlist()` 
+- `add_stock_to_watchlist_with_feedback()`
+- `add_selected_to_watchlist()`
 
-1. **Test ORES.ST specifically**:
-   - Run single stock analysis for ORES.ST
-   - Run batch analysis including ORES.ST
-   - Verify identical results for:
-     - Tech Score
-     - Signal (BUY/SELL/HOLD)
-     - All technical indicators
+#### Update `ui/enhanced_scanner.py` - Fix add function
 
-2. **Test other stocks**:
-   - Pick 3-5 random stocks
-   - Compare single vs batch results
-   - All should be identical
+**FIND:**
+```python
+def add_stock_to_watchlist(ticker, name):
+    """Add stock to default watchlist"""
+    # ... existing code ...
+    if default_wl:
+        success = manager.add_stock_to_watchlist(default_wl['id'], ticker)
+```
 
-## Expected Results
+**REPLACE with:**
+```python
+def add_stock_to_watchlist(ticker, name):
+    """Add stock to default watchlist"""
+    # ... existing code ...
+    if default_wl:
+        success = manager.add_stock_to_watchlist(default_wl['id'], ticker, name)
+```
 
-After this fix:
-- **ORES.ST** will show the same tech score in both single and batch analysis
-- **All stocks** will have consistent scoring across analysis methods
-- **UI displays** will show identical information regardless of analysis path
-- **Maintenance** becomes easier as there's only one analysis pipeline
+### 4. Update Watchlist Display in `ui/watchlist.py`
 
-## Technical Notes
+**FIND the section that displays watchlist stocks (around line 150-200):**
+```python
+# Display stock details
+if stock_details:
+    # Create DataFrame for display
+    df = pd.DataFrame(stock_details)
 
-This approach applies the **"best practice wins"** principle:
-- Batch analysis was optimized and follows best practices
-- Single analysis gets updated to match the optimized approach
-- Result: Both methods use the same, proven analysis pipeline
+    # Format the display
+    display_df = df[['ticker', 'name', 'sector', 'current_price', 'change_pct']].copy()
+    display_df.columns = ['Ticker', 'Name', 'Sector', 'Price', 'Change %']
+```
+
+**REPLACE with:**
+```python
+# Display stock details
+if stock_details:
+    # Create DataFrame for display (only ticker and name)
+    df = pd.DataFrame(stock_details)
+
+    # Simple display with just ticker and name
+    display_df = df[['ticker', 'name']].copy()
+    display_df.columns = ['Ticker', 'Company Name']
+```
+
+### 5. Update Export Functionality
+
+The export will automatically only include ticker and name since that's all that's stored now. No changes needed to the export code.
+
+### 6. Update Import Functionality
+
+**The import already works correctly** - it only imports tickers. However, we should update it to try to fetch company names during import.
+
+**FIND in `services/watchlist_manager.py` - `import_watchlist_from_csv()` method:**
+```python
+if self.add_stock_to_watchlist(watchlist_id, ticker):
+    successful += 1
+```
+
+**REPLACE with:**
+```python
+# Try to get company name during import (optional enhancement)
+name = ticker  # Default to ticker if name lookup fails
+try:
+    # Optional: Quick lookup for name without full data fetch
+    from data.stock_data import get_company_name
+    fetched_name = get_company_name(ticker)
+    if fetched_name:
+        name = fetched_name
+except:
+    pass
+
+if self.add_stock_to_watchlist(watchlist_id, ticker, name):
+    successful += 1
+```
+
+## Database Migration
+
+After making these code changes, you'll need to handle the database schema update:
+
+1. **For new installations**: The database will be created with the new schema automatically.
+
+2. **For existing installations**: Add this migration script to handle existing databases:
+
+Create a new file `migrations/add_name_to_watchlist.py`:
+
+```python
+"""Add name column to watchlist_stocks table"""
+from sqlalchemy import text
+from data.db_connection import get_db_connection
+
+def migrate():
+    """Add name column to existing watchlist_stocks table"""
+    db = get_db_connection()
+    try:
+        # Check if column already exists
+        result = db.execute(text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name='watchlist_stocks' AND column_name='name'"
+        )).fetchone()
+
+        if not result:
+            # Add the column
+            db.execute(text(
+                "ALTER TABLE watchlist_stocks ADD COLUMN name VARCHAR"
+            ))
+            db.commit()
+            print("Successfully added name column to watchlist_stocks")
+        else:
+            print("Name column already exists")
+
+    except Exception as e:
+        print(f"Migration error: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+if __name__ == "__main__":
+    migrate()
+```
+
+## Testing the Changes
+
+1. **Test adding stocks to watchlist**:
+   - Add a stock from batch analysis
+   - Verify only ticker and name are stored
+   - Check that no API calls are made when viewing watchlist
+
+2. **Test import/export**:
+   - Export a watchlist to CSV
+   - Verify only ticker and name columns are present
+   - Import the CSV to a new watchlist
+   - Verify import works correctly
+
+3. **Test performance**:
+   - Load a watchlist with 50+ stocks
+   - Verify it loads instantly without API calls
+   - Check that the display shows only ticker and name
+
+## Benefits of This Change
+
+1. **Performance**: Watchlists load instantly without any API calls
+2. **Reliability**: No dependency on external APIs for viewing watchlists
+3. **Simplicity**: Cleaner data model focused on essential information
+4. **Privacy**: Less data stored means less to manage/protect
+5. **Export/Import**: Simpler CSV files that are easier to manage
+
+## Rollback Plan
+
+If you need to rollback:
+1. Restore the original code from your version control
+2. The database will still work (extra 'name' column will be ignored)
+3. Existing watchlists remain functional
