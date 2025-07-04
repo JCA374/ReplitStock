@@ -18,28 +18,27 @@ def display_watchlist():
     # Get all watchlists
     watchlists = manager.get_all_watchlists()
     
-    # Create New Watchlist section at the top of main content
-    st.subheader("➕ Create New Watchlist")
-    
-    col1, col2, col3 = st.columns([2, 2, 1])
-    
-    with col1:
-        new_name = st.text_input("Watchlist Name", key="new_watchlist_name", placeholder="Enter watchlist name...")
-    
-    with col2:
-        new_desc = st.text_input("Description (optional)", key="new_watchlist_desc", placeholder="Brief description...")
-    
-    with col3:
-        st.write("")  # Add spacing
-        if st.button("Create", key="create_watchlist_btn", use_container_width=True):
-            if new_name:
-                if manager.create_watchlist(new_name, new_desc):
-                    st.success(f"Created '{new_name}'")
-                    st.rerun()
+    # Create New Watchlist section in collapsible expander
+    with st.expander("➕ Create New Watchlist", expanded=False):
+        col1, col2, col3 = st.columns([2, 2, 1])
+        
+        with col1:
+            new_name = st.text_input("Watchlist Name", key="new_watchlist_name", placeholder="Enter watchlist name...")
+        
+        with col2:
+            new_desc = st.text_input("Description (optional)", key="new_watchlist_desc", placeholder="Brief description...")
+        
+        with col3:
+            st.write("")  # Add spacing
+            if st.button("Create", key="create_watchlist_btn", use_container_width=True):
+                if new_name:
+                    if manager.create_watchlist(new_name, new_desc):
+                        st.success(f"Created '{new_name}'")
+                        st.rerun()
+                    else:
+                        st.error("Watchlist name already exists")
                 else:
-                    st.error("Watchlist name already exists")
-            else:
-                st.warning("Please enter a name")
+                    st.warning("Please enter a name")
     
     st.divider()
     
