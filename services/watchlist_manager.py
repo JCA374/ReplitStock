@@ -253,6 +253,8 @@ class SimpleWatchlistManager:
     def get_watchlist_details(self, watchlist_id: int) -> List[Dict]:
         """Get detailed information for all stocks in a watchlist"""
         tickers = self.get_watchlist_stocks(watchlist_id)
+        # Sort tickers alphabetically
+        tickers.sort()
         details = []
         
         for ticker in tickers:
