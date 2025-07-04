@@ -27,6 +27,10 @@ from data.db_integration import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# In-memory cache for stock info to avoid repeated API calls within the same session
+_stock_info_cache = {}
+_cache_timestamps = {}
+
 
 class StockDataFetcher:
     def __init__(self):
@@ -46,13 +50,13 @@ class StockDataFetcher:
     def get_stock_data(self, ticker, timeframe='1d', period='1y', attempt_fallback=True):
         """
         Get stock price data with priority: Database -> Alpha Vantage -> Yahoo Finance
-        
+
         Args:
             ticker (str): Stock ticker symbol
             timeframe (str): Timeframe for data (1d, 1wk, 1mo)
             period (str): Period to fetch (1mo, 3mo, 6mo, 1y, etc.)
             attempt_fallback (bool): Whether to try fallback sources
-            
+
         Returns:
             pandas.DataFrame: Stock price data
         """
@@ -224,10 +228,16 @@ class StockDataFetcher:
     def get_stock_info(self, ticker):
         """Get basic stock information with database-first approach."""
         try:
+            # Check in-memory cache first (fastest)
+            current_time = time.time()
+            if ticker in _stock_info_cache and ticker in _cache_timestamps:
+                if (current_time - _cache_timestamps[ticker]) < 300:  # 5 minute cache
+                    return _stock_info_cache[ticker]
+
             # First check if we have cached fundamentals
             cached_fundamentals = get_cached_fundamentals(ticker)
             if cached_fundamentals:
-                return {
+                result = {
                     'name': cached_fundamentals.get('name', ticker),
                     'sector': cached_fundamentals.get('sector', 'Unknown'),
                     'industry': cached_fundamentals.get('industry', 'Unknown'),
@@ -235,13 +245,17 @@ class StockDataFetcher:
                     'currency': cached_fundamentals.get('currency', 'Unknown'),
                     'country': cached_fundamentals.get('country', 'Unknown')
                 }
+                # Cache in memory
+                _stock_info_cache[ticker] = result
+                _cache_timestamps[ticker] = current_time
+                return result
 
             # Try Yahoo Finance for basic info
             stock = yf.Ticker(ticker)
             info = stock.info
 
             # Extract relevant info
-            stock_info = {
+            result = {
                 'name': info.get('shortName', info.get('longName', ticker)),
                 'sector': info.get('sector', 'Unknown'),
                 'industry': info.get('industry', 'Unknown'),
@@ -250,12 +264,16 @@ class StockDataFetcher:
                 'country': info.get('country', 'Unknown')
             }
 
-            return stock_info
+            # Cache in memory
+            _stock_info_cache[ticker] = result
+            _cache_timestamps[ticker] = current_time
+
+            return result
 
         except Exception as e:
             logger.error(f"Error fetching stock info for {ticker}: {e}")
             # Return basic info
-            return {
+            result = {
                 'name': ticker,
                 'sector': 'Unknown',
                 'industry': 'Unknown',
@@ -263,6 +281,10 @@ class StockDataFetcher:
                 'currency': 'Unknown',
                 'country': 'Unknown'
             }
+            # Cache even errors to avoid repeated failures
+            _stock_info_cache[ticker] = result
+            _cache_timestamps[ticker] = current_time
+            return result
 
     def get_fundamentals(self, ticker):
         """Get fundamental data with database-first approach."""

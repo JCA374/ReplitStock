@@ -223,28 +223,51 @@ def display_watchlist():
         # Display stocks in watchlist
         st.subheader(f"📈 Stocks in '{selected_watchlist['name']}'")
         
-        # Get stock details
-        stock_details = manager.get_watchlist_details(watchlist_id)
+        # Fast loading toggle
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.write("")  # spacing
+        with col2:
+            show_details = st.checkbox("Show Details", key="show_stock_details", help="Load company names and sectors (slower)")
+        
+        # Get stock details - use fast method by default
+        if show_details:
+            stock_details = manager.get_watchlist_details(watchlist_id)
+        else:
+            stock_details = manager.get_watchlist_details_fast(watchlist_id)
         
         if stock_details:
             # Add remove buttons column
             for idx, stock in enumerate(stock_details):
-                col1, col2, col3, col4 = st.columns([0.5, 1.5, 3, 2])
-                
-                with col1:
-                    if st.button("❌", key=f"remove_{stock['ticker']}_{idx}"):
-                        if manager.remove_stock_from_watchlist(watchlist_id, stock['ticker']):
-                            st.success(f"Removed {stock['ticker']}")
-                            st.rerun()
-                
-                with col2:
-                    st.write(f"**{stock['ticker']}**")
-                
-                with col3:
-                    st.write(stock['name'])
-                
-                with col4:
-                    st.write(stock['sector'])
+                if show_details:
+                    col1, col2, col3, col4 = st.columns([0.5, 1.5, 3, 2])
+                    
+                    with col1:
+                        if st.button("❌", key=f"remove_{stock['ticker']}_{idx}"):
+                            if manager.remove_stock_from_watchlist(watchlist_id, stock['ticker']):
+                                st.success(f"Removed {stock['ticker']}")
+                                st.rerun()
+                    
+                    with col2:
+                        st.write(f"**{stock['ticker']}**")
+                    
+                    with col3:
+                        st.write(stock['name'])
+                    
+                    with col4:
+                        st.write(stock['sector'])
+                else:
+                    # Simplified fast display
+                    col1, col2 = st.columns([0.5, 4])
+                    
+                    with col1:
+                        if st.button("❌", key=f"remove_{stock['ticker']}_{idx}"):
+                            if manager.remove_stock_from_watchlist(watchlist_id, stock['ticker']):
+                                st.success(f"Removed {stock['ticker']}")
+                                st.rerun()
+                    
+                    with col2:
+                        st.write(f"**{stock['ticker']}**")
             
             # Action buttons
             st.divider()
