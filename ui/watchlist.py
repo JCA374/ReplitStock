@@ -161,10 +161,17 @@ def display_watchlist():
     col1, col2, col3 = st.columns([3, 1, 1])
     
     with col1:
+        # Add stock count to display
+        def format_watchlist(x):
+            if 'watchlist_manager' in st.session_state:
+                count = st.session_state.watchlist_manager.get_watchlist_stock_count(x['id'])
+                return f"{x['name']} ({count} stocks) {'(Default)' if x['is_default'] else ''}"
+            return f"{x['name']} {'(Default)' if x['is_default'] else ''}"
+        
         selected_watchlist = st.selectbox(
             "Select Watchlist",
             options=watchlists,
-            format_func=lambda x: f"{x['name']} {'(Default)' if x['is_default'] else ''}",
+            format_func=format_watchlist,
             key="watchlist_selector"
         )
     
@@ -220,9 +227,6 @@ def display_watchlist():
         stock_details = manager.get_watchlist_details(watchlist_id)
         
         if stock_details:
-            # Create DataFrame for display
-            df = pd.DataFrame(stock_details)
-            
             # Add remove buttons column
             for idx, stock in enumerate(stock_details):
                 col1, col2, col3, col4 = st.columns([0.5, 1.5, 3, 2])

@@ -250,8 +250,26 @@ class SimpleWatchlistManager:
         finally:
             session.close()
     
+    def get_watchlist_stock_count(self, watchlist_id: int) -> int:
+        """Get count of stocks in a watchlist (fast method)"""
+        # Try Supabase first
+        if self.use_supabase:
+            stocks = self.supabase_db.get_watchlist_collection_stocks(watchlist_id)
+            if stocks is not None:
+                return len(stocks)
+        
+        # Fall back to SQLite
+        session = get_db_session()
+        try:
+            count = session.query(WatchlistMembership).filter(
+                WatchlistMembership.collection_id == watchlist_id
+            ).count()
+            return count
+        finally:
+            session.close()
+    
     def get_watchlist_details(self, watchlist_id: int) -> List[Dict]:
-        """Get detailed information for all stocks in a watchlist"""
+        """Get detailed information for all stocks in a watchlist (optimized for speed)"""
         tickers = self.get_watchlist_stocks(watchlist_id)
         # Sort tickers alphabetically
         tickers.sort()
@@ -259,22 +277,15 @@ class SimpleWatchlistManager:
         
         for ticker in tickers:
             try:
+                # Only get basic stock info, skip price data for speed
                 info = self.data_fetcher.get_stock_info(ticker)
-                stock_data = self.data_fetcher.get_stock_data(ticker, '1d', '5d')
                 
-                if not stock_data.empty:
-                    current_price = stock_data['close'].iloc[-1]
-                    prev_price = stock_data['close'].iloc[-2] if len(stock_data) > 1 else current_price
-                    change_pct = ((current_price - prev_price) / prev_price * 100) if prev_price > 0 else 0
-                    
-                    details.append({
-                        'ticker': ticker,
-                        'name': info.get('name', ticker),
-                        'sector': info.get('sector', ''),
-                        'exchange': info.get('exchange', ''),
-                        'current_price': current_price,
-                        'change_pct': change_pct
-                    })
+                details.append({
+                    'ticker': ticker,
+                    'name': info.get('name', ticker),
+                    'sector': info.get('sector', ''),
+                    'exchange': info.get('exchange', ''),
+                })
             except Exception as e:
                 logger.warning(f"Error getting details for {ticker}: {e}")
                 details.append({
@@ -282,8 +293,6 @@ class SimpleWatchlistManager:
                     'name': ticker,
                     'sector': 'Unknown',
                     'exchange': 'Unknown',
-                    'current_price': 0,
-                    'change_pct': 0
                 })
         
         return details
