@@ -268,15 +268,6 @@ class SimpleWatchlistManager:
         finally:
             session.close()
     
-    def get_watchlist_details_fast(self, watchlist_id: int) -> List[Dict]:
-        """Get basic watchlist details without any API calls (ultra-fast)"""
-        tickers = self.get_watchlist_stocks(watchlist_id)
-        # Sort tickers alphabetically
-        tickers.sort()
-        
-        # Return just tickers without any API calls
-        return [{'ticker': ticker, 'name': ticker, 'sector': '', 'exchange': ''} for ticker in tickers]
-    
     def get_watchlist_details(self, watchlist_id: int) -> List[Dict]:
         """Get detailed information for all stocks in a watchlist (optimized for speed)"""
         tickers = self.get_watchlist_stocks(watchlist_id)
