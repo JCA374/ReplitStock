@@ -35,11 +35,29 @@ class SimpleWatchlistManager:
                 session.add(default)
                 session.commit()
                 logger.info("Created default watchlist in SQLite")
+                
+                # Add some default Swedish stocks to the watchlist
+                self._populate_default_stocks(default.id)
+                
         except Exception as e:
             session.rollback()
             logger.error(f"Error creating default watchlist: {e}")
         finally:
             session.close()
+    
+    def _populate_default_stocks(self, watchlist_id: int):
+        """Add some default Swedish stocks to the default watchlist"""
+        default_stocks = [
+            "VOLV-B.ST", "ERIC-B.ST", "ABB.ST", "ASSA-B.ST", "ALFA.ST",
+            "HM-B.ST", "SAND.ST", "SKF-B.ST", "ATCO-A.ST", "SWED-A.ST"
+        ]
+        
+        for ticker in default_stocks:
+            try:
+                self.add_stock_to_watchlist(watchlist_id, ticker)
+            except Exception as e:
+                logger.error(f"Error adding default stock {ticker}: {e}")
+                continue
     
     def get_all_watchlists(self) -> List[Dict]:
         """Get all watchlist collections from SQLite database."""
@@ -186,6 +204,17 @@ class SimpleWatchlistManager:
                 WatchlistMembership.collection_id == watchlist_id
             ).all()
             return [m.ticker for m in memberships]
+        finally:
+            session.close()
+    
+    def get_watchlist_stock_count(self, watchlist_id: int) -> int:
+        """Get the number of stocks in a specific watchlist"""
+        session = get_db_session()
+        try:
+            count = session.query(WatchlistMembership).filter(
+                WatchlistMembership.collection_id == watchlist_id
+            ).count()
+            return count
         finally:
             session.close()
     
