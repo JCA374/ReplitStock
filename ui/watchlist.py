@@ -157,7 +157,7 @@ def display_watchlist():
         st.info("No watchlists found. Create your first watchlist above!")
         return
     
-    # Watchlist selector
+    # Watchlist selector - symmetrical layout
     col1, col2, col3 = st.columns([3, 1, 1])
     
     with col1:
@@ -169,25 +169,27 @@ def display_watchlist():
         )
     
     with col2:
-        if st.button("🔄 Refresh", key="refresh_watchlist"):
+        if st.button("🔄 Refresh", key="refresh_watchlist", use_container_width=True):
             st.rerun()
     
     with col3:
         if selected_watchlist and not selected_watchlist['is_default']:
-            if st.button("🗑️ Delete", key="delete_watchlist"):
+            if st.button("🗑️ Delete", key="delete_watchlist", use_container_width=True):
                 if manager.delete_watchlist(selected_watchlist['id']):
                     st.success("Watchlist deleted")
                     st.rerun()
+        else:
+            st.write("")  # Empty space for symmetry
     
     if selected_watchlist:
         watchlist_id = selected_watchlist['id']
         
+        st.divider()
         
-        
-        # Add stock section
+        # Add stock section - matching layout
         st.subheader("➕ Add Stock")
         
-        col1, col2 = st.columns([3, 1])
+        col1, col2, col3 = st.columns([3, 1, 1])
         
         with col1:
             ticker_input = st.text_input(
@@ -197,7 +199,7 @@ def display_watchlist():
             )
         
         with col2:
-            if st.button("Add to Watchlist", key="add_stock_btn"):
+            if st.button("Add to Watchlist", key="add_stock_btn", use_container_width=True):
                 if ticker_input:
                     ticker = normalize_ticker(ticker_input.upper())
                     if manager.add_stock_to_watchlist(watchlist_id, ticker):
@@ -207,6 +209,9 @@ def display_watchlist():
                         st.warning(f"{ticker} already in this watchlist")
                 else:
                     st.warning("Please enter a ticker")
+        
+        with col3:
+            st.write("")  # Empty space for symmetry
         
         # Display stocks in watchlist
         st.subheader(f"📈 Stocks in '{selected_watchlist['name']}'")
