@@ -9,41 +9,15 @@ from data.stock_data import StockDataFetcher
 logger = logging.getLogger(__name__)
 
 class SimpleWatchlistManager:
-    """Simple watchlist manager with multiple named watchlists using SQLite"""
+    """Simple watchlist manager using SQLite exclusively"""
     
     def __init__(self):
         self.data_fetcher = StockDataFetcher()
-        
-        # Try to get Supabase connection
-        from data.supabase_client import get_supabase_db
-        self.supabase_db = get_supabase_db()
-        self.use_supabase = self.supabase_db.is_connected()
-        
-        if self.use_supabase:
-            logger.info("Using Supabase for watchlist storage")
-        else:
-            logger.info("Using SQLite for watchlist storage")
-        
+        logger.info("Using SQLite exclusively for watchlist storage")
         self._ensure_default_watchlist()
     
     def _ensure_default_watchlist(self):
         """Ensure at least one default watchlist exists"""
-        # Try Supabase first
-        if self.use_supabase:
-            collections = self.supabase_db.get_all_watchlist_collections()
-            default_exists = any(c.get('is_default', False) for c in collections)
-            
-            if not default_exists:
-                result = self.supabase_db.create_watchlist_collection(
-                    "My Watchlist", 
-                    "Default watchlist", 
-                    is_default=True
-                )
-                if result:
-                    logger.info("Created default watchlist in Supabase")
-                    return
-        
-        # Fall back to SQLite
         session = get_db_session()
         try:
             default = session.query(WatchlistCollection).filter(
@@ -68,14 +42,7 @@ class SimpleWatchlistManager:
             session.close()
     
     def get_all_watchlists(self) -> List[Dict]:
-        """Get all watchlist collections from the appropriate database."""
-        # Try Supabase first
-        if self.use_supabase:
-            collections = self.supabase_db.get_all_watchlist_collections()
-            if collections:
-                return collections
-        
-        # Fall back to SQLite
+        """Get all watchlist collections from SQLite database."""
         session = get_db_session()
         try:
             collections = session.query(WatchlistCollection).all()
@@ -93,14 +60,7 @@ class SimpleWatchlistManager:
             session.close()
     
     def create_watchlist(self, name: str, description: str = "") -> bool:
-        """Create a new watchlist collection in the appropriate database."""
-        # Try Supabase first
-        if self.use_supabase:
-            result = self.supabase_db.create_watchlist_collection(name, description)
-            if result:
-                return True
-        
-        # Fall back to SQLite
+        """Create a new watchlist collection in SQLite database."""
         session = get_db_session()
         try:
             # Check if name already exists
@@ -156,13 +116,6 @@ class SimpleWatchlistManager:
     
     def add_stock_to_watchlist(self, watchlist_id: int, ticker: str) -> bool:
         """Add a stock to a specific watchlist"""
-        # Try Supabase first
-        if self.use_supabase:
-            result = self.supabase_db.add_to_watchlist_collection(watchlist_id, ticker)
-            if result:
-                return True
-        
-        # Fall back to SQLite
         session = get_db_session()
         try:
             # Check if already exists
@@ -206,13 +159,6 @@ class SimpleWatchlistManager:
     
     def remove_stock_from_watchlist(self, watchlist_id: int, ticker: str) -> bool:
         """Remove a stock from a specific watchlist"""
-        # Try Supabase first
-        if self.use_supabase:
-            result = self.supabase_db.remove_from_watchlist_collection(watchlist_id, ticker)
-            if result:
-                return True
-        
-        # Fall back to SQLite
         session = get_db_session()
         try:
             membership = session.query(WatchlistMembership).filter(
@@ -234,13 +180,6 @@ class SimpleWatchlistManager:
     
     def get_watchlist_stocks(self, watchlist_id: int) -> List[str]:
         """Get all stock tickers in a specific watchlist"""
-        # Try Supabase first
-        if self.use_supabase:
-            stocks = self.supabase_db.get_watchlist_collection_stocks(watchlist_id)
-            if stocks is not None:
-                return stocks
-        
-        # Fall back to SQLite
         session = get_db_session()
         try:
             memberships = session.query(WatchlistMembership).filter(
@@ -250,49 +189,88 @@ class SimpleWatchlistManager:
         finally:
             session.close()
     
-    def get_watchlist_stock_count(self, watchlist_id: int) -> int:
-        """Get count of stocks in a watchlist (fast method)"""
-        # Try Supabase first
-        if self.use_supabase:
-            stocks = self.supabase_db.get_watchlist_collection_stocks(watchlist_id)
-            if stocks is not None:
-                return len(stocks)
-        
-        # Fall back to SQLite
-        session = get_db_session()
-        try:
-            count = session.query(WatchlistMembership).filter(
-                WatchlistMembership.collection_id == watchlist_id
-            ).count()
-            return count
-        finally:
-            session.close()
-    
     def get_watchlist_details(self, watchlist_id: int) -> List[Dict]:
-        """Get detailed information for all stocks in a watchlist (optimized for speed)"""
+        """Get detailed information for all stocks in a watchlist"""
         tickers = self.get_watchlist_stocks(watchlist_id)
-        # Sort tickers alphabetically
-        tickers.sort()
         details = []
         
         for ticker in tickers:
             try:
-                # Only get basic stock info, skip price data for speed
+                # Get basic stock info
                 info = self.data_fetcher.get_stock_info(ticker)
+                
+                # Get current price data
+                price_data = self.data_fetcher.get_stock_data(ticker, timeframe='1d', period='5d')
+                
+                current_price = 0.0
+                change_pct = 0.0
+                
+                if price_data is not None and not price_data.empty:
+                    current_price = float(price_data['close'].iloc[-1])
+                    if len(price_data) > 1:
+                        prev_close = float(price_data['close'].iloc[-2])
+                        change_pct = ((current_price - prev_close) / prev_close) * 100
                 
                 details.append({
                     'ticker': ticker,
                     'name': info.get('name', ticker),
-                    'sector': info.get('sector', ''),
-                    'exchange': info.get('exchange', ''),
+                    'sector': info.get('sector', 'Unknown'),
+                    'current_price': current_price,
+                    'change_pct': change_pct
                 })
             except Exception as e:
-                logger.warning(f"Error getting details for {ticker}: {e}")
+                logger.error(f"Error getting details for {ticker}: {e}")
                 details.append({
                     'ticker': ticker,
                     'name': ticker,
                     'sector': 'Unknown',
-                    'exchange': 'Unknown',
+                    'current_price': 0.0,
+                    'change_pct': 0.0
                 })
         
         return details
+    
+    def import_watchlist_from_csv(self, watchlist_id: int, csv_content: str) -> tuple[int, int]:
+        """
+        Import stocks from CSV content into a watchlist
+        
+        Returns:
+            tuple: (successful_imports, total_tickers)
+        """
+        import csv
+        import io
+        
+        successful = 0
+        total = 0
+        
+        try:
+            # Parse CSV content
+            csv_file = io.StringIO(csv_content)
+            reader = csv.reader(csv_file)
+            
+            tickers = []
+            for row in reader:
+                if row:  # Skip empty rows
+                    # Take the first non-empty column value
+                    ticker = None
+                    for cell in row:
+                        if cell and cell.strip():
+                            ticker = cell.strip().upper()
+                            break
+                    
+                    if ticker:
+                        # Normalize Swedish tickers
+                        from utils.ticker_mapping import normalize_ticker
+                        ticker = normalize_ticker(ticker)
+                        tickers.append(ticker)
+            
+            # Add tickers to watchlist
+            for ticker in tickers:
+                total += 1
+                if self.add_stock_to_watchlist(watchlist_id, ticker):
+                    successful += 1
+                    
+        except Exception as e:
+            logger.error(f"Error importing CSV: {e}")
+        
+        return successful, total
