@@ -28,41 +28,46 @@ def render_scanner_selection():
     """Reorganized scanner selection interface with logical flow"""
     
     # Step 1: Stock Universe Selection
-    st.subheader("📈 Select Stock Universe")
-    stock_universe = st.selectbox("Choose stock universe:",
-                                  options=[
-                                      "All Watchlist Stocks",
-                                      "Selected Watchlist", 
-                                      "All Small Cap",
-                                      "All Mid Cap",
-                                      "All Large Cap"
-                                  ],
-                                  index=1,  # Default to "Selected Watchlist"
-                                  key="scanner_universe",
-                                  label_visibility="collapsed")
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        st.markdown("**📈 Select Stock Universe**")
+    with col2:
+        stock_universe = st.selectbox("Choose stock universe:",
+                                      options=[
+                                          "All Watchlist Stocks",
+                                          "Selected Watchlist", 
+                                          "All Small Cap",
+                                          "All Mid Cap",
+                                          "All Large Cap"
+                                      ],
+                                      index=1,  # Default to "Selected Watchlist"
+                                      key="scanner_universe",
+                                      label_visibility="collapsed")
 
     # Step 2: Watchlist Selection (only show if "Selected Watchlist" is chosen)
     selected_watchlist = None
     if stock_universe == "Selected Watchlist":
-        st.subheader("📋 Select Watchlist")
-        
-        # Get all watchlists
-        if 'watchlist_manager' not in st.session_state:
-            from services.watchlist_manager import SimpleWatchlistManager
-            st.session_state.watchlist_manager = SimpleWatchlistManager()
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            st.markdown("**📋 Select Watchlist**")
+        with col2:
+            # Get all watchlists
+            if 'watchlist_manager' not in st.session_state:
+                from services.watchlist_manager import SimpleWatchlistManager
+                st.session_state.watchlist_manager = SimpleWatchlistManager()
 
-        manager = st.session_state.watchlist_manager
-        watchlists = manager.get_all_watchlists()
+            manager = st.session_state.watchlist_manager
+            watchlists = manager.get_all_watchlists()
 
-        if not watchlists:
-            st.warning("No watchlists available")
-            return False, stock_universe, False, False, None
+            if not watchlists:
+                st.warning("No watchlists available")
+                return False, stock_universe, False, False, None
 
-        selected_watchlist = st.selectbox("Choose watchlist:",
-                                          options=watchlists,
-                                          format_func=lambda x: f"{x['name']} {'(Default)' if x.get('is_default', False) else ''}",
-                                          key="batch_watchlist_select",
-                                          label_visibility="collapsed")
+            selected_watchlist = st.selectbox("Choose watchlist:",
+                                              options=watchlists,
+                                              format_func=lambda x: f"{x['name']} {'(Default)' if x.get('is_default', False) else ''}",
+                                              key="batch_watchlist_select",
+                                              label_visibility="collapsed")
         
         if selected_watchlist:
             stock_count = len(manager.get_watchlist_stocks(selected_watchlist['id']))
