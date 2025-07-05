@@ -1,329 +1,211 @@
-# Watchlist Data Minimization Fix - Implementation Guide
+# Company Name Display Fix
 
-## Overview
-This fix updates the watchlist functionality to only store the ticker symbol and company name when adding stocks. No price data, performance metrics, or other values will be collected or stored. The watchlist will be a simple list that loads without any API calls.
+## Problem
+The batch scanner shows "No company name" for stocks like ALIG.ST and AXFO.ST because the CSV files contain "Yahoo Finance" as the company name instead of actual company names.
 
-## Current State Analysis
-Currently, the watchlist system:
-- Stores ticker, name, sector, current_price, and change_pct in `get_watchlist_details()`
-- Makes API calls to fetch current prices when viewing watchlists
-- Exports these additional fields when exporting to CSV
+## Solution Options
 
-## Required Changes
+### Option 1: Bulk Scanner Integration (RECOMMENDED)
+**Best for performance and consistency**
 
-### 1. Update `services/watchlist_manager.py`
+#### Advantages:
+- ✅ Fetches company names during analysis phase
+- ✅ Caches results for the entire session
+- ✅ Consistent data across all analysis results
+- ✅ Follows the database-first pattern from technical spec
+- ✅ No additional API calls during display
 
-#### Change 1: Modify `add_stock_to_watchlist()` method
+#### Implementation:
 
-**FIND this section (around line 140-165):**
+**Step 1: Add company name fetching to `analysis/bulk_scanner.py`**
+
+Add this method to the `BulkStockScanner` class:
 ```python
-def add_stock_to_watchlist(self, watchlist_id: int, ticker: str) -> bool:
-    """Add a stock to a watchlist"""
+def _get_company_name(self, ticker):
+    """Get company name from API with session caching"""
     try:
-        # Check if stock already exists in this watchlist
-        existing = self.db.query(WatchlistStock).filter_by(
-            watchlist_id=watchlist_id,
-            ticker=ticker
-        ).first()
-
-        if existing:
-            return False
-
-        # Add stock to watchlist
-        watchlist_stock = WatchlistStock(
-            watchlist_id=watchlist_id,
-            ticker=ticker
-        )
-
-        self.db.add(watchlist_stock)
-        self.db.commit()
-        return True
-```
-
-**REPLACE with:**
-```python
-def add_stock_to_watchlist(self, watchlist_id: int, ticker: str, name: str = None) -> bool:
-    """Add a stock to a watchlist with optional name"""
-    try:
-        # Check if stock already exists in this watchlist
-        existing = self.db.query(WatchlistStock).filter_by(
-            watchlist_id=watchlist_id,
-            ticker=ticker
-        ).first()
-
-        if existing:
-            return False
-
-        # If name not provided, use ticker as name
-        if not name:
-            name = ticker
-
-        # Add stock to watchlist with name
-        watchlist_stock = WatchlistStock(
-            watchlist_id=watchlist_id,
-            ticker=ticker,
-            name=name  # Store the company name
-        )
-
-        self.db.add(watchlist_stock)
-        self.db.commit()
-        return True
-```
-
-#### Change 2: Simplify `get_watchlist_details()` method
-
-**FIND this section (around line 200-240):**
-```python
-def get_watchlist_details(self, watchlist_id: int) -> List[dict]:
-    """Get detailed information for all stocks in a watchlist"""
-    stocks = self.get_watchlist_stocks(watchlist_id)
-    details = []
-
-    for ticker in stocks:
-        try:
-            # Get basic company info
-            info = yf.Ticker(ticker).info
-
-            # Get current price and calculate change
-            current_price = info.get('currentPrice', 0)
-            if not current_price:
-                current_price = info.get('regularMarketPrice', 0)
-
-            previous_close = info.get('previousClose', 0)
-            if current_price and previous_close:
-                change_pct = ((current_price - previous_close) / previous_close) * 100
-            else:
-                change_pct = 0
-
-            details.append({
-                'ticker': ticker,
-                'name': info.get('longName', ticker),
-                'sector': info.get('sector', 'Unknown'),
-                'current_price': current_price,
-                'change_pct': change_pct
-            })
-```
-
-**REPLACE with:**
-```python
-def get_watchlist_details(self, watchlist_id: int) -> List[dict]:
-    """Get ticker and name for all stocks in a watchlist (no API calls)"""
-    try:
-        # Query the database directly for stored ticker and name
-        stocks = self.db.query(WatchlistStock).filter_by(
-            watchlist_id=watchlist_id
-        ).all()
-
-        details = []
-        for stock in stocks:
-            details.append({
-                'ticker': stock.ticker,
-                'name': getattr(stock, 'name', stock.ticker)  # Use stored name or ticker as fallback
-            })
-
-        return details
-    except Exception as e:
-        logger.error(f"Error getting watchlist details: {e}")
-        return []
-```
-
-### 2. Update Database Model in `data/db_models.py`
-
-**ADD a name column to the WatchlistStock model:**
-
-**FIND this section:**
-```python
-class WatchlistStock(Base):
-    __tablename__ = 'watchlist_stocks'
-
-    id = Column(Integer, primary_key=True)
-    watchlist_id = Column(Integer, ForeignKey('watchlists.id'))
-    ticker = Column(String, nullable=False)
-    added_date = Column(DateTime, default=datetime.utcnow)
-```
-
-**REPLACE with:**
-```python
-class WatchlistStock(Base):
-    __tablename__ = 'watchlist_stocks'
-
-    id = Column(Integer, primary_key=True)
-    watchlist_id = Column(Integer, ForeignKey('watchlists.id'))
-    ticker = Column(String, nullable=False)
-    name = Column(String, nullable=True)  # Add company name field
-    added_date = Column(DateTime, default=datetime.utcnow)
-```
-
-### 3. Update UI Components
-
-#### Update `ui/batch_analysis.py` - Fix add_stock_to_watchlist calls
-
-**FIND all occurrences of:**
-```python
-manager.add_stock_to_watchlist(watchlist_id, ticker)
-```
-
-**REPLACE with:**
-```python
-manager.add_stock_to_watchlist(watchlist_id, ticker, name)
-```
-
-**Specifically update these functions:**
-- `add_single_to_watchlist()` 
-- `add_stock_to_watchlist_with_feedback()`
-- `add_selected_to_watchlist()`
-
-#### Update `ui/enhanced_scanner.py` - Fix add function
-
-**FIND:**
-```python
-def add_stock_to_watchlist(ticker, name):
-    """Add stock to default watchlist"""
-    # ... existing code ...
-    if default_wl:
-        success = manager.add_stock_to_watchlist(default_wl['id'], ticker)
-```
-
-**REPLACE with:**
-```python
-def add_stock_to_watchlist(ticker, name):
-    """Add stock to default watchlist"""
-    # ... existing code ...
-    if default_wl:
-        success = manager.add_stock_to_watchlist(default_wl['id'], ticker, name)
-```
-
-### 4. Update Watchlist Display in `ui/watchlist.py`
-
-**FIND the section that displays watchlist stocks (around line 150-200):**
-```python
-# Display stock details
-if stock_details:
-    # Create DataFrame for display
-    df = pd.DataFrame(stock_details)
-
-    # Format the display
-    display_df = df[['ticker', 'name', 'sector', 'current_price', 'change_pct']].copy()
-    display_df.columns = ['Ticker', 'Name', 'Sector', 'Price', 'Change %']
-```
-
-**REPLACE with:**
-```python
-# Display stock details
-if stock_details:
-    # Create DataFrame for display (only ticker and name)
-    df = pd.DataFrame(stock_details)
-
-    # Simple display with just ticker and name
-    display_df = df[['ticker', 'name']].copy()
-    display_df.columns = ['Ticker', 'Company Name']
-```
-
-### 5. Update Export Functionality
-
-The export will automatically only include ticker and name since that's all that's stored now. No changes needed to the export code.
-
-### 6. Update Import Functionality
-
-**The import already works correctly** - it only imports tickers. However, we should update it to try to fetch company names during import.
-
-**FIND in `services/watchlist_manager.py` - `import_watchlist_from_csv()` method:**
-```python
-if self.add_stock_to_watchlist(watchlist_id, ticker):
-    successful += 1
-```
-
-**REPLACE with:**
-```python
-# Try to get company name during import (optional enhancement)
-name = ticker  # Default to ticker if name lookup fails
-try:
-    # Optional: Quick lookup for name without full data fetch
-    from data.stock_data import get_company_name
-    fetched_name = get_company_name(ticker)
-    if fetched_name:
-        name = fetched_name
-except:
-    pass
-
-if self.add_stock_to_watchlist(watchlist_id, ticker, name):
-    successful += 1
-```
-
-## Database Migration
-
-After making these code changes, you'll need to handle the database schema update:
-
-1. **For new installations**: The database will be created with the new schema automatically.
-
-2. **For existing installations**: Add this migration script to handle existing databases:
-
-Create a new file `migrations/add_name_to_watchlist.py`:
-
-```python
-"""Add name column to watchlist_stocks table"""
-from sqlalchemy import text
-from data.db_connection import get_db_connection
-
-def migrate():
-    """Add name column to existing watchlist_stocks table"""
-    db = get_db_connection()
-    try:
-        # Check if column already exists
-        result = db.execute(text(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name='watchlist_stocks' AND column_name='name'"
-        )).fetchone()
-
-        if not result:
-            # Add the column
-            db.execute(text(
-                "ALTER TABLE watchlist_stocks ADD COLUMN name VARCHAR"
-            ))
-            db.commit()
-            print("Successfully added name column to watchlist_stocks")
+        # Initialize cache if needed
+        if 'company_names_cache' not in st.session_state:
+            st.session_state.company_names_cache = {}
+        
+        # Return cached name if available
+        if ticker in st.session_state.company_names_cache:
+            return st.session_state.company_names_cache[ticker]
+        
+        # Fetch from API
+        import yfinance as yf
+        ticker_obj = yf.Ticker(ticker)
+        info = ticker_obj.info
+        company_name = (info.get('longName') or 
+                       info.get('shortName') or 
+                       info.get('companyName'))
+        
+        if company_name and company_name != ticker:
+            # Cache and return the result
+            st.session_state.company_names_cache[ticker] = company_name
+            return company_name
         else:
-            print("Name column already exists")
-
+            st.session_state.company_names_cache[ticker] = ticker
+            return ticker
+            
     except Exception as e:
-        print(f"Migration error: {e}")
-        db.rollback()
-    finally:
-        db.close()
-
-if __name__ == "__main__":
-    migrate()
+        logger.warning(f"Could not fetch company name for {ticker}: {e}")
+        st.session_state.company_names_cache[ticker] = ticker
+        return ticker
 ```
 
-## Testing the Changes
+**Step 2: Update result creation in `_analyze_all_stocks` method**
 
-1. **Test adding stocks to watchlist**:
-   - Add a stock from batch analysis
-   - Verify only ticker and name are stored
-   - Check that no API calls are made when viewing watchlist
+Find this section (around line 200):
+```python
+results.append({
+    'ticker': ticker,
+    'name': ticker,  # OLD LINE
+    'last_price': 0,
+    # ... rest of result
+})
+```
 
-2. **Test import/export**:
-   - Export a watchlist to CSV
-   - Verify only ticker and name columns are present
-   - Import the CSV to a new watchlist
-   - Verify import works correctly
+Replace `'name': ticker,` with:
+```python
+'name': self._get_company_name(ticker),
+```
 
-3. **Test performance**:
-   - Load a watchlist with 50+ stocks
-   - Verify it loads instantly without API calls
-   - Check that the display shows only ticker and name
+Also update successful analysis results:
+```python
+result = {
+    'ticker': ticker,
+    'name': self._get_company_name(ticker),  # ADD THIS
+    'last_price': latest_price,
+    # ... rest of result
+}
+```
 
-## Benefits of This Change
+**Step 3: Add import at top of file**
+```python
+import streamlit as st
+```
 
-1. **Performance**: Watchlists load instantly without any API calls
-2. **Reliability**: No dependency on external APIs for viewing watchlists
-3. **Simplicity**: Cleaner data model focused on essential information
-4. **Privacy**: Less data stored means less to manage/protect
-5. **Export/Import**: Simpler CSV files that are easier to manage
+---
 
-## Rollback Plan
+### Option 2: Display-Time Fetching
+**Quick fix with some performance impact**
 
-If you need to rollback:
-1. Restore the original code from your version control
-2. The database will still work (extra 'name' column will be ignored)
-3. Existing watchlists remain functional
+#### Advantages:
+- ✅ Minimal code changes
+- ✅ Works immediately
+- ❌ Slower display (API calls during rendering)
+- ❌ Not cached between scans
+
+#### Implementation:
+
+**In `ui/batch_analysis.py`, find the display section (around line 600):**
+
+Replace this:
+```python
+if name != 'N/A' and name != ticker and name.strip():
+    display_name = name[:25] + "..." if len(name) > 25 else name
+    st.markdown(f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>{display_name}</small></a>', unsafe_allow_html=True)
+else:
+    st.markdown(f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>No company name</small></a>', unsafe_allow_html=True)
+```
+
+With this:
+```python
+# Get company name from API if not already available
+if name == 'N/A' or name == ticker or name.strip() == '' or name == 'Yahoo Finance':
+    try:
+        import yfinance as yf
+        ticker_obj = yf.Ticker(clean_ticker)
+        info = ticker_obj.info
+        api_name = info.get('longName') or info.get('shortName') or info.get('companyName')
+        if api_name and api_name != clean_ticker:
+            name = api_name
+    except:
+        name = None
+
+# Display with company name if available
+if name and name != 'N/A' and name != ticker and name.strip() and name != 'Yahoo Finance':
+    display_name = name[:25] + "..." if len(name) > 25 else name
+    st.markdown(f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>{display_name}</small></a>', unsafe_allow_html=True)
+else:
+    st.markdown(f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong></a>', unsafe_allow_html=True)
+```
+
+---
+
+### Option 3: Database Integration (FUTURE-PROOF)
+**Most aligned with technical specification**
+
+#### Advantages:
+- ✅ Follows database-first pattern
+- ✅ Permanent caching across sessions
+- ✅ Best performance after initial fetch
+- ❌ More complex implementation
+- ❌ Requires database schema update
+
+#### Implementation:
+
+**Step 1: Add company name to database models in `data/db_models.py`**
+```python
+class CompanyInfo(Base):
+    __tablename__ = 'company_info'
+    
+    ticker = Column(String, primary_key=True)
+    company_name = Column(String)
+    sector = Column(String, nullable=True)
+    industry = Column(String, nullable=True)
+    last_updated = Column(DateTime, default=datetime.utcnow)
+```
+
+**Step 2: Add database functions to `data/db_integration.py`**
+```python
+def get_company_name(ticker):
+    """Get company name from database or API"""
+    # Check database first
+    cached_name = get_cached_company_name(ticker)
+    if cached_name:
+        return cached_name
+    
+    # Fetch from API and store
+    name = fetch_company_name_from_api(ticker)
+    if name:
+        store_company_name(ticker, name)
+    return name
+```
+
+**Step 3: Use in bulk scanner**
+```python
+from data.db_integration import get_company_name
+
+# In results creation:
+'name': get_company_name(ticker),
+```
+
+---
+
+## Recommendation: Option 1 (Bulk Scanner Integration)
+
+**I recommend Option 1** because:
+
+1. **Performance**: Company names are fetched once during analysis, not during every display
+2. **Consistency**: All analysis results will have proper company names
+3. **Caching**: Session-level caching prevents repeated API calls
+4. **Alignment**: Follows the technical spec's pattern of fetching data during analysis
+5. **Simplicity**: Minimal code changes with maximum benefit
+
+### Expected Results After Fix:
+- ALIG.ST will show "Aligera Fastigheter" 
+- AXFO.ST will show "Axfood"
+- All other stocks will show proper company names
+- Names are cached for fast subsequent displays
+- No "No company name" messages
+
+### Testing Steps:
+1. Apply Option 1 changes
+2. Run a batch scan on Mid Cap stocks
+3. Verify ALIG.ST and AXFO.ST show proper company names
+4. Check that names persist when switching between result views
+5. Confirm no performance degradation during display
+
+This solution maintains the app's performance while providing the rich company name display you want, and it's fully aligned with your technical specification.

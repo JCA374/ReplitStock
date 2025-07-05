@@ -7,6 +7,7 @@ then makes batch API calls only for missing data.
 import logging
 import time
 import pandas as pd
+import streamlit as st
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
@@ -187,6 +188,38 @@ class OptimizedBulkScanner:
         self.db_loader = BulkDatabaseLoader()
         self.api_fetcher = BulkAPIFetcher(max_api_workers)
 
+    def _get_company_name(self, ticker):
+        """Get company name from API with session caching"""
+        try:
+            # Initialize cache if needed
+            if 'company_names_cache' not in st.session_state:
+                st.session_state.company_names_cache = {}
+            
+            # Return cached name if available
+            if ticker in st.session_state.company_names_cache:
+                return st.session_state.company_names_cache[ticker]
+            
+            # Fetch from API
+            import yfinance as yf
+            ticker_obj = yf.Ticker(ticker)
+            info = ticker_obj.info
+            company_name = (info.get('longName') or 
+                           info.get('shortName') or 
+                           info.get('companyName'))
+            
+            if company_name and company_name != ticker:
+                # Cache and return the result
+                st.session_state.company_names_cache[ticker] = company_name
+                return company_name
+            else:
+                st.session_state.company_names_cache[ticker] = ticker
+                return ticker
+                
+        except Exception as e:
+            logger.warning(f"Could not fetch company name for {ticker}: {e}")
+            st.session_state.company_names_cache[ticker] = ticker
+            return ticker
+
     def scan_stocks_optimized(self, target_tickers: List[str] = None,
                               fetch_missing: bool = True,
                               progress_callback=None) -> List[Dict]:
@@ -312,7 +345,7 @@ class OptimizedBulkScanner:
                         # Include stocks with missing price data
                         results.append({
                             'ticker': ticker,
-                            'name': ticker,
+                            'name': self._get_company_name(ticker),
                             'last_price': 0,
                             'tech_score': 0,
                             'above_ma40': False,
@@ -373,19 +406,9 @@ class OptimizedBulkScanner:
                     data_source = "database+api" if has_pe else "database"
 
                     # Create comprehensive result
-                    # Get company name using the same logic as watchlist
-                    company_name = ticker  # Default fallback
-                    if fundamentals:
-                        # Try different name fields that might be present
-                        company_name = (fundamentals.get('name') or 
-                                      fundamentals.get('longName') or 
-                                      fundamentals.get('shortName') or 
-                                      fundamentals.get('companyName') or 
-                                      ticker)
-                    
                     result = {
                         'ticker': ticker,
-                        'name': company_name,
+                        'name': self._get_company_name(ticker),
                         'last_price': current_price,
                         'pe_ratio': fundamentals.get('pe_ratio') if fundamentals else None,
                         'profit_margin': fundamentals.get('profit_margin') if fundamentals else None,
@@ -417,7 +440,7 @@ class OptimizedBulkScanner:
                     # Include error result instead of skipping
                     results.append({
                         'ticker': ticker,
-                        'name': ticker,
+                        'name': self._get_company_name(ticker),
                         'last_price': 0,
                         'tech_score': 0,
                         'value_momentum_signal': "HOLD",
