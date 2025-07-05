@@ -313,24 +313,50 @@ def render_analysis_results(analysis, strategy, watchlist_manager):
         # Visa kort sammanfattning
         st.subheader("Sammanfattning")
         st.write(f"Datum för analys: {analysis['date']}")
+        
+        # Get fundamental check from the correct structure
+        fundamental_pass = analysis.get('fundamental_pass', False)
+        technical_check = analysis.get('technical_check', False)
+        
         st.write(
-            "Fundamentala kriterier uppfyllda" if analysis["fundamental_check"] else "Fundamentala kriterier EJ uppfyllda")
+            "Fundamentala kriterier uppfyllda" if fundamental_pass else "Fundamentala kriterier EJ uppfyllda")
         st.write(
-            "Tekniska kriterier uppfyllda" if analysis["technical_check"] else "Tekniska kriterier EJ uppfyllda")
+            "Tekniska kriterier uppfyllda" if technical_check else "Tekniska kriterier EJ uppfyllda")
         st.write(f"Tech Score: {analysis['tech_score']}/100")
 
     with tab2_2:
         st.subheader("Fundamentala Data")
-        st.write(
-            f"Lönsamt bolag: {'Ja' if analysis['is_profitable'] else 'Nej'}")
-        st.write(
-            f"P/E-tal: {analysis['pe_ratio']:.2f}" if analysis['pe_ratio'] else "P/E-tal: Data saknas")
-        st.write(
-            f"Omsättningstillväxt: {analysis['revenue_growth']*100:.1f}%" if analysis['revenue_growth'] else "Omsättningstillväxt: Data saknas")
-        st.write(
-            f"Vinstmarginal: {analysis['profit_margin']*100:.1f}%" if analysis['profit_margin'] else "Vinstmarginal: Data saknas")
-        st.write(
-            f"Vinstutveckling: {analysis['earnings_trend']}")
+        
+        # Get fundamental analysis data from the new structure
+        fundamental_overall = analysis.get('overall', {})
+        is_profitable = fundamental_overall.get('is_profitable', False)
+        
+        # Get individual fundamental metrics
+        pe_analysis = analysis.get('pe_ratio', {})
+        profit_analysis = analysis.get('profit_margin', {})
+        revenue_analysis = analysis.get('revenue_growth', {})
+        
+        st.write(f"Lönsamt bolag: {'Ja' if is_profitable else 'Nej'}")
+        
+        # Display P/E ratio from analysis structure
+        if pe_analysis and pe_analysis.get('status') != 'unknown':
+            st.write(f"P/E-tal: {pe_analysis.get('description', 'Data saknas')}")
+        else:
+            st.write("P/E-tal: Data saknas")
+            
+        # Display profit margin from analysis structure  
+        if profit_analysis and profit_analysis.get('status') != 'unknown':
+            st.write(f"Vinstmarginal: {profit_analysis.get('description', 'Data saknas')}")
+        else:
+            st.write("Vinstmarginal: Data saknas")
+            
+        # Display revenue growth from analysis structure
+        if revenue_analysis and revenue_analysis.get('status') != 'unknown':
+            st.write(f"Omsättningstillväxt: {revenue_analysis.get('description', 'Data saknas')}")
+        else:
+            st.write("Omsättningstillväxt: Data saknas")
+            
+        st.write("Vinstutveckling: Data saknas")  # This field needs to be implemented
 
     with tab2_3:
         st.subheader("Tekniska Indikatorer")
