@@ -989,32 +989,3 @@ def display_batch_analysis():
             render_unified_results_table(results)
         else:
             st.info("No results from last scan")
-
-# Add stock section - single row layout
-        col1, col2, col3 = st.columns([3, 2, 1])
-
-        with col1:
-            ticker_input = st.text_input(
-                "➕ Add Stock - Enter ticker symbol",
-                placeholder="e.g. AAPL",
-                key="single_add_ticker")
-
-        with col2:
-            name_input = st.text_input(
-                "Enter company name (optional)",
-                placeholder="e.g. Apple Inc.",
-                key="single_add_name")
-
-        with col3:
-            if st.button("Add to Watchlist", key="single_add_button"):
-                ticker = ticker_input.strip().upper()
-                name = name_input.strip()
-
-                # Basic validation - recommend cleaning & normalizing
-                if not ticker:
-                    st.warning("Please enter a ticker symbol")
-                else:
-                    if add_stock_to_watchlist_with_feedback(ticker, name):
-                        # Clear inputs on success
-                        st.session_state.single_add_ticker = ""
-                        st.session_state.single_add_name = ""
