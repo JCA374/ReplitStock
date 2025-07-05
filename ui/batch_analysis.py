@@ -121,42 +121,14 @@ def get_tickers_for_universe(stock_universe, selected_watchlist=None):
 
         elif stock_universe == "Small + Mid + Large Cap":
             from utils.ticker_cleaner import load_and_clean_csv_tickers
-            from data.db_integration import filter_tickers_with_recent_data
-            
             # Load all three cap sizes and combine them
             small_tickers = load_and_clean_csv_tickers('data/csv/updated_small.csv')
             mid_tickers = load_and_clean_csv_tickers('data/csv/updated_mid.csv')
             large_tickers = load_and_clean_csv_tickers('data/csv/updated_large.csv')
             
             # Combine all tickers and remove duplicates
-            all_tickers = list(set(small_tickers + mid_tickers + large_tickers))
-            
-            # 🚀 SMART FILTER: Only process stocks with recent cache data
-            st.info(f"📊 Loading {len(all_tickers)} total stocks...")
-            
-            # Filter for tickers with data newer than 7 days
-            filtered_tickers, cache_stats = filter_tickers_with_recent_data(all_tickers, max_age_days=7)
-            
-            # Display intelligent filtering results
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Total Stocks", cache_stats['total_checked'])
-            with col2:
-                st.metric("Recent Data", cache_stats['has_recent_data'], 
-                         delta=f"{(cache_stats['has_recent_data']/cache_stats['total_checked']*100):.0f}%")
-            with col3:
-                st.metric("Will Skip", cache_stats['has_old_data'] + cache_stats['no_data'],
-                         delta="Fast scan!")
-            
-            # Show filtering explanation
-            if len(filtered_tickers) < len(all_tickers):
-                skipped = len(all_tickers) - len(filtered_tickers)
-                st.success(f"🎯 **Smart Filter Active**: Analyzing {len(filtered_tickers)} stocks with recent data, skipping {skipped} that would need slow API calls")
-                st.info("💡 Skipped stocks will be analyzed when you scan them individually or when their data gets updated")
-            else:
-                st.info("✅ All stocks have recent data - full analysis will run")
-            
-            return filtered_tickers
+            all_tickers = small_tickers + mid_tickers + large_tickers
+            return list(set(all_tickers))  # Remove duplicates
 
         elif stock_universe == "Manual Entry":
             ticker_input = st.text_input(
