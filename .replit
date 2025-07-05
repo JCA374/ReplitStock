@@ -9,7 +9,7 @@ deploymentTarget = "autoscale"
 run = ["streamlit", "run", "app.py", "--server.port", "5000", "--server.address", "0.0.0.0"]
 
 [workflows]
-runButton = "Project"
+runButton = "Stock Analysis App Fixed"
 
 [[workflows.workflow]]
 name = "Project"
@@ -28,6 +28,15 @@ author = "agent"
 task = "shell.exec"
 args = "streamlit run app.py --server.port 5000 --server.address 0.0.0.0"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Stock Analysis App Fixed"
+author = 42591579
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "streamlit run app.py --server.port 8080 --server.address 0.0.0.0"
 
 [[ports]]
 localPort = 5000
