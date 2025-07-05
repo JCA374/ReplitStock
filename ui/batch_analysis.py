@@ -162,8 +162,9 @@ def create_clean_results_dataframe(results):
     clean_data = []
 
     for result in results:
-        # Skip errors unless specifically requested, but be more lenient with missing data
-        if result.get('error') and result.get('data_status') != 'missing' and not st.session_state.get('show_scanner_errors', False):
+        # Skip errors unless specifically requested
+        if result.get('error') and not st.session_state.get(
+                'show_scanner_errors', False):
             continue
 
         # Standardize signal format
@@ -747,19 +748,16 @@ Combined reading provides instant technical health assessment.""")
             if ticker != 'N/A':
                 clean_ticker = ticker.replace('[', '').replace(']', '').split('(')[0].strip()
                 google_search_url = f"https://www.google.com/search?q=avanza+{clean_ticker}"
-                # Check if we have a valid company name (not Yahoo Finance or empty)
-                if (name != 'N/A' and 
-                    name != ticker and 
-                    name.strip() and 
-                    name != 'Yahoo Finance'):
+                # Always display company name below ticker for better clarity
+                if name != 'N/A' and name != ticker and name.strip():
                     display_name = name[:25] + "..." if len(name) > 25 else name
                     st.markdown(
                         f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>{display_name}</small></a>',
                         unsafe_allow_html=True)
                 else:
-                    # If no valid company name, just show ticker
+                    # If no company name, just show ticker
                     st.markdown(
-                        f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong></a>',
+                        f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>No company name</small></a>',
                         unsafe_allow_html=True)
             else:
                 st.markdown('<div class="batch-text"><strong>N/A</strong></div>', unsafe_allow_html=True)

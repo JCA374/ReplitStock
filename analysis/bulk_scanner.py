@@ -207,11 +207,7 @@ class OptimizedBulkScanner:
                            info.get('shortName') or 
                            info.get('companyName'))
             
-            # Filter out "Yahoo Finance" and other invalid names
-            if (company_name and 
-                company_name != ticker and 
-                company_name.strip() != '' and
-                company_name != 'Yahoo Finance'):
+            if company_name and company_name != ticker:
                 # Cache and return the result
                 st.session_state.company_names_cache[ticker] = company_name
                 return company_name
