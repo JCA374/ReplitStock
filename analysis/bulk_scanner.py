@@ -373,9 +373,19 @@ class OptimizedBulkScanner:
                     data_source = "database+api" if has_pe else "database"
 
                     # Create comprehensive result
+                    # Get company name using the same logic as watchlist
+                    company_name = ticker  # Default fallback
+                    if fundamentals:
+                        # Try different name fields that might be present
+                        company_name = (fundamentals.get('name') or 
+                                      fundamentals.get('longName') or 
+                                      fundamentals.get('shortName') or 
+                                      fundamentals.get('companyName') or 
+                                      ticker)
+                    
                     result = {
                         'ticker': ticker,
-                        'name': fundamentals.get('name', ticker) if fundamentals else ticker,
+                        'name': company_name,
                         'last_price': current_price,
                         'pe_ratio': fundamentals.get('pe_ratio') if fundamentals else None,
                         'profit_margin': fundamentals.get('profit_margin') if fundamentals else None,
