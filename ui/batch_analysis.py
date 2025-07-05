@@ -493,7 +493,7 @@ def render_compact_results_table(filtered_df):
     with col_score:
         st.markdown("**Score**")
     with col_indicators:
-        st.markdown("**Tech**")
+        st.markdown("**Tech**", help="Technical indicators: MA40 (Moving Average) | RSI (Relative Strength) | Profitability")
 
     st.markdown('<div style="margin: 0.25rem 0; border-bottom: 1px solid #333;"></div>', unsafe_allow_html=True)
 
@@ -737,13 +737,21 @@ def render_compact_results_table(filtered_df):
                     f'<div class="batch-text"><strong>{score}</strong> 🔴</div>',
                     unsafe_allow_html=True)
 
-        # Technical indicators - consistent font
+        # Technical indicators - consistent font with tooltips
         with col_indicators:
             ma40 = '🟢' if row.get('MA40') == '✓' else '🔴'
             rsi = '🟢' if row.get('RSI>50') == '✓' else '🔴'
             profit = '🟢' if row.get('Profitable') == '✓' else '🔴'
+            
+            # Create tooltip text explaining each indicator
+            ma40_status = "Above MA40" if row.get('MA40') == '✓' else "Below MA40"
+            rsi_status = "RSI > 50" if row.get('RSI>50') == '✓' else "RSI ≤ 50"
+            profit_status = "Profitable" if row.get('Profitable') == '✓' else "Not Profitable"
+            
+            tooltip_text = f"{ma40_status} | {rsi_status} | {profit_status}"
+            
             st.markdown(
-                f'<div class="batch-indicator">{ma40}{rsi}{profit}</div>',
+                f'<div class="batch-indicator" title="{tooltip_text}">{ma40}{rsi}{profit}</div>',
                 unsafe_allow_html=True)
 
     # Mobile-friendly tips
