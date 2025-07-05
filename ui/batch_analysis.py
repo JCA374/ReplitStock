@@ -638,7 +638,7 @@ Combined reading provides instant technical health assessment.""")
         # Single analysis button
         with col_single:
             if ticker != 'N/A':
-                if st.button("📊", key=f"single_{ticker}_{idx}", help=f"Single analysis for {ticker}"):
+                if st.button("📊", key=f"single_{ticker}_{idx}", help=f"Detailed analysis for {ticker}"):
                     # Set the ticker for single analysis and trigger automatic navigation
                     st.session_state.analyze_ticker = ticker
                     st.session_state.auto_analyze = True
@@ -682,7 +682,7 @@ Combined reading provides instant technical health assessment.""")
                         st.rerun()
             else:
                 # Fallback if no watchlists available
-                if st.button("➕", key=f"add_fallback_{ticker}_{idx}", help=f"Add {ticker}"):
+                if st.button("➕", key=f"add_fallback_{ticker}_{idx}", help=f"Add {ticker} to watchlist"):
                     add_single_to_watchlist(ticker, name)
 
         # Delete button - only show if stock is in watchlists
@@ -698,7 +698,7 @@ Combined reading provides instant technical health assessment.""")
             if ticker != 'N/A':
                 link, clean_ticker = generate_chatgpt_link(ticker)
                 st.markdown(
-                    f'<a href="{link}" target="_blank" class="batch-link">🤖</a>',
+                    f'<a href="{link}" target="_blank" class="batch-link" title="Ask ChatGPT about {ticker}">🤖</a>',
                     unsafe_allow_html=True)
             else:
                 st.markdown('<div class="batch-text">—</div>', unsafe_allow_html=True)
@@ -726,15 +726,15 @@ Combined reading provides instant technical health assessment.""")
             signal = row.get('Signal', 'HOLD')
             if signal == 'BUY':
                 st.markdown(
-                    '<div class="batch-text">🟢 <strong>BUY</strong></div>',
+                    f'<div class="batch-text" title="Current recommendation: {signal}">🟢 <strong>BUY</strong></div>',
                     unsafe_allow_html=True)
             elif signal == 'SELL':
                 st.markdown(
-                    '<div class="batch-text">🔴 <strong>SELL</strong></div>',
+                    f'<div class="batch-text" title="Current recommendation: {signal}">🔴 <strong>SELL</strong></div>',
                     unsafe_allow_html=True)
             else:
                 st.markdown(
-                    '<div class="batch-text">🟡 <strong>HOLD</strong></div>',
+                    f'<div class="batch-text" title="Current recommendation: {signal}">🟡 <strong>HOLD</strong></div>',
                     unsafe_allow_html=True)
 
         # Score - consistent font with color
@@ -742,32 +742,34 @@ Combined reading provides instant technical health assessment.""")
             score = int(row.get('Score', 0))
             if score >= 70:
                 st.markdown(
-                    f'<div class="batch-text"><strong>{score}</strong> 🟢</div>',
+                    f'<div class="batch-text" title="Technical strength: {score}/100"><strong>{score}</strong> 🟢</div>',
                     unsafe_allow_html=True)
             elif score >= 50:
                 st.markdown(
-                    f'<div class="batch-text"><strong>{score}</strong> 🟡</div>',
+                    f'<div class="batch-text" title="Technical strength: {score}/100"><strong>{score}</strong> 🟡</div>',
                     unsafe_allow_html=True)
             else:
                 st.markdown(
-                    f'<div class="batch-text"><strong>{score}</strong> 🔴</div>',
+                    f'<div class="batch-text" title="Technical strength: {score}/100"><strong>{score}</strong> 🔴</div>',
                     unsafe_allow_html=True)
 
-        # Technical indicators - consistent font with tooltips
+        # Technical indicators - consistent font with individual tooltips
         with col_indicators:
             ma40 = '🟢' if row.get('MA40') == '✓' else '🔴'
             rsi = '🟢' if row.get('RSI>50') == '✓' else '🔴'
             profit = '🟢' if row.get('Profitable') == '✓' else '🔴'
             
-            # Create tooltip text explaining each indicator
-            ma40_status = "Above MA40" if row.get('MA40') == '✓' else "Below MA40"
-            rsi_status = "RSI > 50" if row.get('RSI>50') == '✓' else "RSI ≤ 50"
-            profit_status = "Profitable" if row.get('Profitable') == '✓' else "Not Profitable"
-            
-            tooltip_text = f"{ma40_status} | {rsi_status} | {profit_status}"
+            # Create individual tooltips for each indicator
+            ma40_tooltip = "Price vs 40-day average"
+            rsi_tooltip = "Momentum indicator"  
+            profit_tooltip = "Company profitability"
             
             st.markdown(
-                f'<div class="batch-indicator" title="{tooltip_text}">{ma40}{rsi}{profit}</div>',
+                f'<div class="batch-indicator">'
+                f'<span title="{ma40_tooltip}">{ma40}</span>'
+                f'<span title="{rsi_tooltip}">{rsi}</span>'
+                f'<span title="{profit_tooltip}">{profit}</span>'
+                f'</div>',
                 unsafe_allow_html=True)
 
     # Mobile-friendly tips
