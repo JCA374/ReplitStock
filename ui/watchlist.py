@@ -177,6 +177,14 @@ def display_watchlist():
     
     with col2:
         if st.button("🔄 Refresh", key="refresh_watchlist", use_container_width=True):
+            # Refresh stock names via API
+            if selected_watchlist:
+                with st.spinner("Refreshing stock names..."):
+                    updated_count = manager.refresh_stock_names(selected_watchlist['id'])
+                    if updated_count > 0:
+                        st.success(f"Updated {updated_count} stock names")
+                    else:
+                        st.info("Stock names are up to date")
             st.rerun()
     
     with col3:

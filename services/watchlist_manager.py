@@ -245,6 +245,44 @@ class SimpleWatchlistManager:
         finally:
             session.close()
     
+    def refresh_stock_names(self, watchlist_id: int) -> int:
+        """Refresh stock names for all stocks in a watchlist via API calls"""
+        session = get_db_session()
+        updated_count = 0
+        
+        try:
+            # Get all stocks in the watchlist
+            stocks = session.query(WatchlistMembership).filter(
+                WatchlistMembership.collection_id == watchlist_id
+            ).all()
+            
+            for stock in stocks:
+                try:
+                    # Fetch company name via API
+                    info = self.data_fetcher.get_stock_info(stock.ticker)
+                    if info and info.get('name'):
+                        new_name = str(info.get('name'))
+                        # Update the name if it's different from current
+                        if getattr(stock, 'name', stock.ticker) != new_name:
+                            stock.name = new_name
+                            updated_count += 1
+                            logger.info(f"Updated name for {stock.ticker}: {new_name}")
+                except Exception as e:
+                    logger.warning(f"Failed to update name for {stock.ticker}: {e}")
+                    continue
+            
+            # Commit all updates
+            session.commit()
+            logger.info(f"Successfully updated {updated_count} stock names in watchlist {watchlist_id}")
+            return updated_count
+            
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error refreshing stock names: {e}")
+            return 0
+        finally:
+            session.close()
+    
     def import_watchlist_from_csv(self, watchlist_id: int, csv_content: str) -> tuple[int, int]:
         """
         Import stocks from CSV content into a watchlist
