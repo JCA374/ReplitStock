@@ -295,24 +295,57 @@ def main():
             st.session_state.show_watchlist_manager = False
 
 
-        # Main navigation tabs at the top of the page - start with Batch Analysis
-        tab1, tab2, tab3, tab4 = st.tabs([
-            "📈 Batch Analysis", 
-            "📊 Single Stock", 
-            "📋 Watchlist",
-            "📝 Development Notes"
-        ])
+        # Initialize current tab in session state
+        if 'current_tab' not in st.session_state:
+            st.session_state.current_tab = "📈 Batch Analysis"
+        
+        # Check if we need to switch tabs programmatically
+        if 'switch_to_tab' in st.session_state:
+            st.session_state.current_tab = st.session_state.switch_to_tab
+            del st.session_state.switch_to_tab
+            st.rerun()
 
-        with tab1:
+        # Custom tab navigation with buttons
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            if st.button("📈 Batch Analysis", 
+                        type="primary" if st.session_state.current_tab == "📈 Batch Analysis" else "secondary",
+                        use_container_width=True):
+                st.session_state.current_tab = "📈 Batch Analysis"
+                st.rerun()
+        
+        with col2:
+            if st.button("📊 Single Stock", 
+                        type="primary" if st.session_state.current_tab == "📊 Single Stock" else "secondary",
+                        use_container_width=True):
+                st.session_state.current_tab = "📊 Single Stock"
+                st.rerun()
+        
+        with col3:
+            if st.button("📋 Watchlist", 
+                        type="primary" if st.session_state.current_tab == "📋 Watchlist" else "secondary",
+                        use_container_width=True):
+                st.session_state.current_tab = "📋 Watchlist"
+                st.rerun()
+        
+        with col4:
+            if st.button("📝 Development Notes", 
+                        type="primary" if st.session_state.current_tab == "📝 Development Notes" else "secondary",
+                        use_container_width=True):
+                st.session_state.current_tab = "📝 Development Notes"
+                st.rerun()
+
+        st.divider()
+
+        # Display the selected tab content
+        if st.session_state.current_tab == "📈 Batch Analysis":
             display_batch_analysis()
-
-        with tab2:
+        elif st.session_state.current_tab == "📊 Single Stock":
             render_analysis_tab()
-
-        with tab3:
+        elif st.session_state.current_tab == "📋 Watchlist":
             display_watchlist()
-
-        with tab4:
+        elif st.session_state.current_tab == "📝 Development Notes":
             display_development_notes()
 
         # Hidden tabs - commented out

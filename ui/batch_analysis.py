@@ -643,20 +643,9 @@ Combined reading provides instant technical health assessment.""")
                     st.session_state.analyze_ticker = ticker
                     st.session_state.auto_analyze = True
                     
-                    # Show navigation message with prominent styling
-                    st.markdown(f"""
-                    <div style="background-color: #28a745; color: white; padding: 15px; border-radius: 8px; text-align: center; margin: 10px 0; font-weight: bold; border: 2px solid #155724;">
-                        🎯 <strong>{ticker}</strong> is ready for analysis!<br>
-                        👉 <strong>Click the "📊 Single Stock" tab above to view the detailed analysis</strong>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Auto-scroll to top to make tab visible
-                    st.markdown("""
-                    <script>
-                        window.scrollTo(0, 0);
-                    </script>
-                    """, unsafe_allow_html=True)
+                    # Switch to Single Stock tab automatically
+                    st.session_state.switch_to_tab = "📊 Single Stock"
+                    st.rerun()
             else:
                 st.markdown('<div class="batch-text">—</div>', unsafe_allow_html=True)
         
