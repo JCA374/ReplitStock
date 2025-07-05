@@ -106,19 +106,16 @@ def get_tickers_for_universe(stock_universe, selected_watchlist=None):
         elif stock_universe == "All Small Cap":
             from utils.ticker_cleaner import load_and_clean_csv_tickers
             tickers = load_and_clean_csv_tickers('data/csv/updated_small.csv')
-            st.info(f"Loaded {len(tickers)} small cap stocks from CSV")
             return tickers
 
         elif stock_universe == "All Mid Cap":
             from utils.ticker_cleaner import load_and_clean_csv_tickers
             tickers = load_and_clean_csv_tickers('data/csv/updated_mid.csv')
-            st.info(f"Loaded {len(tickers)} mid cap stocks from CSV")
             return tickers
 
         elif stock_universe == "All Large Cap":
             from utils.ticker_cleaner import load_and_clean_csv_tickers
             tickers = load_and_clean_csv_tickers('data/csv/updated_large.csv')
-            st.info(f"Loaded {len(tickers)} large cap stocks from CSV")
             return tickers
 
         elif stock_universe == "Manual Entry":
@@ -942,7 +939,12 @@ def display_batch_analysis():
     if not tickers:
         st.warning(f"No tickers found for {stock_universe}")
     elif tickers and not should_scan:
-        st.info(f"Ready to scan {len(tickers)} stocks from {stock_universe}")
+        if stock_universe in ["All Small Cap", "All Mid Cap", "All Large Cap"]:
+            # Show combined message for CSV-based universes
+            cap_type = stock_universe.replace("All ", "").lower()
+            st.info(f"Loaded {len(tickers)} {cap_type} stocks from CSV - Ready to scan {len(tickers)} stocks from {stock_universe}")
+        else:
+            st.info(f"Ready to scan {len(tickers)} stocks from {stock_universe}")
 
     # Run scan if requested
     if should_scan and tickers:
