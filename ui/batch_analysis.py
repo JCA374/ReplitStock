@@ -759,10 +759,10 @@ Combined reading provides instant technical health assessment.""")
             rsi = '🟢' if row.get('RSI>50') == '✓' else '🔴'
             profit = '🟢' if row.get('Profitable') == '✓' else '🔴'
             
-            # Create tooltip text explaining each indicator
-            ma40_status = "Above MA40" if row.get('MA40') == '✓' else "Below MA40"
-            rsi_status = "RSI > 50" if row.get('RSI>50') == '✓' else "RSI ≤ 50"
-            profit_status = "Profitable" if row.get('Profitable') == '✓' else "Not Profitable"
+            # Create improved tooltip text with clearer descriptions
+            ma40_status = "Price vs 40-day average" if row.get('MA40') == '✓' else "Price vs 40-day average"
+            rsi_status = "Momentum indicator" if row.get('RSI>50') == '✓' else "Momentum indicator"  
+            profit_status = "Company profitability" if row.get('Profitable') == '✓' else "Company profitability"
             
             tooltip_text = f"{ma40_status} | {rsi_status} | {profit_status}"
             
