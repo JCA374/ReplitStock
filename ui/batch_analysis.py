@@ -493,7 +493,22 @@ def render_compact_results_table(filtered_df):
     with col_score:
         st.markdown("**Score**")
     with col_indicators:
-        st.markdown("**Tech**", help="Technical Indicators Matrix: 🟢 MA40 (Price above 40-period moving average - primary trend confirmation) | 🟡 RSI>50 (Relative Strength Index above 50 - momentum bullishness) | 🔴 Profitable (Company profitability from fundamentals). Green=bullish signal, Red=bearish signal. Combined reading gives quick technical health assessment.")
+        st.markdown("**Tech**", help="""Technical Health Matrix - Three Key Indicators:
+
+🟢 MA40: Price Above 40-Day Moving Average
+   • Primary trend confirmation signal
+   • Green = Bullish trend, Red = Bearish trend
+
+🟡 RSI>50: Relative Strength Index Above 50
+   • Momentum and buying pressure indicator  
+   • Green = Strong momentum, Red = Weak momentum
+
+🔴 Profitable: Company Fundamental Health
+   • Based on earnings and profit margins
+   • Green = Profitable company, Red = Unprofitable
+
+Reading: 🟢🟢🟢 = Strong Buy | 🔴🔴🔴 = Strong Sell | Mixed = Caution
+Combined reading provides instant technical health assessment.""")
 
     st.markdown('<div style="margin: 0.25rem 0; border-bottom: 1px solid #333;"></div>', unsafe_allow_html=True)
 
