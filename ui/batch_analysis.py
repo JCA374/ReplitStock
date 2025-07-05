@@ -35,10 +35,11 @@ def render_scanner_selection():
         stock_universe = st.selectbox("Choose stock universe:",
                                       options=[
                                           "All Watchlist Stocks",
-                                          "Selected Watchlist", 
+                                          "Selected Watchlist",
                                           "All Small Cap",
-                                          "All Mid Cap",
-                                          "All Large Cap"
+                                          "All Mid Cap", 
+                                          "All Large Cap",
+                                          "Small + Mid + Large Cap"
                                       ],
                                       index=1,  # Default to "Selected Watchlist"
                                       key="scanner_universe",
@@ -117,6 +118,17 @@ def get_tickers_for_universe(stock_universe, selected_watchlist=None):
             from utils.ticker_cleaner import load_and_clean_csv_tickers
             tickers = load_and_clean_csv_tickers('data/csv/updated_large.csv')
             return tickers
+
+        elif stock_universe == "Small + Mid + Large Cap":
+            from utils.ticker_cleaner import load_and_clean_csv_tickers
+            # Load all three cap sizes and combine them
+            small_tickers = load_and_clean_csv_tickers('data/csv/updated_small.csv')
+            mid_tickers = load_and_clean_csv_tickers('data/csv/updated_mid.csv')
+            large_tickers = load_and_clean_csv_tickers('data/csv/updated_large.csv')
+            
+            # Combine all tickers and remove duplicates
+            all_tickers = small_tickers + mid_tickers + large_tickers
+            return list(set(all_tickers))  # Remove duplicates
 
         elif stock_universe == "Manual Entry":
             ticker_input = st.text_input(
