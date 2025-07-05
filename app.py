@@ -14,8 +14,6 @@ from data.db_models import Base
 
 # UI components
 from ui.batch_analysis import display_batch_analysis
-from ui.company_explorer import display_company_explorer
-from ui.database_viewer import display_database_viewer
 from ui.watchlist import display_watchlist
 
 # Analysis components and services
