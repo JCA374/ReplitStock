@@ -94,57 +94,57 @@ def display_development_notes():
     """Display development notes and updates for users"""
     st.header("📝 Development Notes")
     st.markdown("Latest updates and improvements to the Stock Analysis Tool")
-    
+
     # Recent Updates Section
     st.subheader("🔄 Recent Updates")
-    
+
     with st.expander("✅ July 2, 2025 - Enhanced Analysis & Features", expanded=True):
         st.markdown("""
         **Enhanced Watchlist Management:**
         - ➕ button with dropdown menu for specific watchlist selection
         - 🗑️ delete button for stocks already in watchlists
         - Moved "Create New Watchlist" from sidebar to main tab
-        
+
         **Improved Analysis Engine:**
         - Enhanced fundamental analysis with debt-to-equity, ROE, and P/B ratios
         - New technical indicators: Bollinger Bands and volume profile
         - Performance monitoring for API calls and cache efficiency
         - Better error handling with retry logic for failed stock analysis
-        
+
         **How to Use:**
         1. Batch scan → ➕ → Select watchlist → Confirm
         2. 🗑️ to remove from all watchlists
         """)
-    
+
     with st.expander("✅ July 2, 2025 - Interface Improvements"):
         st.markdown("""
         **Watchlist Tab Reorganization:**
         - Moved "Create New Watchlist" from sidebar to main tab area
         - Better layout with inline form (Name, Description, Create button)
         - Clear section separation between creating and managing watchlists
-        
+
         **Import/Export Features:**
         - CSV upload/download functionality in Watchlist tab
         - Smart duplicate detection and Swedish market formatting (.ST)
         - Step-by-step batch analysis flow with Development Notes tab
         """)
-    
+
     # Work in Progress Section
     st.subheader("🚧 Work in Progress")
-    
+
     with st.expander("🔍 Analysis Consistency Investigation"):
         st.markdown("""
         **Investigating potential differences between Single Stock and Batch Analysis:**
         - Data source consistency
         - Technical indicator calculations
         - Signal generation alignment
-        
+
         **Status:** Both methods work correctly, minor variations being resolved
         """)
-    
+
     # Future Improvements Section
     st.subheader("🚀 Planned Improvements")
-    
+
     with st.expander("📋 Upcoming Features"):
         st.markdown("""
         - Enhanced import options (Excel, JSON support)
@@ -152,10 +152,10 @@ def display_development_notes():
         - Portfolio performance tracking
         - Stock movement alerts
         """)
-    
+
     # Technical Notes Section
     st.subheader("🔧 Technical Notes")
-    
+
     with st.expander("⚙️ System Information"):
         st.markdown("""
         **Database:** SQLite (primary), Supabase (backup when available)
@@ -173,7 +173,7 @@ def main():
             layout="wide",
             initial_sidebar_state="collapsed",
         )
-        
+
         # Global mobile-responsive CSS
         st.markdown("""
         <style>
@@ -184,7 +184,7 @@ def main():
             max-width: 100% !important;
             width: 100% !important;
         }
-        
+
         /* Mobile responsive breakpoint */
         @media (max-width: 768px) {
             .main .block-container {
@@ -193,13 +193,13 @@ def main():
                 max-width: 100% !important;
                 width: 100vw !important;
             }
-            
+
             /* Make all horizontal blocks use full width */
             div[data-testid="stHorizontalBlock"] {
                 width: 100% !important;
                 gap: 0.25rem !important;
             }
-            
+
             div[data-testid="stHorizontalBlock"] > div {
                 padding-left: 0.1rem !important;
                 padding-right: 0.1rem !important;
@@ -213,7 +213,7 @@ def main():
         # Attempt database connection and show status
         db_connection = get_db_connection()
         engine = db_connection.get_engine()
-        
+
         # Check actual database usage (Supabase integration vs SQLAlchemy)
         from data.db_integration import USE_SUPABASE
         connection_type = "postgresql" if USE_SUPABASE else "sqlite"
@@ -224,10 +224,10 @@ def main():
         # Disclaimer banner at the top - closable
         if 'show_disclaimer' not in st.session_state:
             st.session_state.show_disclaimer = True
-            
+
         if st.session_state.show_disclaimer:
             col_disclaimer, col_close = st.columns([10, 1])
-            
+
             with col_disclaimer:
                 st.markdown("""
                 <div style="background-color: #f0f2f6; padding: 10px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #ff6b6b;">
@@ -237,7 +237,7 @@ def main():
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
-            
+
             with col_close:
                 if st.button("✕", key="close_disclaimer", help="Close disclaimer"):
                     st.session_state.show_disclaimer = False
@@ -286,16 +286,16 @@ def main():
 
         with tab1:
             display_batch_analysis()
-            
+
         with tab2:
             render_analysis_tab()
-            
+
         with tab3:
             display_watchlist()
-            
+
         with tab4:
             display_development_notes()
-            
+
         # Hidden tabs - commented out
         #     display_company_explorer()
         #     

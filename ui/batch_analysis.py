@@ -624,10 +624,11 @@ def render_compact_results_table(filtered_df):
         with col_single:
             if ticker != 'N/A':
                 if st.button("📊", key=f"single_{ticker}_{idx}", help=f"Single analysis for {ticker}"):
-                    # Set the ticker for single analysis
+                    # Set the ticker for single analysis and trigger automatic navigation
                     st.session_state.analyze_ticker = ticker
-                    # Show success message and inform user to switch to Single Stock tab
-                    st.success(f"📊 {ticker} ready for single analysis! Please switch to the 'Single Stock' tab to view the detailed analysis.")
+                    st.session_state.auto_analyze = True
+                    st.session_state.selected_tab = "Single Stock"
+                    st.success(f"📊 Analyzing {ticker}...")
                     st.rerun()
             else:
                 st.markdown('<div class="batch-text">—</div>', unsafe_allow_html=True)

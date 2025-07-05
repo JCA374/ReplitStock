@@ -18,11 +18,20 @@ def display_single_stock_analysis():
     # Initialize StockDataFetcher
     data_fetcher = StockDataFetcher()
 
+    # Check for automatic analysis from batch results
+    auto_ticker = None
+    if 'analyze_ticker' in st.session_state and 'auto_analyze' in st.session_state:
+        auto_ticker = st.session_state.analyze_ticker
+        # Clear the auto analyze flag
+        del st.session_state.auto_analyze
+
     # Input for ticker symbol
     col1, col2, col3 = st.columns([2, 1, 1])
 
     with col1:
-        ticker_input = st.text_input("Enter stock ticker:", key="single_ticker_input")
+        # Pre-fill ticker input if coming from batch analysis
+        default_value = auto_ticker if auto_ticker else ""
+        ticker_input = st.text_input("Enter stock ticker:", value=default_value, key="single_ticker_input")
 
     with col2:
         timeframe = st.selectbox(
@@ -42,10 +51,12 @@ def display_single_stock_analysis():
     timeframe_value = TIMEFRAMES[timeframe]
     period_value = PERIOD_OPTIONS[period]
 
-    # When ticker is entered, fetch and display data
-    if ticker_input:
+    # When ticker is entered or auto-triggered, fetch and display data
+    if ticker_input or auto_ticker:
+        # Use auto_ticker if available, otherwise use manual input
+        analysis_ticker = auto_ticker if auto_ticker else ticker_input
         # Normalize ticker (handle Swedish stocks)
-        ticker = normalize_ticker(ticker_input)
+        ticker = normalize_ticker(analysis_ticker)
 
         # Fetch stock data
         with st.spinner(f"Fetching data for {ticker}..."):
