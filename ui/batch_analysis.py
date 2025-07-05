@@ -26,7 +26,7 @@ def get_scanner_engine():
 
 def render_scanner_selection():
     """Reorganized scanner selection interface with logical flow"""
-    
+
     # Step 1: Stock Universe Selection
     col1, col2 = st.columns([1, 2])
     with col1:
@@ -63,7 +63,7 @@ def render_scanner_selection():
                                           options=watchlists,
                                           format_func=lambda x: f"{x['name']} {'(Default)' if x.get('is_default', False) else ''}",
                                           key="batch_watchlist_select")
-        
+
         if selected_watchlist:
             stock_count = len(manager.get_watchlist_stocks(selected_watchlist['id']))
             st.info(f"📋 Selected: {selected_watchlist['name']} - Ready to scan {stock_count} stocks")
@@ -71,10 +71,10 @@ def render_scanner_selection():
     # Step 3: Scan Options
     st.subheader("⚙️ Scan Options")
     col1, col2 = st.columns(2)
-    
+
     with col1:
         show_errors = st.checkbox("Show Errors", value=False, key="show_scanner_errors")
-        
+
     with col2:
         auto_add_buys = st.checkbox("Auto-add BUYs", value=False, key="auto_add_buy_signals")
 
@@ -277,9 +277,9 @@ def remove_single_from_watchlist(ticker, watchlist_id=None):
 
         manager = st.session_state.watchlist_manager
         watchlists = manager.get_all_watchlists()
-        
+
         removed_from = []
-        
+
         if watchlist_id:
             # Remove from specific watchlist
             target_wl = next((w for w in watchlists if w['id'] == watchlist_id), None)
@@ -298,7 +298,7 @@ def remove_single_from_watchlist(ticker, watchlist_id=None):
                         if success:
                             removed_from.append(watchlist['name'])
                         break
-        
+
         if removed_from:
             if len(removed_from) == 1:
                 st.success(f"✅ Removed {ticker} from '{removed_from[0]}'!")
@@ -307,7 +307,7 @@ def remove_single_from_watchlist(ticker, watchlist_id=None):
             st.rerun()  # Refresh the interface
         else:
             st.info(f"ℹ️ {ticker} not found in any watchlist")
-            
+
     except Exception as e:
         st.error(f"Error removing {ticker}: {str(e)}")
 
@@ -317,11 +317,11 @@ def check_stock_in_watchlists(ticker):
     try:
         if 'watchlist_manager' not in st.session_state:
             return []
-            
+
         manager = st.session_state.watchlist_manager
         watchlists = manager.get_all_watchlists()
         containing_watchlists = []
-        
+
         for watchlist in watchlists:
             stocks = manager.get_watchlist_stocks(watchlist['id'])
             for stock in stocks:
@@ -329,7 +329,7 @@ def check_stock_in_watchlists(ticker):
                 if stock_ticker == ticker:
                     containing_watchlists.append(watchlist)
                     break
-                
+
         return containing_watchlists
     except Exception as e:
         logger.error(f"Error checking watchlists for {ticker}: {e}")
@@ -441,21 +441,21 @@ def render_compact_results_table(filtered_df):
 
     # Compact header with essential actions
     col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
-    
+
     with col1:
         st.markdown(f"**📊 Results ({len(filtered_df)} stocks)**")
-        
+
     buy_signals = filtered_df[filtered_df['Signal'] == 'BUY']
-    
+
     if not buy_signals.empty:
         # Get watchlists for selection
         if 'watchlist_manager' not in st.session_state:
             from services.watchlist_manager import SimpleWatchlistManager
             st.session_state.watchlist_manager = SimpleWatchlistManager()
-        
+
         manager = st.session_state.watchlist_manager
         watchlists = manager.get_all_watchlists()
-        
+
         if watchlists:
             with col2:
                 if st.button(f"➕ Add {len(buy_signals)} BUYs", 
@@ -463,29 +463,29 @@ def render_compact_results_table(filtered_df):
                     # Use default watchlist for quick add
                     default_watchlist = next((w for w in watchlists if w.get('is_default')), watchlists[0])
                     bulk_add_to_watchlist(buy_signals, default_watchlist['id'])
-    
+
     with col3:
         csv_data = filtered_df.to_csv(index=False)
         st.download_button("📥 CSV", csv_data, "results.csv", "text/csv", use_container_width=True)
-    
+
     with col4:
         if st.button("🔄 Refresh", use_container_width=True):
             trigger_new_scan()
 
     # Sort controls for making table sortable
     sort_col1, sort_col2, sort_col3 = st.columns([1, 1, 2])
-    
+
     with sort_col1:
         sort_by_column = st.selectbox("Sort by:", 
                                      ["Default", "Ticker", "Company", "Signal", "Score"], 
                                      key="batch_sort_column")
-    
+
     with sort_col2:
         sort_order = st.selectbox("Order:", 
                                  ["Ascending", "Descending"], 
                                  index=1 if sort_by_column == "Score" else 0,
                                  key="batch_sort_order")
-    
+
     # Apply sorting if requested
     if sort_by_column != "Default":
         ascending = sort_order == "Ascending"
@@ -501,7 +501,7 @@ def render_compact_results_table(filtered_df):
             filtered_df = filtered_df.drop('_signal_order', axis=1)
         elif sort_by_column == "Score":
             filtered_df = filtered_df.sort_values('Score', ascending=ascending)
-    
+
     # Mobile-responsive table headers with minimal spacing - added single analysis column
     col_single, col_add, col_del, col_gpt, col_ticker, col_signal, col_score, col_indicators = st.columns([0.7, 0.7, 0.7, 0.7, 1.3, 1, 1, 1.2])
 
@@ -548,13 +548,13 @@ Combined reading provides instant technical health assessment.""")
         padding-right: 1rem !important;
         max-width: 100% !important;
     }
-    
+
     /* Make columns use full width */
     div[data-testid="stHorizontalBlock"] {
         width: 100% !important;
         gap: 0.25rem !important;
     }
-    
+
     div[data-testid="stHorizontalBlock"] > div {
         padding-top: 0.1rem !important;
         padding-bottom: 0.1rem !important;
@@ -562,13 +562,13 @@ Combined reading provides instant technical health assessment.""")
         padding-right: 0.1rem !important;
         flex: 1 !important;
     }
-    
+
     /* Reduce header spacing */
     .batch-header {
         margin-bottom: 0.25rem !important;
         padding-bottom: 0.1rem !important;
     }
-    
+
     .batch-table-row {
         padding: 4px 0px !important;
         margin: 2px 0px !important;
@@ -576,7 +576,7 @@ Combined reading provides instant technical health assessment.""")
         border-bottom: 1px solid #e6e6e6;
         width: 100% !important;
     }
-    
+
     .stButton > button {
         height: 32px !important;
         padding: 4px 8px !important;
@@ -585,14 +585,14 @@ Combined reading provides instant technical health assessment.""")
         touch-action: manipulation !important;
         width: 100% !important;
     }
-    
+
     .batch-text {
         font-size: 14px !important;
         line-height: 1.4 !important;
         margin: 0 !important;
         word-wrap: break-word !important;
     }
-    
+
     .batch-link {
         font-size: 14px !important;
         text-decoration: none !important;
@@ -602,45 +602,45 @@ Combined reading provides instant technical health assessment.""")
         touch-action: manipulation !important;
         word-wrap: break-word !important;
     }
-    
+
     .batch-indicator {
         font-size: 16px !important;
         line-height: 1.0 !important;
         text-align: center !important;
         letter-spacing: -1px !important;
     }
-    
+
     /* Mobile responsive adjustments */
     @media (max-width: 768px) {
         .main .block-container {
             padding-left: 0.5rem !important;
             padding-right: 0.5rem !important;
         }
-        
+
         .batch-text {
             font-size: 12px !important;
         }
-        
+
         .batch-link {
             font-size: 12px !important;
             padding: 2px !important;
         }
-        
+
         .stButton > button {
             font-size: 12px !important;
             padding: 4px 6px !important;
         }
-        
+
         .batch-indicator {
             font-size: 12px !important;
             line-height: 0.8 !important;
             letter-spacing: -2px !important;
         }
-        
+
         div[data-testid="stHorizontalBlock"] {
             gap: 0.1rem !important;
         }
-        
+
         div[data-testid="stHorizontalBlock"] > div {
             padding-left: 0.05rem !important;
             padding-right: 0.05rem !important;
@@ -658,10 +658,10 @@ Combined reading provides instant technical health assessment.""")
         # Extract ticker information
         ticker = row.get('Ticker', 'N/A')
         name = row.get('Name', ticker)
-        
+
         # Check if stock is in any watchlist
         containing_watchlists = check_stock_in_watchlists(ticker)
-        
+
         # Single analysis button
         with col_single:
             if ticker != 'N/A':
@@ -669,31 +669,31 @@ Combined reading provides instant technical health assessment.""")
                     # Set the ticker for single analysis
                     st.session_state.analyze_ticker = ticker
                     st.session_state.auto_analyze = True
-                    
+
                     # Switch to Single Stock tab automatically
                     st.session_state.switch_to_tab = "📊 Single Stock"
                     st.rerun()
             else:
                 st.markdown('<div class="batch-text">—</div>', unsafe_allow_html=True)
-        
+
         # Add button with watchlist selection
         with col_add:
             # Create a unique key for the selectbox
             selectbox_key = f"watchlist_select_{ticker}_{idx}"
-            
+
             # Get available watchlists
             if 'watchlist_manager' not in st.session_state:
                 from services.watchlist_manager import SimpleWatchlistManager
                 st.session_state.watchlist_manager = SimpleWatchlistManager()
-            
+
             manager = st.session_state.watchlist_manager
             watchlists = manager.get_all_watchlists()
-            
+
             if watchlists:
                 # Create a popover for watchlist selection
                 with st.popover("➕", help=f"Add {ticker} to watchlist"):
                     st.markdown(f"**Add {ticker}**")
-                    
+
                     # Watchlist selection
                     watchlist_options = {f"{wl['name']}": wl['id'] for wl in watchlists}
                     selected_watchlist_name = st.selectbox(
@@ -702,7 +702,7 @@ Combined reading provides instant technical health assessment.""")
                         key=selectbox_key,
                         label_visibility="collapsed"
                     )
-                    
+
                     # Add button inside popover
                     if st.button("Add to Watchlist", key=f"add_confirm_{ticker}_{idx}", use_container_width=True):
                         selected_watchlist_id = watchlist_options[selected_watchlist_name]
@@ -787,14 +787,14 @@ Combined reading provides instant technical health assessment.""")
             ma40 = '🟢' if row.get('MA40') == '✓' else '🔴'
             rsi = '🟢' if row.get('RSI>50') == '✓' else '🔴'
             profit = '🟢' if row.get('Profitable') == '✓' else '🔴'
-            
+
             # Create improved tooltip text with clearer descriptions
             ma40_status = "Price vs 40-day average" if row.get('MA40') == '✓' else "Price vs 40-day average"
             rsi_status = "Momentum indicator" if row.get('RSI>50') == '✓' else "Momentum indicator"  
             profit_status = "Company profitability" if row.get('Profitable') == '✓' else "Company profitability"
-            
+
             tooltip_text = f"{ma40_status} | {rsi_status} | {profit_status}"
-            
+
             st.markdown(
                 f'<div class="batch-indicator" title="{tooltip_text}">{ma40}{rsi}{profit}</div>',
                 unsafe_allow_html=True)
@@ -827,22 +827,22 @@ def render_unified_results_table(results):
     with st.expander("🔧 Filters & Settings", expanded=False):
         # Mobile-friendly 2x2 layout
         col1, col2 = st.columns(2)
-        
+
         with col1:
             signal_filter = st.multiselect("Show Signals", 
                                          ["BUY", "HOLD", "SELL"],
                                          default=["BUY", "HOLD", "SELL"],
                                          help="Filter by trading signals")
-            
+
             min_score = st.number_input("Min Score", 
                                       min_value=0, max_value=100, value=0,
                                       help="Minimum technical score")
-        
+
         with col2:
             max_results = st.number_input("Show Results", 
                                         min_value=5, max_value=200, value=50,
                                         help="Maximum results to display")
-            
+
             sort_by = st.selectbox("Sort By", 
                                  ["Score", "Signal", "Ticker"],
                                  help="Sort results by field")
@@ -989,3 +989,32 @@ def display_batch_analysis():
             render_unified_results_table(results)
         else:
             st.info("No results from last scan")
+
+# Add stock section - single row layout
+        col1, col2, col3 = st.columns([3, 2, 1])
+
+        with col1:
+            ticker_input = st.text_input(
+                "➕ Add Stock - Enter ticker symbol",
+                placeholder="e.g. AAPL",
+                key="single_add_ticker")
+
+        with col2:
+            name_input = st.text_input(
+                "Enter company name (optional)",
+                placeholder="e.g. Apple Inc.",
+                key="single_add_name")
+
+        with col3:
+            if st.button("Add to Watchlist", key="single_add_button"):
+                ticker = ticker_input.strip().upper()
+                name = name_input.strip()
+
+                # Basic validation - recommend cleaning & normalizing
+                if not ticker:
+                    st.warning("Please enter a ticker symbol")
+                else:
+                    if add_stock_to_watchlist_with_feedback(ticker, name):
+                        # Clear inputs on success
+                        st.session_state.single_add_ticker = ""
+                        st.session_state.single_add_name = ""
