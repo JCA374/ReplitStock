@@ -475,6 +475,36 @@ def render_compact_results_table(filtered_df):
         if st.button("🔄 Refresh", use_container_width=True):
             trigger_new_scan()
 
+    # Sort controls for making table sortable
+    sort_col1, sort_col2, sort_col3 = st.columns([1, 1, 2])
+    
+    with sort_col1:
+        sort_by_column = st.selectbox("Sort by:", 
+                                     ["Default", "Ticker", "Company", "Signal", "Score"], 
+                                     key="batch_sort_column")
+    
+    with sort_col2:
+        sort_order = st.selectbox("Order:", 
+                                 ["Ascending", "Descending"], 
+                                 index=1 if sort_by_column == "Score" else 0,
+                                 key="batch_sort_order")
+    
+    # Apply sorting if requested
+    if sort_by_column != "Default":
+        ascending = sort_order == "Ascending"
+        if sort_by_column == "Ticker":
+            filtered_df = filtered_df.sort_values('Ticker', ascending=ascending)
+        elif sort_by_column == "Company":
+            filtered_df = filtered_df.sort_values('Name', ascending=ascending)
+        elif sort_by_column == "Signal":
+            # Custom signal order: BUY, HOLD, SELL
+            signal_order = {"BUY": 1, "HOLD": 2, "SELL": 3}
+            filtered_df['_signal_order'] = filtered_df['Signal'].map(signal_order)
+            filtered_df = filtered_df.sort_values('_signal_order', ascending=ascending)
+            filtered_df = filtered_df.drop('_signal_order', axis=1)
+        elif sort_by_column == "Score":
+            filtered_df = filtered_df.sort_values('Score', ascending=ascending)
+    
     # Mobile-responsive table headers with minimal spacing - added single analysis column
     col_single, col_add, col_del, col_gpt, col_ticker, col_signal, col_score, col_indicators = st.columns([0.7, 0.7, 0.7, 0.7, 1.3, 1, 1, 1.2])
 
@@ -709,15 +739,16 @@ Combined reading provides instant technical health assessment.""")
             if ticker != 'N/A':
                 clean_ticker = ticker.replace('[', '').replace(']', '').split('(')[0].strip()
                 google_search_url = f"https://www.google.com/search?q=avanza+{clean_ticker}"
-                # Compact display: ticker on top, company name smaller below
-                if name != 'N/A' and name != ticker:
-                    display_name = name[:20] + "..." if len(name) > 20 else name
+                # Always display company name below ticker for better clarity
+                if name != 'N/A':
+                    display_name = name[:25] + "..." if len(name) > 25 else name
                     st.markdown(
                         f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>{display_name}</small></a>',
                         unsafe_allow_html=True)
                 else:
+                    # If no company name, just show ticker
                     st.markdown(
-                        f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong></a>',
+                        f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>No name</small></a>',
                         unsafe_allow_html=True)
             else:
                 st.markdown('<div class="batch-text"><strong>N/A</strong></div>', unsafe_allow_html=True)
