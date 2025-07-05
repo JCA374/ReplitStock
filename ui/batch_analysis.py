@@ -799,15 +799,7 @@ Combined reading provides instant technical health assessment.""")
                 f'<div class="batch-indicator" title="{tooltip_text}">{ma40}{rsi}{profit}</div>',
                 unsafe_allow_html=True)
 
-    # Mobile-friendly tips
-    if not buy_signals.empty:
-        st.info(
-            "💡 **Tips**: Tap ticker symbols for Yahoo Finance • Select watchlist above and use 'Add All BUYs' or individual ➕ buttons"
-        )
-    else:
-        st.info(
-            "💡 **Tips**: Tap ticker symbols for Yahoo Finance • No BUY signals found - try adjusting filters"
-        )
+    
 
 
 def render_unified_results_table(results):
