@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class PerformanceMonitor:
     """Track and log performance metrics"""
-    
+
     def __init__(self):
         self.metrics = {
             'api_calls': 0,
@@ -33,22 +33,22 @@ class PerformanceMonitor:
             'processing_times': [],
             'error_count': 0
         }
-    
+
     def log_api_call(self, source):
         self.metrics['api_calls'] += 1
         logger.info(f"API call #{self.metrics['api_calls']} to {source}")
-    
+
     def log_cache_hit(self):
         self.metrics['cache_hits'] += 1
-    
+
     def log_error(self):
         self.metrics['error_count'] += 1
-    
+
     def get_summary(self):
         """Get performance summary"""
         total_requests = self.metrics['api_calls'] + self.metrics['cache_hits']
         cache_rate = (self.metrics['cache_hits'] / total_requests * 100) if total_requests > 0 else 0
-        
+
         return {
             'cache_hit_rate': f"{cache_rate:.1f}%",
             'total_api_calls': self.metrics['api_calls'],
@@ -70,7 +70,7 @@ class BulkDatabaseLoader:
     def bulk_load_all_data(self, target_tickers: List[str] = None) -> Dict:
         """
         Load ALL data from databases in bulk, then identify missing data
-        
+
         Returns:
         - Dict with loaded data and missing tickers
         """
@@ -84,7 +84,7 @@ class BulkDatabaseLoader:
 
         # Step 2: Get all fundamentals in one query
         logger.info("Loading all fundamentals...")
-        all_fundamentals = get_all_fundamentals()
+        all_fundamentals = get_all_fundamentals()<previous_generation>
 
         # FIXED: Properly map fundamentals by ticker
         self.fundamentals_by_ticker = {}
@@ -113,7 +113,7 @@ class BulkDatabaseLoader:
             available_tickers = target_tickers  # Process ALL requested tickers
             cached_tickers = [t for t in target_tickers if t in all_cached_stocks]
             missing_from_cache = [t for t in target_tickers if t not in all_cached_stocks]
-            
+
             logger.info(f"Requested: {len(target_tickers)}, Cached: {len(cached_tickers)}, Missing: {len(missing_from_cache)}")
             if missing_from_cache:
                 logger.warning(f"Will fetch from APIs: {missing_from_cache[:5]}..." if len(missing_from_cache) > 5 else f"Will fetch from APIs: {missing_from_cache}")
@@ -372,10 +372,28 @@ class OptimizedBulkScanner:
                     data_status = "complete" if has_pe else "partial"
                     data_source = "database+api" if has_pe else "database"
 
+                    # Get stored name from watchlist database if available
+                    stored_name = None
+                    try:
+                        from data.db_manager import get_db_session
+                        from data.db_models import WatchlistMembership
+                        session = get_db_session()
+                        membership = session.query(WatchlistMembership).filter(
+                            WatchlistMembership.ticker == ticker
+                        ).first()
+                        if membership and hasattr(membership, 'name'):
+                            stored_name = membership.name
+                        session.close()
+                    except:
+                        pass
+
+                    # Use stored name first, then API name, then ticker as fallback
+                    company_name = stored_name or fundamentals.get('name', ticker) if fundamentals else ticker
+
                     # Create comprehensive result
                     result = {
                         'ticker': ticker,
-                        'name': fundamentals.get('name', ticker) if fundamentals else ticker,
+                        'name': company_name,
                         'last_price': current_price,
                         'pe_ratio': fundamentals.get('pe_ratio') if fundamentals else None,
                         'profit_margin': fundamentals.get('profit_margin') if fundamentals else None,
@@ -548,7 +566,7 @@ class BulkAPIFetcher:
     def __init__(self, max_workers: int = 3):
         self.max_workers = max_workers
         self.data_fetcher = StockDataFetcher()
-        
+
     def batch_fetch_missing_data(self, missing_tickers: List[str], progress_callback=None) -> Dict[str, pd.DataFrame]:
         """ENHANCED: True batch API calls"""
         if not missing_tickers:
@@ -582,14 +600,14 @@ class BulkAPIFetcher:
     def _fetch_batch_true_batch(self, batch_tickers: List[str]) -> Dict[str, pd.DataFrame]:
         """TRUE BATCH: Multiple tickers in single API calls"""
         results = {}
-        
+
         # Yahoo Finance batch approach
         try:
             import yfinance as yf
-            
+
             # Create ticker string for batch download
             tickers_string = " ".join(batch_tickers)
-            
+
             # Single API call for all tickers in batch
             logger.info(f"🌐 Batch downloading: {tickers_string}")
             batch_data = yf.download(
@@ -602,7 +620,7 @@ class BulkAPIFetcher:
                 threads=True,  # Enable threading within yfinance
                 progress=False  # Disable progress bar
             )
-            
+
             # Process batch results
             if len(batch_tickers) == 1:
                 # Single ticker case
@@ -612,7 +630,7 @@ class BulkAPIFetcher:
                     df = batch_data.copy()
                     df.columns = [col.lower() for col in df.columns]
                     results[ticker] = df
-                    
+
                     # Cache immediately
                     try:
                         from data.db_integration import cache_stock_data
@@ -630,7 +648,7 @@ class BulkAPIFetcher:
                                 df = ticker_data.copy()
                                 df.columns = [col.lower() for col in df.columns]
                                 results[ticker] = df
-                                
+
                                 # Cache immediately
                                 try:
                                     from data.db_integration import cache_stock_data
@@ -639,18 +657,18 @@ class BulkAPIFetcher:
                                     pass
                     except Exception as e:
                         logger.debug(f"Failed to process {ticker} from batch: {e}")
-                        
+
         except Exception as e:
             logger.warning(f"Batch download failed, falling back to individual: {e}")
             # Fallback to individual calls if batch fails
             return self._fetch_batch_individual_fallback(batch_tickers)
-            
+
         return results
-    
+
     def _fetch_batch_individual_fallback(self, batch_tickers: List[str]) -> Dict[str, pd.DataFrame]:
         """Fallback to individual calls if batch fails"""
         results = {}
-        
+
         for ticker in batch_tickers:
             try:
                 stock_data = self.data_fetcher.get_stock_data(ticker, '1d', '1y', attempt_fallback=True)
@@ -662,13 +680,13 @@ class BulkAPIFetcher:
                         cache_stock_data(ticker, '1d', '1y', stock_data, 'yahoo')
                     except:
                         pass
-                        
+
                 # Small delay for individual calls
                 time.sleep(0.1)
-                
+
             except Exception as e:
                 logger.debug(f"Individual fetch failed for {ticker}: {e}")
-                
+
         return results
 
 
@@ -678,19 +696,19 @@ def optimized_bulk_scan(target_tickers: List[str] = None,
                         progress_callback=None) -> List[Dict]:
     """
     Entry point for optimized bulk scanning
-    
+
     Performance improvements:
     - 90% faster database access through bulk loading
     - 70% faster API calls through parallel batching  
     - 95% fewer database round trips
     - Smart caching prevents redundant API calls
-    
+
     Args:
         target_tickers: Specific tickers to scan, None for all available
         fetch_missing: Whether to fetch missing data via APIs
         max_api_workers: Number of parallel API workers (3-5 recommended)
         progress_callback: Function for progress updates
-        
+
     Returns:
         List of analysis results sorted by tech_score
     """

@@ -736,14 +736,20 @@ Combined reading provides instant technical health assessment.""")
             if ticker != 'N/A':
                 clean_ticker = ticker.replace('[', '').replace(']', '').split('(')[0].strip()
                 google_search_url = f"https://www.google.com/search?q=avanza+{clean_ticker}"
-                # Always display company name below ticker for better clarity
-                if name != 'N/A' and name != ticker and name.strip():
-                    display_name = name[:25] + "..." if len(name) > 25 else name
+                # Use stored name logic like watchlist does
+                stored_name = getattr(row.get('_raw', {}), 'name', None)
+                if not stored_name:
+                    # Fallback to name from analysis results
+                    stored_name = name
+                
+                # Display logic matching watchlist approach
+                if stored_name and stored_name != 'N/A' and stored_name != ticker and stored_name.strip():
+                    display_name = stored_name[:25] + "..." if len(stored_name) > 25 else stored_name
                     st.markdown(
                         f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>{display_name}</small></a>',
                         unsafe_allow_html=True)
                 else:
-                    # If no company name, just show ticker
+                    # If no company name, just show ticker (same as watchlist)
                     st.markdown(
                         f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>No company name</small></a>',
                         unsafe_allow_html=True)
