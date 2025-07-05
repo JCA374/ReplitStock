@@ -737,7 +737,7 @@ Combined reading provides instant technical health assessment.""")
                 clean_ticker = ticker.replace('[', '').replace(']', '').split('(')[0].strip()
                 google_search_url = f"https://www.google.com/search?q=avanza+{clean_ticker}"
                 # Always display company name below ticker for better clarity
-                if name != 'N/A':
+                if name != 'N/A' and name != ticker and name.strip():
                     display_name = name[:25] + "..." if len(name) > 25 else name
                     st.markdown(
                         f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>{display_name}</small></a>',
@@ -745,7 +745,7 @@ Combined reading provides instant technical health assessment.""")
                 else:
                     # If no company name, just show ticker
                     st.markdown(
-                        f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>No name</small></a>',
+                        f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>No company name</small></a>',
                         unsafe_allow_html=True)
             else:
                 st.markdown('<div class="batch-text"><strong>N/A</strong></div>', unsafe_allow_html=True)
