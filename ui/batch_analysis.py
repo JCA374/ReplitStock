@@ -11,13 +11,11 @@ import streamlit as st
 
 # Local application imports
 from data.db_integration import get_watchlist
-# Removed utils import - function inlined below
+from utils.ticker_mapping import normalize_ticker
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Ticker normalization is now inlined where needed
 
 
 def get_scanner_engine():
@@ -138,7 +136,7 @@ def get_tickers_for_universe(stock_universe, selected_watchlist=None):
                 key="manual_ticker_input")
             if ticker_input:
                 raw_tickers = [t.strip() for t in ticker_input.split(",")]
-                return [t.replace('.ST', '').replace('-', '') for t in raw_tickers if t]
+                return [normalize_ticker(t) for t in raw_tickers if t]
             return []
 
     except Exception as e:
