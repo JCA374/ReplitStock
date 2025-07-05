@@ -47,31 +47,26 @@ def render_scanner_selection():
     # Step 2: Watchlist Selection (only show if "Selected Watchlist" is chosen)
     selected_watchlist = None
     if stock_universe == "Selected Watchlist":
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            st.markdown("**📋 Select Watchlist**")
-        with col2:
-            # Get all watchlists
-            if 'watchlist_manager' not in st.session_state:
-                from services.watchlist_manager import SimpleWatchlistManager
-                st.session_state.watchlist_manager = SimpleWatchlistManager()
+        # Get all watchlists
+        if 'watchlist_manager' not in st.session_state:
+            from services.watchlist_manager import SimpleWatchlistManager
+            st.session_state.watchlist_manager = SimpleWatchlistManager()
 
-            manager = st.session_state.watchlist_manager
-            watchlists = manager.get_all_watchlists()
+        manager = st.session_state.watchlist_manager
+        watchlists = manager.get_all_watchlists()
 
-            if not watchlists:
-                st.warning("No watchlists available")
-                return False, stock_universe, False, False, None
+        if not watchlists:
+            st.warning("No watchlists available")
+            return False, stock_universe, False, False, None
 
-            selected_watchlist = st.selectbox("Choose watchlist:",
-                                              options=watchlists,
-                                              format_func=lambda x: f"{x['name']} {'(Default)' if x.get('is_default', False) else ''}",
-                                              key="batch_watchlist_select",
-                                              label_visibility="collapsed")
+        selected_watchlist = st.selectbox("📋 Select Watchlist",
+                                          options=watchlists,
+                                          format_func=lambda x: f"{x['name']} {'(Default)' if x.get('is_default', False) else ''}",
+                                          key="batch_watchlist_select")
         
         if selected_watchlist:
             stock_count = len(manager.get_watchlist_stocks(selected_watchlist['id']))
-            st.info(f"Ready to scan {stock_count} stocks from '{selected_watchlist['name']}'")
+            st.info(f"📋 Selected: {selected_watchlist['name']} - Ready to scan {stock_count} stocks")
 
     # Step 3: Scan Options
     st.subheader("⚙️ Scan Options")
