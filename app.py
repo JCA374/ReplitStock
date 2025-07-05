@@ -98,7 +98,26 @@ def display_development_notes():
     # Recent Updates Section
     st.subheader("🔄 Recent Updates")
 
-    with st.expander("✅ July 2, 2025 - Enhanced Analysis & Features", expanded=True):
+    with st.expander("✅ January 2, 2025 - UI Improvements & Navigation", expanded=True):
+        st.markdown("""
+        **Enhanced User Experience:**
+        - Enhanced Tech column tooltip with detailed technical analysis information
+        - Improved navigation from batch analysis to single stock analysis
+        - Better hover tooltips for technical indicator buttons
+        - More informative help text for knowledgeable users
+
+        **Single Stock Analysis Integration:**
+        - Direct navigation from batch results to individual stock analysis
+        - Automatic analysis start when moving from batch to single view
+        - Seamless workflow between analysis modes
+
+        **Technical Indicator Tooltips:**
+        - MA40: Price above 40-period moving average (trend confirmation)
+        - RSI>50: Relative Strength Index momentum signals
+        - Profitability: Fundamental company health indicators
+        """)
+
+    with st.expander("✅ Previous Updates - Enhanced Analysis & Features"):
         st.markdown("""
         **Enhanced Watchlist Management:**
         - ➕ button with dropdown menu for specific watchlist selection
@@ -116,7 +135,7 @@ def display_development_notes():
         2. 🗑️ to remove from all watchlists
         """)
 
-    with st.expander("✅ July 2, 2025 - Interface Improvements"):
+    with st.expander("✅ Interface Improvements"):
         st.markdown("""
         **Watchlist Tab Reorganization:**
         - Moved "Create New Watchlist" from sidebar to main tab area
