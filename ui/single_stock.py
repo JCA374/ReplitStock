@@ -20,10 +20,21 @@ def display_single_stock_analysis():
 
     # Check for automatic analysis from batch results
     auto_ticker = None
-    if 'analyze_ticker' in st.session_state and 'auto_analyze' in st.session_state:
+    show_auto_analysis_banner = False
+    if 'analyze_ticker' in st.session_state:
         auto_ticker = st.session_state.analyze_ticker
-        # Clear the auto analyze flag
-        del st.session_state.auto_analyze
+        # Check if this is from auto_analyze trigger
+        if 'auto_analyze' in st.session_state:
+            show_auto_analysis_banner = True
+            del st.session_state.auto_analyze
+        
+    # Show banner if this is from batch analysis
+    if show_auto_analysis_banner and auto_ticker:
+        st.markdown(f"""
+        <div style="background-color: #28a745; color: white; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: bold;">
+            🎯 Now analyzing <strong>{auto_ticker}</strong> from batch results
+        </div>
+        """, unsafe_allow_html=True)
 
     # Input for ticker symbol
     col1, col2, col3 = st.columns([2, 1, 1])

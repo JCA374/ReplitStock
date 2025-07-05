@@ -639,12 +639,24 @@ Combined reading provides instant technical health assessment.""")
         with col_single:
             if ticker != 'N/A':
                 if st.button("📊", key=f"single_{ticker}_{idx}", help=f"Single analysis for {ticker}"):
-                    # Set the ticker for single analysis and trigger automatic navigation
+                    # Set the ticker for single analysis
                     st.session_state.analyze_ticker = ticker
                     st.session_state.auto_analyze = True
-                    st.session_state.selected_tab = "Single Stock"
-                    st.success(f"📊 Analyzing {ticker}...")
-                    st.rerun()
+                    
+                    # Show navigation message with prominent styling
+                    st.markdown(f"""
+                    <div style="background-color: #28a745; color: white; padding: 15px; border-radius: 8px; text-align: center; margin: 10px 0; font-weight: bold; border: 2px solid #155724;">
+                        🎯 <strong>{ticker}</strong> is ready for analysis!<br>
+                        👉 <strong>Click the "📊 Single Stock" tab above to view the detailed analysis</strong>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Auto-scroll to top to make tab visible
+                    st.markdown("""
+                    <script>
+                        window.scrollTo(0, 0);
+                    </script>
+                    """, unsafe_allow_html=True)
             else:
                 st.markdown('<div class="batch-text">—</div>', unsafe_allow_html=True)
         
