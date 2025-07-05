@@ -707,16 +707,16 @@ Combined reading provides instant technical health assessment.""")
         with col_ticker:
             if ticker != 'N/A':
                 clean_ticker = ticker.replace('[', '').replace(']', '').split('(')[0].strip()
-                yahoo_url = f"https://finance.yahoo.com/quote/{clean_ticker}"
+                google_search_url = f"https://www.google.com/search?q=avanza+{clean_ticker}"
                 # Compact display: ticker on top, company name smaller below
                 if name != 'N/A' and name != ticker:
                     display_name = name[:20] + "..." if len(name) > 20 else name
                     st.markdown(
-                        f'<a href="{yahoo_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>{display_name}</small></a>',
+                        f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong><br><small>{display_name}</small></a>',
                         unsafe_allow_html=True)
                 else:
                     st.markdown(
-                        f'<a href="{yahoo_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong></a>',
+                        f'<a href="{google_search_url}" target="_blank" class="batch-link"><strong>{clean_ticker}</strong></a>',
                         unsafe_allow_html=True)
             else:
                 st.markdown('<div class="batch-text"><strong>N/A</strong></div>', unsafe_allow_html=True)
