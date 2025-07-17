@@ -831,32 +831,18 @@ def render_unified_results_table(results):
                 key="batch_min_score"
             )
 
-# Apply minimum score filter
-        filtered_df = filtered_df[filtered_df['Score'] >= min_score]
+        # Sort option
+        sort_by = st.selectbox(
+            "Sort by:",
+            options=["Score", "Signal", "Ticker"],
+            key="batch_sort_by"
+        )
 
-        # Apply sorting
-        if sort_by == "Score":
-            filtered_df = filtered_df.sort_values('Score', ascending=False)
-        elif sort_by == "Signal":
-            signal_priority = {"BUY": 1, "HOLD": 2, "SELL": 3}
-            filtered_df['_signal_priority'] = filtered_df['Signal'].map(
-                signal_priority).fillna(4)
-            filtered_df = filtered_df.sort_values(['_signal_priority', 'Score'],
-                                                  ascending=[True, False])
-            filtered_df = filtered_df.drop('_signal_priority', axis=1)
-        elif sort_by == "Ticker":
-            filtered_df = filtered_df.sort_values('Ticker')
-        elif sort_by == "P/E":
-            # Sort by P/E, putting N/A at the end
-            filtered_df['_pe_sort'] = filtered_df['P/E'].apply(
-                lambda x: 999 if x == 'N/A' else float(x))
-            filtered_df = filtered_df.sort_values('_pe_sort')
-            filtered_df = filtered_df.drop('_pe_sort', axis=1)
+    # Apply filters and sorting
+    filtered_df = apply_filters_and_sort(df, signal_filter, min_score, sort_by)
 
-        # Update rank after sorting
-        filtered_df['Rank'] = range(1, len(filtered_df) + 1)
-
-        return filtered_df
+    # Render the results table
+    render_compact_results_table(filtered_df)
 
 
 def generate_chatgpt_link(ticker):
