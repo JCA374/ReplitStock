@@ -57,22 +57,15 @@ def render_scanner_selection():
             label_visibility="collapsed"
         )
 
-    # Step 2: Scan Options (moved up)
-    st.subheader("⚙️ Scan Options")
-    col1, col2 = st.columns(2)
-
-    with col1:
-        show_errors = st.checkbox("Show Errors", value=False, key="show_scanner_errors")
-
     with col2:
         auto_add_buys = st.checkbox("Auto-add BUYs", value=False, key="auto_add_buy_signals")
 
     # Step 3: Scan Button
-    st.subheader("🚀 Execute Scan")
+    # Single scan button - no heading
     if st.button("SCAN", type="primary", use_container_width=True):
-        return True, stock_universe, show_errors, auto_add_buys
+        return True, stock_universe, auto_add_buys
 
-    return False, stock_universe, show_errors, auto_add_buys
+    return False, stock_universe, auto_add_buys
 
 
 def get_tickers_for_universe(stock_universe, selected_watchlist=None):
@@ -923,7 +916,7 @@ def display_batch_analysis():
     show_scanner_status()
 
     # Render scanner selection controls
-    should_scan, selection, show_errors, auto_add_buys = render_scanner_selection()
+    should_scan, selection, auto_add_buys = render_scanner_selection()
 
     # Prepare watchlist manager if needed
     if 'watchlist_manager' not in st.session_state:
@@ -973,7 +966,7 @@ def display_batch_analysis():
             else:
                 ticker = str(stock)
                 stock = {'ticker': ticker, 'name': ticker}  # Convert to dict format
-            
+
             if ticker not in seen:
                 seen.add(ticker)
                 unique_stocks.append(stock)
