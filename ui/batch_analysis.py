@@ -810,4 +810,23 @@ def render_unified_results_table(results):
 
     # Mobile-optimized filters in expander
     with st.expander("🔧 Filters & Settings", expanded=False):
-        # Mobile-friendly 2x
+        # Mobile-friendly 2x2 filter grid
+        filter_col1, filter_col2 = st.columns(2)
+        
+        with filter_col1:
+            signal_filter = st.multiselect(
+                "Signal Filter:",
+                options=["BUY", "HOLD", "SELL"],
+                default=["BUY", "HOLD", "SELL"],
+                key="batch_signal_filter"
+            )
+        
+        with filter_col2:
+            min_score = st.slider(
+                "Min Score:",
+                min_value=0,
+                max_value=100,
+                value=0,
+                step=5,
+                key="batch_min_score"
+            )
