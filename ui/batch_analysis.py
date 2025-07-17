@@ -812,7 +812,7 @@ def render_unified_results_table(results):
     with st.expander("🔧 Filters & Settings", expanded=False):
         # Mobile-friendly 2x2 filter grid
         filter_col1, filter_col2 = st.columns(2)
-        
+
         with filter_col1:
             signal_filter = st.multiselect(
                 "Signal Filter:",
@@ -820,7 +820,7 @@ def render_unified_results_table(results):
                 default=["BUY", "HOLD", "SELL"],
                 key="batch_signal_filter"
             )
-        
+
         with filter_col2:
             min_score = st.slider(
                 "Min Score:",
@@ -830,3 +830,215 @@ def render_unified_results_table(results):
                 step=5,
                 key="batch_min_score"
             )
+
+# Apply minimum score filter
+        filtered_df = filtered_df[filtered_df['Score'] >= min_score]
+
+        # Apply sorting
+        if sort_by == "Score":
+            filtered_df = filtered_df.sort_values('Score', ascending=False)
+        elif sort_by == "Signal":
+            signal_priority = {"BUY": 1, "HOLD": 2, "SELL": 3}
+            filtered_df['_signal_priority'] = filtered_df['Signal'].map(
+                signal_priority).fillna(4)
+            filtered_df = filtered_df.sort_values(['_signal_priority', 'Score'],
+                                                  ascending=[True, False])
+            filtered_df = filtered_df.drop('_signal_priority', axis=1)
+        elif sort_by == "Ticker":
+            filtered_df = filtered_df.sort_values('Ticker')
+        elif sort_by == "P/E":
+            # Sort by P/E, putting N/A at the end
+            filtered_df['_pe_sort'] = filtered_df['P/E'].apply(
+                lambda x: 999 if x == 'N/A' else float(x))
+            filtered_df = filtered_df.sort_values('_pe_sort')
+            filtered_df = filtered_df.drop('_pe_sort', axis=1)
+
+        # Update rank after sorting
+        filtered_df['Rank'] = range(1, len(filtered_df) + 1)
+
+        return filtered_df
+
+
+def generate_chatgpt_link(ticker):
+    """Generate ChatGPT analysis link for a ticker"""
+    clean_ticker = ticker.replace('[', '').replace(']', '').split('(')[0].strip()
+
+    # Create a more specific prompt for Swedish stocks
+    prompt = f"Analyze the Swedish stock {clean_ticker} (traded on Stockholm Stock Exchange). Please provide: 1) Company overview and business model, 2) Recent financial performance and key metrics, 3) Market position and competitive advantages, 4) Recent news and developments, 5) Investment thesis (bull/bear case). Focus on publicly available information and provide a balanced analysis."
+
+    # URL encode the prompt
+    import urllib.parse
+    encoded_prompt = urllib.parse.quote(prompt)
+
+    return f"https://chat.openai.com/?q={encoded_prompt}", clean_ticker
+
+
+def display_batch_analysis():
+    """Main function to display batch analysis interface"""
+    st.header("📈 Batch Analysis")
+
+    # Initialize strategy
+    if 'strategy' not in st.session_state:
+        from analysis.strategy import ValueMomentumStrategy
+        st.session_state.strategy = ValueMomentumStrategy()
+
+    strategy = st.session_state.strategy
+
+    # Check if we have pre-loaded tickers from watchlist
+    pre_loaded_tickers = None
+    if 'batch_analysis_tickers' in st.session_state:
+        pre_loaded_tickers = st.session_state['batch_analysis_tickers']
+        source = st.session_state.get('batch_analysis_source', 'unknown')
+        watchlist_name = st.session_state.get('batch_analysis_watchlist_name', 'Unknown')
+
+        if source == 'watchlist':
+            st.info(f"📋 Ready to analyze {len(pre_loaded_tickers)} stocks from watchlist: '{watchlist_name}'")
+            if st.button("Clear Pre-loaded Tickers"):
+                del st.session_state['batch_analysis_tickers']
+                if 'batch_analysis_source' in st.session_state:
+                    del st.session_state['batch_analysis_source']
+                if 'batch_analysis_watchlist_name' in st.session_state:
+                    del st.session_state['batch_analysis_watchlist_name']
+                st.rerun()
+
+    # Scanner selection interface
+    should_scan, stock_universe, auto_add_buys = render_scanner_selection()
+
+    # Determine tickers to analyze
+    tickers_to_analyze = []
+
+    if pre_loaded_tickers:
+        tickers_to_analyze = pre_loaded_tickers
+        st.info(f"Using {len(tickers_to_analyze)} pre-loaded tickers")
+    elif should_scan:
+        # Get tickers based on selected universe
+        if stock_universe == "All Watchlists Combined":
+            # Get all tickers from all watchlists
+            if 'watchlist_manager' not in st.session_state:
+                from services.watchlist_manager import SimpleWatchlistManager
+                st.session_state.watchlist_manager = SimpleWatchlistManager()
+
+            manager = st.session_state.watchlist_manager
+            watchlists = manager.get_all_watchlists()
+            all_tickers = []
+            for wl in watchlists:
+                stocks = manager.get_watchlist_stocks(wl['id'])
+                for stock in stocks:
+                    ticker = stock.get('ticker', '') if isinstance(stock, dict) else str(stock)
+                    if ticker:
+                        all_tickers.append(ticker)
+            tickers_to_analyze = list(set(all_tickers))  # Remove duplicates
+
+        elif stock_universe.startswith("Watchlist:"):
+            # Extract watchlist name and get tickers
+            watchlist_name = stock_universe.split("Watchlist: ")[1].split(" (")[0]
+            if 'watchlist_manager' not in st.session_state:
+                from services.watchlist_manager import SimpleWatchlistManager
+                st.session_state.watchlist_manager = SimpleWatchlistManager()
+
+            manager = st.session_state.watchlist_manager
+            watchlists = manager.get_all_watchlists()
+            target_watchlist = next((wl for wl in watchlists if wl['name'] == watchlist_name), None)
+
+            if target_watchlist:
+                stocks = manager.get_watchlist_stocks(target_watchlist['id'])
+                tickers_to_analyze = [stock.get('ticker', '') if isinstance(stock, dict) else str(stock) for stock in stocks]
+                tickers_to_analyze = [t for t in tickers_to_analyze if t]
+
+        elif stock_universe == "Small Cap Stocks":
+            tickers_to_analyze = get_tickers_for_universe("All Small Cap")
+        elif stock_universe == "Mid Cap Stocks":
+            tickers_to_analyze = get_tickers_for_universe("All Mid Cap")
+        elif stock_universe == "Large Cap Stocks":
+            tickers_to_analyze = get_tickers_for_universe("All Large Cap")
+        elif stock_universe == "All Stocks Combined":
+            tickers_to_analyze = get_tickers_for_universe("Small + Mid + Large Cap")
+
+    # Perform analysis if we have tickers
+    if tickers_to_analyze:
+        st.info(f"Analyzing {len(tickers_to_analyze)} stocks...")
+
+        # Progress tracking
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+
+        def update_progress(progress, message):
+            progress_bar.progress(progress)
+            status_text.text(message)
+
+        # Run analysis
+        start_time = time.time()
+
+        try:
+            # Use bulk analysis if available
+            if hasattr(strategy, 'analyze_stocks_bulk'):
+                results = strategy.analyze_stocks_bulk(
+                    tickers_to_analyze,
+                    progress_callback=update_progress
+                )
+            else:
+                # Fallback to individual analysis
+                results = []
+                for i, ticker in enumerate(tickers_to_analyze):
+                    try:
+                        result = strategy.analyze_stock(ticker)
+                        results.append(result)
+                        update_progress((i + 1) / len(tickers_to_analyze), f"Analyzed {ticker}")
+                    except Exception as e:
+                        logger.error(f"Error analyzing {ticker}: {e}")
+                        results.append({'ticker': ticker, 'error': str(e)})
+
+            # Clear progress indicators
+            progress_bar.empty()
+            status_text.empty()
+
+            # Store results in session state
+            st.session_state['batch_analysis_results'] = results
+
+            # Analysis complete
+            analysis_time = time.time() - start_time
+            st.success(f"✅ Analysis complete! Processed {len(results)} stocks in {analysis_time:.1f} seconds")
+
+            # Auto-add BUY signals if enabled
+            if auto_add_buys:
+                buy_signals = [r for r in results if r.get('value_momentum_signal') == 'BUY' or r.get('signal') == 'BUY']
+                if buy_signals:
+                    # Convert to DataFrame for bulk add function
+                    buy_df = pd.DataFrame([{
+                        'Ticker': r.get('ticker', ''),
+                        'Name': r.get('name', r.get('ticker', ''))
+                    } for r in buy_signals])
+
+                    # Add to default watchlist
+                    if 'watchlist_manager' not in st.session_state:
+                        from services.watchlist_manager import SimpleWatchlistManager
+                        st.session_state.watchlist_manager = SimpleWatchlistManager()
+
+                    manager = st.session_state.watchlist_manager
+                    watchlists = manager.get_all_watchlists()
+                    default_watchlist = next((wl for wl in watchlists if wl.get('is_default')), None)
+
+                    if default_watchlist:
+                        bulk_add_to_watchlist(buy_df, default_watchlist['id'])
+
+        except Exception as e:
+            st.error(f"Analysis failed: {str(e)}")
+            logger.error(f"Batch analysis error: {e}")
+            results = []
+
+    # Display results if available
+    if 'batch_analysis_results' in st.session_state:
+        results = st.session_state['batch_analysis_results']
+        if results:
+            render_unified_results_table(results)
+        else:
+            st.info("No results to display")
+
+    # Clear pre-loaded tickers after analysis
+    if pre_loaded_tickers and 'batch_analysis_results' in st.session_state:
+        if 'batch_analysis_tickers' in st.session_state:
+            del st.session_state['batch_analysis_tickers']
+        if 'batch_analysis_source' in st.session_state:
+            del st.session_state['batch_analysis_source']
+        if 'batch_analysis_watchlist_name' in st.session_state:
+            del st.session_state['batch_analysis_watchlist_name']
