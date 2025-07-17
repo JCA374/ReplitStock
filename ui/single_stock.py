@@ -12,6 +12,16 @@ from analysis.strategy import ValueMomentumStrategy
 from utils.ticker_mapping import normalize_ticker
 from config import TIMEFRAMES, PERIOD_OPTIONS, STOCKHOLM_EXCHANGE_SUFFIX
 
+def analyze_single_stock_optimized(ticker, strategy):
+    """Optimized single stock analysis with bulk preloading"""
+    
+    # Preload data using bulk loader for consistency
+    strategy.preload_data_bulk([ticker])
+    
+    # Now analyze (will use preloaded data)
+    result = strategy.analyze_stock(ticker)
+    return result
+
 def display_single_stock_analysis():
     st.header("Single Stock Analysis")
 
@@ -69,48 +79,55 @@ def display_single_stock_analysis():
         # Normalize ticker (handle Swedish stocks)
         ticker = normalize_ticker(analysis_ticker)
 
-        # Fetch stock data
-        with st.spinner(f"Fetching data for {ticker}..."):
-            stock_data = data_fetcher.get_stock_data(ticker, timeframe_value, period_value)
-
-            if stock_data.empty:
+        # Use optimized analysis with bulk preloading
+        with st.spinner(f"Analyzing {ticker} with optimized bulk loading..."):
+            # Initialize strategy
+            strategy = ValueMomentumStrategy()
+            
+            # Use optimized single stock analysis
+            analysis_result = analyze_single_stock_optimized(ticker, strategy)
+            
+            if analysis_result.get('error'):
                 st.error(f"No data found for {ticker}. Please check the ticker symbol.")
                 return
 
-            # Get stock info
-            stock_info = data_fetcher.get_stock_info(ticker)
+            # Extract data from analysis result
+            stock_data = analysis_result.get('historical_data')
+            fundamentals = {
+                'pe_ratio': analysis_result.get('pe_ratio'),
+                'profit_margin': analysis_result.get('profit_margin'),
+                'revenue_growth': analysis_result.get('revenue_growth')
+            }
+            
+            # Get stock info (fallback to data fetcher if not in result)
+            try:
+                stock_info = data_fetcher.get_stock_info(ticker)
+            except:
+                stock_info = {
+                    'name': analysis_result.get('name', ticker),
+                    'sector': 'N/A',
+                    'industry': 'N/A',
+                    'exchange': 'Stockholm',
+                    'currency': 'SEK'
+                }
 
-            # Get fundamentals
-            fundamentals = data_fetcher.get_fundamentals(ticker)
-
-            # Calculate technical indicators
+            # Use signals from analysis result
+            signals = {
+                'tech_score': analysis_result.get('tech_score', 0),
+                'above_ma40': analysis_result.get('above_ma40', False),
+                'above_ma4': analysis_result.get('above_ma4', False),
+                'rsi_above_50': analysis_result.get('rsi_above_50', False),
+                'rsi_value': analysis_result.get('rsi'),
+                'overall_signal': analysis_result.get('value_momentum_signal', 'HOLD').lower(),
+                'signal_strength': analysis_result.get('tech_score', 0) / 100,
+                'value_momentum_signal': analysis_result.get('value_momentum_signal', 'HOLD')
+            }
+            
+            # Calculate technical indicators for chart display
             indicators = calculate_all_indicators(stock_data)
-
-            # Generate signals
-            signals = generate_technical_signals(indicators)
-
-            # Calculate tech score using strategy's method for consistency
-            strategy = ValueMomentumStrategy()
-            tech_score = strategy.calculate_tech_score(signals)
-            signals['tech_score'] = tech_score
-
-            # Analyze fundamentals
+            
+            # Analyze fundamentals for display
             fundamental_analysis = analyze_fundamentals(fundamentals)
-            
-            # Calculate Value & Momentum signal for consistency with batch analysis
-            fundamental_pass = fundamental_analysis['overall'].get('value_momentum_pass', False)
-            
-            if tech_score >= 70 and fundamental_pass:
-                value_momentum_signal = "BUY"
-            elif tech_score < 40 or not signals.get('above_ma40', False):
-                value_momentum_signal = "SELL"
-            else:
-                value_momentum_signal = "HOLD"
-            
-            # Update signals with consistent values
-            signals['overall_signal'] = value_momentum_signal.lower()
-            signals['signal_strength'] = tech_score / 100
-            signals['value_momentum_signal'] = value_momentum_signal
 
         # Display stock header with company information
         st.subheader(f"{stock_info['name']} ({ticker})")

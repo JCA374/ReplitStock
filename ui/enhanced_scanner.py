@@ -139,7 +139,7 @@ class EnhancedStockScorer:
 def load_tickers_from_csv(universe_file, limit_stocks=False):
     """
     Load tickers from CSV file or use predefined lists
-    
+
     Uses proper database session context management for database operations
     """
     try:
@@ -223,22 +223,22 @@ def render_scanner_controls(scanner):
 
     # Compact options in columns
     col1, col2 = st.columns(2)
-    
+
     with col1:
         limit_stocks = st.checkbox("Test mode (20 stocks)", value=False)
-    
+
     with col2:
         batch_size = st.selectbox("Batch Size", [10, 25, 50], index=1)
 
     # Prominent scan button
     if st.button("🚀 Start Scan", type="primary", use_container_width=True):
         start_enhanced_scan(scanner, selected_universe, limit_stocks, batch_size)
-    
+
     # Quick stats
     if 'scan_results' in st.session_state and st.session_state.scan_results:
         results = st.session_state.scan_results
         buy_signals = len([r for r in results if r.get('Signal') in ['BUY', 'KÖP']])
-        
+
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Total", len(results))
@@ -432,9 +432,9 @@ def render_compact_results_table(filtered_df):
     if filtered_df.empty:
         st.info("No results to display")
         return
-    
+
     st.subheader(f"📊 Results ({len(filtered_df)} stocks)")
-    
+
     # Create action buttons for bulk operations
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
@@ -442,7 +442,7 @@ def render_compact_results_table(filtered_df):
             buy_stocks = filtered_df[filtered_df['Signal'].isin(['BUY', 'KÖP'])]
             for _, stock in buy_stocks.iterrows():
                 add_stock_to_watchlist_with_feedback(stock['Ticker'], stock['Name'])
-    
+
     with col2:
         export_csv = st.download_button(
             "📄 Export CSV",
@@ -450,11 +450,11 @@ def render_compact_results_table(filtered_df):
             "scan_results.csv",
             "text/csv"
         )
-    
+
     with col3:
         if st.button("🔄 Refresh Data"):
             st.rerun()
-    
+
     # Configure compact dataframe display
     column_config = {
         "Rank": st.column_config.NumberColumn("Rank", width="small"),
@@ -465,7 +465,7 @@ def render_compact_results_table(filtered_df):
         "Price": st.column_config.NumberColumn("Price", format="%.2f", width="small"),
         "P/E": st.column_config.TextColumn("P/E", width="small"),
     }
-    
+
     # Display compact table with selection
     selected_rows = st.dataframe(
         filtered_df,
@@ -476,20 +476,20 @@ def render_compact_results_table(filtered_df):
         on_select="rerun",
         selection_mode="multi-row"
     )
-    
+
     # Handle selected rows for bulk actions
     if selected_rows and selected_rows.selection.rows:
         selected_indices = selected_rows.selection.rows
         selected_stocks = filtered_df.iloc[selected_indices]
-        
+
         st.write(f"**Selected {len(selected_stocks)} stocks:**")
         col1, col2 = st.columns(2)
-        
+
         with col1:
             if st.button("➕ Add Selected to Watchlist"):
                 for _, stock in selected_stocks.iterrows():
                     add_stock_to_watchlist_with_feedback(stock['Ticker'], stock['Name'])
-        
+
         with col2:
             if st.button("📊 Analyze Selected"):
                 st.info("Bulk analysis feature coming soon!")
@@ -543,7 +543,7 @@ def render_watchlist_quick_add():
 def add_stock_to_watchlist(ticker, name):
     """
     Add stock to watchlist with feedback
-    
+
     Uses proper database session context management for safe database operations
     """
     try:
