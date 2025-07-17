@@ -27,49 +27,37 @@ def get_scanner_engine():
 def render_scanner_selection():
     """Reorganized scanner selection interface with logical flow"""
 
-    # Step 1: Stock Universe Selection
+    # Get all watchlists for options
+    if 'watchlist_manager' not in st.session_state:
+        from services.watchlist_manager import SimpleWatchlistManager
+        st.session_state.watchlist_manager = SimpleWatchlistManager()
+
+    manager = st.session_state.watchlist_manager
+    watchlists = manager.get_all_watchlists()
+
+    # Step 1: Stock Universe Selection with combined options
     col1, col2 = st.columns([1, 2])
     with col1:
         st.markdown("**📈 Select Stock Universe**")
     with col2:
-        stock_universe = st.selectbox("Choose stock universe:",
-                                      options=[
-                                          "All Watchlist Stocks",
-                                          "Selected Watchlist",
-                                          "All Small Cap",
-                                          "All Mid Cap", 
-                                          "All Large Cap",
-                                          "Small + Mid + Large Cap"
-                                      ],
-                                      index=1,  # Default to "Selected Watchlist"
-                                      key="scanner_universe",
-                                      label_visibility="collapsed")
+        # Create options list
+        watchlist_names = [f"Watchlist: {wl['name']} ({len(manager.get_watchlist_stocks(wl['id']))} stocks)" for wl in watchlists]
+        stock_universe_options = (
+            ["All Watchlists Combined"] +
+            watchlist_names +
+            ["Small Cap Stocks", "Mid Cap Stocks", "Large Cap Stocks", "All Stocks Combined"]
+        )
 
-    # Step 2: Watchlist Selection (only show if "Selected Watchlist" is chosen)
-    selected_watchlist = None
-    if stock_universe == "Selected Watchlist":
-        # Get all watchlists
-        if 'watchlist_manager' not in st.session_state:
-            from services.watchlist_manager import SimpleWatchlistManager
-            st.session_state.watchlist_manager = SimpleWatchlistManager()
+        # Selectbox with new options
+        stock_universe = st.selectbox(
+            "Choose stock universe:",
+            options=stock_universe_options,
+            index=0,  # Default to "All Watchlists Combined"
+            key="scanner_universe",
+            label_visibility="collapsed"
+        )
 
-        manager = st.session_state.watchlist_manager
-        watchlists = manager.get_all_watchlists()
-
-        if not watchlists:
-            st.warning("No watchlists available")
-            return False, stock_universe, False, False, None
-
-        selected_watchlist = st.selectbox("📋 Select Watchlist",
-                                          options=watchlists,
-                                          format_func=lambda x: f"{x['name']} {'(Default)' if x.get('is_default', False) else ''}",
-                                          key="batch_watchlist_select")
-
-        if selected_watchlist:
-            stock_count = len(manager.get_watchlist_stocks(selected_watchlist['id']))
-            st.info(f"📋 Selected: {selected_watchlist['name']} - Ready to scan {stock_count} stocks")
-
-    # Step 3: Scan Options
+    # Step 2: Scan Options (moved up)
     st.subheader("⚙️ Scan Options")
     col1, col2 = st.columns(2)
 
@@ -79,12 +67,12 @@ def render_scanner_selection():
     with col2:
         auto_add_buys = st.checkbox("Auto-add BUYs", value=False, key="auto_add_buy_signals")
 
-    # Step 4: Scan Button
+    # Step 3: Scan Button
     st.subheader("🚀 Execute Scan")
     if st.button("SCAN", type="primary", use_container_width=True):
-        return True, stock_universe, show_errors, auto_add_buys, selected_watchlist
+        return True, stock_universe, show_errors, auto_add_buys
 
-    return False, stock_universe, show_errors, auto_add_buys, selected_watchlist
+    return False, stock_universe, show_errors, auto_add_buys
 
 
 def get_tickers_for_universe(stock_universe, selected_watchlist=None):
@@ -125,7 +113,7 @@ def get_tickers_for_universe(stock_universe, selected_watchlist=None):
             small_tickers = load_and_clean_csv_tickers('data/csv/updated_small.csv')
             mid_tickers = load_and_clean_csv_tickers('data/csv/updated_mid.csv')
             large_tickers = load_and_clean_csv_tickers('data/csv/updated_large.csv')
-            
+
             # Combine all tickers and remove duplicates
             all_tickers = small_tickers + mid_tickers + large_tickers
             return list(set(all_tickers))  # Remove duplicates
@@ -811,7 +799,7 @@ Combined reading provides instant technical health assessment.""")
                 f'<div class="batch-indicator" title="{tooltip_text}">{ma40}{rsi}{profit}</div>',
                 unsafe_allow_html=True)
 
-    
+
 
 
 def render_unified_results_table(results):
@@ -934,21 +922,74 @@ def display_batch_analysis():
     # Show scanner status
     show_scanner_status()
 
-    # Reorganized scanner selection
-    should_scan, stock_universe, show_errors, auto_add_buys, selected_watchlist = render_scanner_selection()
+    # Render scanner selection controls
+    should_scan, selection, show_errors, auto_add_buys = render_scanner_selection()
 
-    # Get tickers for selected universe
-    tickers = get_tickers_for_universe(stock_universe, selected_watchlist)
+    # Prepare watchlist manager if needed
+    if 'watchlist_manager' not in st.session_state:
+        from services.watchlist_manager import SimpleWatchlistManager
+        st.session_state.watchlist_manager = SimpleWatchlistManager()
+
+    manager = st.session_state.watchlist_manager
+
+    # Determine which stocks to scan based on selection
+    if selection.startswith("Watchlist: "):
+        # Extract watchlist name from selection
+        watchlist_name = selection.split("Watchlist: ")[1].split(" (")[0]
+
+        # Find the watchlist by name
+        selected_watchlist = None
+        for wl in manager.get_all_watchlists():
+            if wl['name'] == watchlist_name:
+                selected_watchlist = wl
+                break
+
+        if selected_watchlist:
+            target_stocks = manager.get_watchlist_stocks(selected_watchlist['id'])
+        else:
+            target_stocks = []
+
+    elif selection == "All Watchlists Combined":
+        # Scan all stocks from all watchlists
+        all_stocks = []
+        for wl in manager.get_all_watchlists():
+            stocks = manager.get_watchlist_stocks(wl['id'])
+            all_stocks.extend(stocks)
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_stocks = []
+        for stock in all_stocks:
+            if stock['ticker'] not in seen:
+                seen.add(stock['ticker'])
+                unique_stocks.append(stock)
+
+        target_stocks = unique_stocks
+
+    else:
+        # Handle market cap categories
+        from data.stock_data import get_market_cap_stocks
+
+        if selection.startswith("Small Cap"):
+            target_stocks = get_market_cap_stocks("small")
+        elif selection.startswith("Mid Cap"):
+            target_stocks = get_market_cap_stocks("mid")
+        elif selection.startswith("Large Cap"):
+            target_stocks = get_market_cap_stocks("large")
+        elif selection.startswith("All Stocks"):
+            small = get_market_cap_stocks("small")
+            mid = get_market_cap_stocks("mid")
+            large = get_market_cap_stocks("large")
+            target_stocks = small + mid + large
+        else:
+            target_stocks = []
+
+    tickers = [stock['ticker'] for stock in target_stocks]
 
     if not tickers:
-        st.warning(f"No tickers found for {stock_universe}")
+        st.warning(f"No tickers found for {selection}")
     elif tickers and not should_scan:
-        if stock_universe in ["All Small Cap", "All Mid Cap", "All Large Cap"]:
-            # Show combined message for CSV-based universes
-            cap_type = stock_universe.replace("All ", "").lower()
-            st.info(f"Loaded {len(tickers)} {cap_type} stocks from CSV - Ready to scan {len(tickers)} stocks from {stock_universe}")
-        else:
-            st.info(f"Ready to scan {len(tickers)} stocks from {stock_universe}")
+        st.info(f"🎯 Scanning {selection} - Processing {len(target_stocks)} stocks...")
 
     # Run scan if requested
     if should_scan and tickers:
@@ -984,7 +1025,7 @@ def display_batch_analysis():
                     bulk_add_to_watchlist(buy_signals)
 
         # Single merged notification
-        st.success(f"Scanned {len(tickers)} stocks from {stock_universe} - Found {len(results)} results")
+        st.success(f"Scanned {len(tickers)} stocks from {selection} - Found {len(results)} results")
 
     # Display results if available
     if 'batch_analysis_results' in st.session_state:
