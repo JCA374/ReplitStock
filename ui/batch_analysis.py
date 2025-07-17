@@ -945,7 +945,14 @@ def display_batch_analysis():
                 break
 
         if selected_watchlist:
-            target_stocks = manager.get_watchlist_stocks(selected_watchlist['id'])
+            stocks = manager.get_watchlist_stocks(selected_watchlist['id'])
+            # Ensure consistent format
+            target_stocks = []
+            for stock in stocks:
+                if isinstance(stock, dict):
+                    target_stocks.append(stock)
+                else:
+                    target_stocks.append({'ticker': str(stock), 'name': str(stock)})
         else:
             target_stocks = []
 
@@ -960,8 +967,15 @@ def display_batch_analysis():
         seen = set()
         unique_stocks = []
         for stock in all_stocks:
-            if stock['ticker'] not in seen:
-                seen.add(stock['ticker'])
+            # Handle both string and dictionary formats
+            if isinstance(stock, dict):
+                ticker = stock['ticker']
+            else:
+                ticker = str(stock)
+                stock = {'ticker': ticker, 'name': ticker}  # Convert to dict format
+            
+            if ticker not in seen:
+                seen.add(ticker)
                 unique_stocks.append(stock)
 
         target_stocks = unique_stocks
@@ -984,7 +998,13 @@ def display_batch_analysis():
         else:
             target_stocks = []
 
-    tickers = [stock['ticker'] for stock in target_stocks]
+    # Extract tickers safely from target_stocks
+    tickers = []
+    for stock in target_stocks:
+        if isinstance(stock, dict):
+            tickers.append(stock['ticker'])
+        else:
+            tickers.append(str(stock))
 
     if not tickers:
         st.warning(f"No tickers found for {selection}")
