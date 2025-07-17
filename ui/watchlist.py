@@ -110,6 +110,8 @@ def display_watchlist():
                                 if duplicate_count > 0:
                                     st.info(f"ℹ️ Skipped {duplicate_count} duplicates")
                                 
+                                # Maintain current watchlist selection
+                                st.session_state.current_watchlist_id = current_watchlist['id']
                                 st.rerun()
                             else:
                                 st.warning("Please select a watchlist first")
@@ -168,12 +170,25 @@ def display_watchlist():
                 return f"{x['name']} ({count} stocks) {'(Default)' if x['is_default'] else ''}"
             return f"{x['name']} {'(Default)' if x['is_default'] else ''}"
         
+        # Find current selection index to maintain selection after operations
+        current_index = 0
+        if 'current_watchlist_id' in st.session_state:
+            for i, wl in enumerate(watchlists):
+                if wl['id'] == st.session_state.current_watchlist_id:
+                    current_index = i
+                    break
+        
         selected_watchlist = st.selectbox(
             "Select Watchlist",
             options=watchlists,
             format_func=format_watchlist,
+            index=current_index,
             key="watchlist_selector"
         )
+        
+        # Store the current selection
+        if selected_watchlist:
+            st.session_state.current_watchlist_id = selected_watchlist['id']
     
     with col2:
         if st.button("🔄 Refresh", key="refresh_watchlist", use_container_width=True):
@@ -185,6 +200,8 @@ def display_watchlist():
                         st.success(f"Updated {updated_count} stock names")
                     else:
                         st.info("Stock names are up to date")
+                    # Maintain current watchlist selection
+                    st.session_state.current_watchlist_id = selected_watchlist['id']
             st.rerun()
     
     with col3:
@@ -219,6 +236,8 @@ def display_watchlist():
                     ticker = normalize_ticker(ticker_input.upper())
                     if manager.add_stock_to_watchlist(watchlist_id, ticker):
                         st.success(f"Added {ticker}")
+                        # Maintain current watchlist selection
+                        st.session_state.current_watchlist_id = watchlist_id
                         st.rerun()
                     else:
                         st.warning(f"{ticker} already in this watchlist")
@@ -243,6 +262,8 @@ def display_watchlist():
                     if st.button("❌", key=f"remove_{stock['ticker']}_{idx}"):
                         if manager.remove_stock_from_watchlist(watchlist_id, stock['ticker']):
                             st.success(f"Removed {stock['ticker']}")
+                            # Maintain current watchlist selection
+                            st.session_state.current_watchlist_id = watchlist_id
                             st.rerun()
                 
                 with col2:
