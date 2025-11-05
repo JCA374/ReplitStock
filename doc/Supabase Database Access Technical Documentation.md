@@ -133,7 +133,7 @@ print(tech_stocks)  # DataFrame with results
 The application requires the following configuration in `.streamlit/secrets.toml`:
 
 ```toml
-DATABASE_URL = "https://dgfudgctsgmcjtgdoxsi.supabase.co"
+SUPABASE_URL = "https://your-project.supabase.co"
 SUPABASE_KEY = "your-supabase-anon-key"
 DATABASE_PASSWORD = "your-database-password"
 ALPHA_VANTAGE_API_KEY = "your-alpha-vantage-key"
