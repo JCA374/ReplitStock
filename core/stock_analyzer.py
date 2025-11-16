@@ -239,6 +239,36 @@ class BatchAnalyzer:
         self.analyzer = StockAnalyzer(settings)
         self.results = []
 
+    def analyze_all_stocks(self, progress_callback: Optional[callable] = None) -> list:
+        """
+        Analyze all active stocks in the universe (352 Swedish stocks)
+
+        Args:
+            progress_callback: Optional callback(current, total, ticker, result)
+
+        Returns:
+            List of analysis results for all stocks
+        """
+        logger.info("Fetching all active stocks from universe...")
+
+        # Import here to avoid circular imports
+        from core.universe_manager import UniverseManager
+
+        # Get all active tickers from universe
+        # UniverseManager will create its own settings instance
+        universe = UniverseManager()
+        tickers = universe.get_all_active_tickers()
+
+        if not tickers:
+            logger.error("No active stocks found in universe!")
+            logger.error("Run 'python test_phase1.py' to populate the universe")
+            return []
+
+        logger.info(f"Found {len(tickers)} active stocks to analyze")
+
+        # Analyze the batch
+        return self.analyze_batch(tickers, progress_callback)
+
     def analyze_batch(
         self,
         tickers: list,

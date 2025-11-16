@@ -15,8 +15,8 @@ from config import (
     STOCKHOLM_EXCHANGE_SUFFIX
 )
 
-# Use the database integration layer to get data from both SQLite and Supabase
-from data.db_integration import (
+# Import database functions directly (SQLite only)
+from data.db_manager import (
     cache_stock_data,
     get_cached_stock_data,
     cache_fundamentals,
@@ -227,6 +227,22 @@ class StockDataFetcher:
         except Exception as e:
             logger.error(f"Error fetching Alpha Vantage data for {ticker}: {e}")
             return pd.DataFrame()
+
+    def get_historical_data(self, ticker, period='1y', timeframe='1d'):
+        """
+        Get historical price data for a stock.
+
+        Alias for get_stock_data() to match StockAnalyzer expectations.
+
+        Args:
+            ticker: Stock ticker (e.g., 'INVE-B.ST')
+            period: Time period ('1mo', '3mo', '6mo', '1y', '2y', etc.)
+            timeframe: Data interval ('1d', '1wk', '1mo')
+
+        Returns:
+            DataFrame with OHLCV data
+        """
+        return self.get_stock_data(ticker, timeframe=timeframe, period=period)
 
     def get_stock_info(self, ticker):
         """Get basic stock information with database-first approach."""
