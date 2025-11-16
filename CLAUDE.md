@@ -15,14 +15,9 @@ This is a **research-optimized automatic stock analysis system** for Swedish sto
 
 ## Architecture: The Big Picture
 
-### Current State: Dual System
+### Automatic Analysis System (Phases 1-3 Complete)
 
-The codebase contains **two parallel systems**:
-
-1. **Legacy System** (`ui/`, `analysis/`, `services/`): Original Streamlit UI for manual analysis
-2. **Automatic System** (`core/`, `reports/`): New automatic pipeline (Phases 1-3)
-
-**Phases 1-3 Complete (Automatic System):**
+The system is a **pure automatic analysis pipeline** with no UI dependencies:
 ```
 Phase 1: Settings & Configuration
   ├── analysis_settings.yaml (master configuration)
@@ -136,30 +131,32 @@ python test_csv_loading.py
 
 ### Running Analysis (Production)
 
-```python
+```bash
 # Complete weekly analysis (all 352 stocks)
+python generate_weekly_report.py
+
+# First run: ~15-20 minutes (fetches data for 352 stocks)
+# Subsequent runs: ~5 minutes (uses cache)
+
+# Output:
+# → reports/weekly_analysis_2025-11-16.html
+# → reports/weekly_analysis_2025-11-16.csv
+# → reports/weekly_analysis_2025-11-16.json
+```
+
+Or use Python directly:
+
+```python
 from core.stock_analyzer import BatchAnalyzer
 from core.settings_manager import get_settings
 from reports import WeeklyReportOrchestrator
 
 settings = get_settings()
 analyzer = BatchAnalyzer(settings.as_dict())
-
-# Analyze all stocks (takes 15-20 minutes first run, <5 min with cache)
 results = analyzer.analyze_all_stocks()
 
-# Generate reports
 orchestrator = WeeklyReportOrchestrator(settings.as_dict())
 files = orchestrator.generate_weekly_report(results)
-# → reports/weekly_analysis_2025-11-16.html/csv/json
-```
-
-### Legacy Streamlit UI
-
-```bash
-# Run the legacy manual UI (still works)
-streamlit run app.py
-# Opens at http://localhost:8501
 ```
 
 ### Database Operations
@@ -209,11 +206,8 @@ sqlite3 stock_analysis.db
 - **`test_analysis_engine.py`**: Technical/fundamental calculations with research parameters
 - **`test_report_generation.py`**: HTML/CSV/JSON generation from sample data
 
-### Legacy System (Manual UI)
-- **`app.py`**: Main Streamlit application (still functional)
-- **`ui/`**: UI components (batch analysis, scanner, watchlist, company explorer)
-- **`analysis/`**: Legacy analysis modules (bulk_scanner, fundamental, technical, strategy)
-- **`services/`**: Business logic (company_explorer, watchlist_manager)
+### Entry Point
+- **`generate_weekly_report.py`**: Simple command to run complete analysis and generate reports
 
 ## Cache Strategy (Critical for API Limits)
 
@@ -369,16 +363,19 @@ The system looks for `analysis_settings.yaml` in the project root. Check it exis
 ## Quick Reference
 
 ### Most Important Files
-1. `analysis_settings.yaml` - Change ANY behavior here first
-2. `core/stock_analyzer.py` - Main analysis orchestration
-3. `reports/weekly_report.py` - Report generation orchestration
-4. `test_report_generation.py` - Test complete pipeline
+1. `generate_weekly_report.py` - Main entry point (run this!)
+2. `analysis_settings.yaml` - Change ANY behavior here first
+3. `core/stock_analyzer.py` - Main analysis orchestration
+4. `reports/weekly_report.py` - Report generation orchestration
 
 ### Running Complete Weekly Analysis
 ```bash
-# Generate this week's report
-python test_report_generation.py
+# Generate this week's report (PRODUCTION)
+python generate_weekly_report.py
 # → Creates reports/weekly_analysis_2025-11-16.*
+
+# Or test with sample data
+python test_report_generation.py
 ```
 
 ### CSV Column Mapping (Non-obvious)
