@@ -43,12 +43,12 @@ class UniverseManager:
         self.session: Session = get_db_session()
         self.fetcher = StockDataFetcher()
 
-        # CSV file paths
+        # CSV file paths (updated file names)
         self.csv_dir = Path("data/csv")
         self.csv_files = {
-            'large_cap': self.csv_dir / "large_cap.csv",
-            'mid_cap': self.csv_dir / "mid_cap.csv",
-            'small_cap': self.csv_dir / "small_cap.csv"
+            'large_cap': self.csv_dir / "updated_large.csv",
+            'mid_cap': self.csv_dir / "updated_mid.csv",
+            'small_cap': self.csv_dir / "updated_small.csv"
         }
 
     def load_universe_from_csv(self) -> pd.DataFrame:
@@ -73,20 +73,37 @@ class UniverseManager:
                 # Normalize column names (handle different formats)
                 df.columns = df.columns.str.strip().str.lower()
 
-                # Extract relevant columns
-                if 'ticker' in df.columns:
+                # Extract relevant columns (updated CSV format)
+                # CSV columns: tickersymbol, yahooticker, yahooexchange, companyname
+                if 'yahooticker' in df.columns:
+                    ticker_col = 'yahooticker'  # Already has .ST suffix
+                elif 'ticker' in df.columns:
                     ticker_col = 'ticker'
                 elif 'symbol' in df.columns:
                     ticker_col = 'symbol'
+                elif 'tickersymbol' in df.columns:
+                    ticker_col = 'tickersymbol'
                 else:
                     logger.error(f"No ticker column found in {csv_path}")
                     continue
 
+                # Get company name
+                if 'companyname' in df.columns:
+                    name_col = 'companyname'
+                elif 'name' in df.columns:
+                    name_col = 'name'
+                elif 'company' in df.columns:
+                    name_col = 'company'
+                else:
+                    name_col = None
+
                 # Create standardized dataframe
                 stock_df = pd.DataFrame({
                     'ticker': df[ticker_col].str.strip(),
-                    'name': df.get('name', df.get('company', '')).fillna(''),
-                    'sector': df.get('sector', df.get('gics sector', '')).fillna('Unknown'),
+                    'name': df[name_col].fillna('') if name_col else '',
+                    'sector': (df['sector'].fillna('Unknown') if 'sector' in df.columns
+                              else df['gics sector'].fillna('Unknown') if 'gics sector' in df.columns
+                              else 'Unknown'),
                     'csv_category': category
                 })
 

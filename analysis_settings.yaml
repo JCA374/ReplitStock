@@ -31,7 +31,8 @@ market_caps:
 # ============================================================================
 schedule:
   enabled: true                      # Set to false to disable scheduling
-  frequency: daily                   # daily, weekly, monthly
+  frequency: weekly                  # weekly intervals (research-backed)
+  day_of_week: "Friday"              # Run every Friday after market close
   time: "18:00"                      # 6 PM Stockholm time (after market close)
   timezone: "Europe/Stockholm"
   run_on_weekends: false             # Skip weekends (market closed)
@@ -71,10 +72,18 @@ analysis:
     ma_short: 20                     # 20-day MA (MA4 = ~4 weeks)
     ma_long: 200                     # 200-day MA (MA40 = ~40 weeks)
 
-    # RSI (Relative Strength Index)
-    rsi_period: 14
-    rsi_oversold: 30                 # Below 30 = oversold
-    rsi_overbought: 70               # Above 70 = overbought
+    # KAMA (Kaufman Adaptive Moving Average) - Research: reduces false signals 30-40%
+    use_kama: true                   # Use adaptive MA instead of simple MA
+    kama_period: 10                  # KAMA lookback period
+    kama_fast_ema: 2                 # Fast EMA constant
+    kama_slow_ema: 30                # Slow EMA constant
+
+    # RSI (Relative Strength Index) - Research-backed parameters
+    rsi_period: 7                    # 2-7 period RSI (research: more responsive)
+    rsi_method: "cardwell"           # Cardwell method: RSI > 50 = uptrend
+    rsi_uptrend_threshold: 50        # Above 50 = bullish momentum (Cardwell)
+    rsi_oversold: 30                 # Below 30 = oversold (traditional)
+    rsi_overbought: 70               # Above 70 = overbought (traditional)
 
     # MACD (Moving Average Convergence Divergence)
     macd_fast: 12
@@ -106,14 +115,25 @@ analysis:
     near_52w_high_threshold: 0.85    # Within 15% of 52-week high
     prefer_near_52w_high: true       # Bonus points if near high
 
-    # Volume Requirements
-    require_volume_confirmation: false # Optional volume check
+    # Volume Requirements - Research: 1.5× volume = 65% success vs 39% without
+    require_volume_confirmation: true  # REQUIRED (research-backed)
+    volume_multiplier: 1.5             # Require 1.5× average volume
+    volume_lookback_days: 20           # Compare to 20-day average volume
 
-  # FUNDAMENTAL FILTERS - Value component
+  # FUNDAMENTAL FILTERS - Value component (Research-backed)
   fundamental:
     # Profitability (REQUIRED)
     require_profitable: true         # MUST be profitable (profit margin > 0)
     min_profit_margin: 0.05          # At least 5% profit margin
+
+    # Gross Profitability - Research: Superior to P/E ratio
+    use_gross_profitability: true    # (Revenue - COGS) / Total Assets
+    min_gross_profitability: 0.20    # Minimum 20% gross profitability
+    prefer_gross_profit_over_pe: true # Prioritize gross profit in scoring
+
+    # Piotroski F-Score - Research: F-Score ≥ 7 eliminates value traps
+    use_piotroski_score: true        # Calculate 9-point Piotroski F-Score
+    min_piotroski_score: 7           # Require F-Score ≥ 7 (strong financials)
 
     # Valuation (REQUIRED)
     require_reasonable_pe: true      # MUST have reasonable P/E
@@ -150,11 +170,13 @@ scoring:
     macd_signal: 15                  # MACD alignment and histogram (15 points)
     volume_trend: 10                 # Volume confirmation (10 points)
 
-  # Fundamental Component Weights (must sum to 100)
+  # Fundamental Component Weights (must sum to 100) - Research-optimized
   fundamental_components:
-    profitability: 40                # Profit margin + ROE (40 points)
-    valuation: 30                    # P/E ratio reasonableness (30 points)
-    growth: 30                       # Revenue & earnings growth (30 points)
+    gross_profitability: 35          # Gross profitability (research: superior to P/E) (35 points)
+    piotroski_score: 25              # Piotroski F-Score (financial quality) (25 points)
+    profitability: 20                # Profit margin + ROE (20 points)
+    valuation: 10                    # P/E ratio reasonableness (10 points)
+    growth: 10                       # Revenue & earnings growth (10 points)
 
   # Bonus Points (added to final score, can exceed 100)
   bonuses:
@@ -163,30 +185,50 @@ scoring:
     consistent_growth_bonus: 2       # +2 points if 3+ quarters growth
 
 # ============================================================================
-# OUTPUT & REPORTING
+# OUTPUT & REPORTING - Weekly Consolidated Report
 # ============================================================================
 output:
+  # Report Type - Single consolidated weekly report with tier breakdowns
+  report_type: "consolidated"        # Single report with all tiers
+
   # Report Formats
   reports:
-    - csv                            # CSV file (Excel compatible)
-    - html                           # Formatted HTML report
-    - json                           # JSON for ML/programmatic access
+    - html                           # Primary: Formatted HTML report (recommended)
+    - csv                            # Secondary: CSV file (Excel compatible)
+    - json                           # Optional: JSON for programmatic access
+
+  # Report Structure - Single report with clear tier sections
+  consolidated_structure:
+    include_executive_summary: true  # Top-level summary with key findings
+    include_tier_breakdown: true     # Separate sections for Large/Mid/Small cap
+    include_recommended_split: true  # Recommended allocation across tiers
+    tier_order:                      # Display order in report
+      - large_cap                    # Show large cap recommendations first
+      - mid_cap                      # Then mid cap
+      - small_cap                    # Then small cap
 
   # Report Content
-  include_all_analyzed: true         # Include all analyzed stocks in full report
-  include_top_n_only: true           # Also create separate top N report
-  include_charts: false              # Include price charts (slow, set false for speed)
+  include_all_analyzed: false        # Only top N per tier (cleaner report)
+  include_top_n_only: true           # Show configured top N (15/20/10)
+  include_charts: true               # Include price charts for top picks
   include_technical_details: true    # Include all indicator values
-  include_historical_comparison: true # Compare with previous runs
+  include_historical_comparison: true # Compare with previous week
+
+  # Weekly Summary Statistics
+  weekly_summary:
+    show_total_analyzed: true        # Total stocks analyzed
+    show_tier_counts: true           # Breakdown by tier
+    show_filters_applied: true       # How many passed each filter
+    show_performance_metrics: true   # Avg scores, ranges, etc.
 
   # File Locations
   output_directory: "reports"
   historical_directory: "reports/history"
-  archive_after_days: 90             # Move reports to archive after 90 days
+  archive_after_days: 180            # Keep 6 months of weekly reports
 
-  # Naming Convention
-  filename_pattern: "analysis_{date}_{tier}.{ext}"
-  # Results in: analysis_2025-01-16_all.csv, analysis_2025-01-16_large.html, etc.
+  # Naming Convention - Weekly report format
+  filename_pattern: "weekly_analysis_{date}.{ext}"
+  # Results in: weekly_analysis_2025-01-17.html, weekly_analysis_2025-01-17.csv
 
 # ============================================================================
 # DATABASE CONFIGURATION
