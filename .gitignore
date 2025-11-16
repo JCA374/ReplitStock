@@ -91,6 +91,12 @@ backup/
 test_*.py
 !test_app.py
 
+# Generated reports (output files, not source)
+reports/*.html
+reports/*.csv
+reports/*.json
+reports/history/
+
 # SSH Keys
 *.pub
 *_rsa
