@@ -1,155 +1,326 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+---
+
 # ReplitStock: Automatic Stock Analysis System
 
 ## Project Overview
 
-This is a **research-optimized automatic stock analysis system** for Swedish stocks (OMXS). The system has been transformed from a manual Streamlit UI tool into a fully automatic weekly analysis pipeline.
+Research-optimized automatic stock analysis system for 352 Swedish stocks (OMXS). Fully automatic weekly analysis pipeline with research-backed parameters.
 
 **Key Characteristics:**
-- **352 Swedish stocks** analyzed automatically (100 large cap, 143 mid cap, 109 small cap)
-- **Weekly analysis intervals** (Friday 18:00 CET) - research shows optimal for Swedish market
-- **Research-backed parameters** from 2018-2025 academic studies
-- **Value & Momentum hybrid strategy** (70% technical, 30% fundamental)
-- **Expected performance**: 8-12% annual alpha, 0.8-1.2 Sharpe ratio
-- **Consolidated weekly reports** in HTML, CSV, and JSON formats
-- **Data sources**: Smart fallback (Yahoo Finance → Alpha Vantage) + SQLite cache
+- **352 Swedish stocks** (100 large, 143 mid, 109 small cap)
+- **Weekly analysis** (Friday 18:00 CET optimal timing)
+- **Research-backed** (2018-2025 academic studies)
+- **70/30 strategy** (technical/fundamental)
+- **Expected**: 8-12% annual alpha, 0.8-1.2 Sharpe ratio
+- **Reports**: HTML, CSV, JSON formats
+- **Robust data**: 3-tier fallback with automatic retry
+- **No API keys required**: Works with stdlib (urllib)
 
-## Architecture: The Big Picture
+## Quick Commands
 
-### Automatic Analysis System (Phases 1-3 Complete)
-
-The system is a **pure automatic analysis pipeline** with no UI dependencies:
-```
-Phase 1: Settings & Configuration
-  ├── analysis_settings.yaml (master configuration)
-  ├── core/settings_manager.py (type-safe settings loader)
-  ├── core/universe_manager.py (352 stocks from CSV)
-  └── Extended database schema (4 new tables)
-
-Phase 2: Analysis Engine
-  ├── core/technical_indicators.py (RSI-7, KAMA, volume, MACD)
-  ├── core/fundamental_metrics.py (Piotroski, gross profitability)
-  └── core/stock_analyzer.py (single stock + batch analyzer)
-
-Phase 3: Report Generation
-  ├── reports/report_generator.py (base classes)
-  ├── reports/html_generator.py (professional HTML reports)
-  ├── reports/csv_json_generators.py (Excel + API formats)
-  └── reports/weekly_report.py (orchestrator)
-```
-
-**Data Flow (Automatic System):**
-```
-CSV Files (updated_large.csv, updated_mid.csv, updated_small.csv)
-    ↓
-UniverseManager → Load 352 stocks, categorize by market cap
-    ↓
-StockAnalyzer → Fetch data (smart cache: 5h price, 24h fundamentals)
-    ↓
-BatchAnalyzer → Analyze all 352 stocks in parallel
-    ↓
-Filter & Rank → Top 15 large, 20 mid, 10 small cap
-    ↓
-WeeklyReportOrchestrator → Generate HTML/CSV/JSON
-    ↓
-reports/weekly_analysis_YYYY-MM-DD.*
-```
-
-### Database Schema (SQLite)
-
-**Legacy Tables:**
-- `stock_data_cache` - Price data with timestamps
-- `fundamentals_cache` - Fundamental data
-- `analysis_results` - Historical analysis results
-- `watchlist` - User watchlists
-
-**New Tables (Automatic System):**
-- `stock_universe` - All 352 stocks with market cap tiers
-- `analysis_runs` - Track each automatic analysis run
-- `daily_rankings` - Ranked results per run (top N per tier)
-- `data_fetch_log` - API usage tracking and cache monitoring
-
-## Research-Backed Methodology (Non-Obvious)
-
-This system implements **evidence-based parameters** that differ significantly from traditional approaches:
-
-### 1. RSI 2-7 Period (Not 14!)
-- Traditional RSI uses 14 periods and is too slow
-- Research shows **2-7 period RSI** more responsive to price changes
-- Uses **Cardwell method**: RSI > 50 = bullish (not traditional 70/30)
-- Configured in `analysis_settings.yaml`: `rsi_period: 7`, `rsi_method: "cardwell"`
-
-### 2. Volume Confirmation (1.5× Multiplier)
-- Stocks with **1.5× average volume**: 65% success rate
-- Stocks without: only 39% success rate
-- Critical filter configured: `volume_multiplier: 1.5`
-
-### 3. Gross Profitability > P/E Ratio
-- Traditional value investing uses P/E ratio
-- **Gross Profitability = (Revenue - COGS) / Total Assets**
-- Research proves superior predictive power
-- Minimum 20%: `min_gross_profitability: 0.20`
-
-### 4. Piotroski F-Score ≥ 7 (Value Trap Filter)
-- 9-point financial strength score
-- F-Score ≥ 7 eliminates "value traps" (cheap stocks that stay cheap)
-- Configured: `min_piotroski_score: 7`
-
-### 5. KAMA (Not Simple Moving Averages)
-- KAMA (Kaufman Adaptive Moving Average) adapts to volatility
-- Reduces false signals by **30-40%** vs simple MA
-- Configured: `use_kama: true`
-
-### 6. 70/30 Weighting (Tech/Fundamental)
-- Pure momentum: Sharpe 0.67
-- Pure value: Sharpe 0.73
-- **70/30 hybrid in our system**: Sharpe ~1.2 (research shows 50/50 = 1.42)
-- Configured in `scoring.technical_weight: 70`
-
-### 7. Weekly Intervals (Not Daily)
-- Research shows weekly rebalancing optimal for Swedish stocks
-- Daily rebalancing causes overtrading
-- **Friday 18:00 CET**: Optimal review timing
-- Configured: `frequency: weekly`, `day_of_week: "Friday"`
-
-## Key Commands
-
-### Running Tests
+### Essential
 
 ```bash
-# Test Phase 1: Settings & Universe Management
-python test_phase1.py
+# Quick health check (5 stocks, 30 sec)
+./quick_test.sh
 
-# Test Phase 2: Analysis Engine (technical & fundamental)
-python test_analysis_engine.py
-
-# Test Phase 3: Report Generation
-python test_report_generation.py
-
-# Test CSV Loading (352 stocks)
-python test_csv_loading.py
-```
-
-### Running Analysis (Production)
-
-```bash
-# Complete weekly analysis (all 352 stocks)
+# Weekly analysis (352 stocks, 15-20 min first, 5 min cached)
 python generate_weekly_report.py
 
-# First run: ~15-20 minutes (fetches data for 352 stocks)
-# Subsequent runs: ~5 minutes (uses cache)
+# Diagnose data fetching issues
+python diagnose_yahoo_finance.py
 
-# Output:
-# → reports/weekly_analysis_2025-11-16.html
-# → reports/weekly_analysis_2025-11-16.csv
-# → reports/weekly_analysis_2025-11-16.json
+# Comprehensive data test (5/5 tests)
+python test_yahoo_robust.py
+
+# Database migration
+python migrate_database.py
 ```
 
-Or use Python directly:
+### Test Suite
+
+```bash
+# Phase tests
+python test_phase1.py              # Settings & Universe (20 stocks)
+python test_analysis_engine.py     # Technical & Fundamental
+python test_report_generation.py   # HTML/CSV/JSON
+
+# Data tests
+python test_csv_loading.py         # All 352 stocks
+python test_data_sources.py        # Source comparison
+python test_yahoo_robust.py        # Robust fetcher (5 tests)
+python test_alpha_vantage.py       # Alpha Vantage (optional)
+```
+
+### Development
+
+```bash
+# Custom stocks
+python -c "
+from core.stock_analyzer import BatchAnalyzer
+from core.settings_manager import get_settings
+
+tickers = ['VOLV-B.ST', 'ERIC-B.ST', 'HM-B.ST']
+results = BatchAnalyzer(get_settings().as_dict()).analyze_batch(tickers)
+for r in results:
+    if r.get('analysis_successful'):
+        print(f\"{r['ticker']}: {r['composite_score']:.1f}\")
+"
+
+# Single stock
+python -c "
+from core.stock_analyzer import StockAnalyzer
+from core.settings_manager import get_settings
+result = StockAnalyzer(get_settings().as_dict()).analyze('VOLV-B.ST')
+print(f\"Score: {result['composite_score']:.1f}/100\")
+"
+```
+
+## Architecture
+
+### Data Fetching (3-Tier Fallback)
+
+```
+Request VOLV-B.ST
+    ↓
+[Layer 1: yfinance] (3 retries, 2s delay)
+    ↓ fail
+[Layer 2: urllib] (3 retries, 2s delay) ← Built-in, no deps!
+    ↓ fail  
+[Layer 3: requests] (3 retries, 2s delay)
+    ↓
+Result or None
+```
+
+**Key:** Automatic fallback handles SSL/TLS errors by using urllib (built-in Python).
+
+**Files:**
+- `data/yahoo_finance_robust.py` - RobustYahooFetcher (recommended)
+- `data/stock_data.py` - StockDataFetcher (current, works)
+- `diagnose_yahoo_finance.py` - Diagnostic tool
+
+### Analysis Pipeline
+
+```
+CSV Files → UniverseManager → StockAnalyzer
+    ↓
+Market-Aware Cache (5h price, 24h fund)
+    ↓
+Robust Fetcher (3-tier + retries)
+    ↓
+BatchAnalyzer → Filter & Rank
+    ↓
+Reports (HTML/CSV/JSON)
+```
+
+### Core Phases
+
+**Phase 1:** Settings & Configuration
+- `analysis_settings.yaml` (master config)
+- `core/settings_manager.py` (type-safe loader)
+- `core/universe_manager.py` (352 stocks from CSV)
+
+**Phase 2:** Analysis Engine  
+- `core/technical_indicators.py` (RSI-7, KAMA, MACD)
+- `core/fundamental_metrics.py` (Piotroski, profitability)
+- `core/stock_analyzer.py` (single + batch)
+
+**Phase 3:** Report Generation
+- `reports/html_generator.py` (professional HTML)
+- `reports/csv_json_generators.py` (Excel/API formats)
+- `reports/weekly_report.py` (orchestrator)
+
+### Database (SQLite)
+
+**Core Tables:**
+- `stock_data_cache` - Price with timestamps
+- `fundamentals_cache` - Fundamental data
+- `stock_universe` - 352 stocks, market cap tiers
+- `analysis_runs` - Track each run
+- `daily_rankings` - Top N per tier
+- `data_fetch_log` - API usage tracking
+
+## Research-Backed Parameters (Non-Obvious!)
+
+### RSI-7 (Not 14!)
+- Traditional: 14 periods (too slow)
+- **Our system: 7 periods** with Cardwell method (RSI > 50 = bullish)
+- Config: `rsi_period: 7`
+
+### Volume 1.5× Confirmation
+- With 1.5× volume: 65% success vs 39% without
+- Config: `volume_multiplier: 1.5`
+
+### Gross Profitability > P/E
+- Formula: `(Revenue - COGS) / Assets`
+- Superior to traditional P/E
+- Config: `min_gross_profitability: 0.20`
+
+### Piotroski F-Score ≥ 7
+- Eliminates value traps
+- Config: `min_piotroski_score: 7`
+
+### KAMA (Not Simple MA)
+- Kaufman Adaptive MA reduces false signals 30-40%
+- Config: `use_kama: true`
+
+### 70/30 Weighting
+- Pure momentum: Sharpe 0.67
+- Pure value: Sharpe 0.73
+- **Our hybrid: Sharpe ~1.2**
+- Config: `technical_weight: 70`
+
+### Weekly Intervals
+- Daily rebalancing causes overtrading
+- **Friday 18:00 CET optimal**
+- Config: `frequency: weekly`
+
+## Critical Files
+
+### `analysis_settings.yaml` (The Brain!)
+**500+ lines, master configuration:**
+- Market cap tiers, top N (15/20/10)
+- Cache durations (5h/24h)
+- Research parameters
+- Scoring weights
+- Report structure
+
+**To change behavior: Edit this file first!**
+
+### CSV Files (Stock Universe)
+- `data/csv/updated_large.csv` (100)
+- `data/csv/updated_mid.csv` (143)  
+- `data/csv/updated_small.csv` (109)
+
+**Column names** (non-obvious):
+- Ticker: `yahooticker` (not "Ticker")
+- Name: `companyname` (not "Name")
+
+## Market-Aware Caching
+
+**Stockholm Exchange Hours:**
+- Open: 09:00-17:30 CET (Mon-Fri)
+- Closed: Evenings, weekends, holidays
+
+**Logic:**
+1. Market OPEN → 5h cache
+2. Market CLOSED → Cache until reopens (no API waste!)
+3. Weekend → Uses Friday close
+4. Friday 18:00 → Fresh data
+
+**Performance:**
+- First run: ~15-20 min (352 calls)
+- Cached: <5 min (0-10 calls)
+- Hit rate: >95%
+
+**Implementation:** `utils/market_hours.py`
+
+## Common Issues
+
+### SSL/TLS Errors (Most Common!)
+
+**Symptoms:**
+```
+ERROR: SSL_connect: SSL_ERROR_SYSCALL
+ERROR: TLS connect error: invalid library
+```
+
+**Fix 1** (recommended):
+```bash
+pip uninstall -y curl_cffi
+pip install --no-cache-dir "curl_cffi>=0.7.0,<0.8.0"
+```
+
+**Fix 2** (use robust fetcher):
+```python
+from data.yahoo_finance_robust import get_stock_data
+data = get_stock_data('VOLV-B.ST')  # Auto-fallback to urllib
+```
+
+**Fix 3** (remove curl_cffi):
+```bash
+pip uninstall -y curl_cffi
+pip install --force-reinstall yfinance
+```
+
+**Verify:**
+```bash
+python -c "import yfinance; print('✓' if not yfinance.Ticker('VOLV-B.ST').history(period='5d').empty else '✗')"
+```
+
+See: `FIX_TLS_ERROR.md`
+
+### No Data
+
+**Check ticker:**
+```python
+'VOLV-B.ST'  # ✓ Correct
+'VOLVB.ST'   # ✗ Missing dash
+'VOLV-B'     # ✗ Missing .ST
+```
+
+**Diagnose:**
+```bash
+python diagnose_yahoo_finance.py
+```
+
+### Column Errors
+
+**Auto-handled:** `TechnicalIndicators.__init__()` normalizes uppercase/lowercase.
+
+### Rate Limiting
+
+- First 352-stock run takes time
+- Use test mode (20 stocks): `test_phase1.py`
+- Check: `data_fetch_log` table
+
+## Development
+
+### Test vs Production
+
+**Test** (20 stocks):
+```python
+test_tickers = all_tickers[:20]  # In test files
+```
+
+**Production** (352 stocks):
+```python
+from core.stock_analyzer import BatchAnalyzer
+results = BatchAnalyzer(settings.as_dict()).analyze_all_stocks()
+```
+
+### Add Filters
+
+1. Edit `analysis_settings.yaml`:
+```yaml
+analysis:
+  technical:
+    new_param: value
+```
+
+2. Implement in `core/technical_indicators.py`
+
+3. Auto-loads from YAML (no code changes)
+
+### Change Top N
+
+Edit `analysis_settings.yaml`:
+```yaml
+market_caps:
+  large_cap:
+    top_n: 15  # Change here
+```
+
+## Production Usage
 
 ```python
 from core.stock_analyzer import BatchAnalyzer
 from core.settings_manager import get_settings
-from reports import WeeklyReportOrchestrator
+from reports.weekly_report import WeeklyReportOrchestrator
 
 settings = get_settings()
 analyzer = BatchAnalyzer(settings.as_dict())
@@ -159,254 +330,85 @@ orchestrator = WeeklyReportOrchestrator(settings.as_dict())
 files = orchestrator.generate_weekly_report(results)
 ```
 
-### Database Operations
-
+Or:
 ```bash
-# Run database migrations
-python migrate_database.py
-
-# Check SQLite database directly
-sqlite3 stock_analysis.db
-.tables
-.schema stock_universe
+python generate_weekly_report.py
 ```
 
-## Important File Paths
+## Implementation Details
 
-### Configuration (The Brain)
-- **`analysis_settings.yaml`** (500+ lines): Master configuration for entire automatic system
-  - Market cap tiers and top N selection (15/20/10)
-  - Cache durations (5h price, 24h fundamentals)
-  - Research-backed parameters (RSI-7, volume 1.5×, etc.)
-  - Scoring weights (70/30 tech/fundamental)
-  - Report formats and structure
-
-### Core System (Phases 1-3)
-- **`core/settings_manager.py`**: Type-safe YAML loader with validation
-- **`core/universe_manager.py`**: Manages 352 stocks, market cap categorization
-- **`core/technical_indicators.py`** (600+ lines): RSI-7, KAMA, volume, MACD calculations
-- **`core/fundamental_metrics.py`** (400+ lines): Piotroski F-Score, gross profitability
-- **`core/stock_analyzer.py`** (500+ lines): Single stock analyzer + batch processor
-
-### Report Generation
-- **`reports/report_generator.py`**: Base classes and data aggregation
-- **`reports/html_generator.py`** (600+ lines): Professional HTML reports with CSS
-- **`reports/csv_json_generators.py`** (300+ lines): Excel-compatible CSV and JSON
-- **`reports/weekly_report.py`** (250+ lines): Orchestrates all report formats
-
-### Data Sources
-- **`data/csv/updated_large.csv`** (100 stocks): Large cap stocks
-- **`data/csv/updated_mid.csv`** (143 stocks): Mid cap stocks
-- **`data/csv/updated_small.csv`** (109 stocks): Small cap stocks
-- **Column names**: `yahooticker`, `companyname` (fixed mapping in universe_manager.py)
-
-### Test Suite
-- **`test_phase1.py`**: Settings, database, CSV loading (20 stocks to avoid API overload)
-- **`test_csv_loading.py`**: Validates all 352 stocks load correctly
-- **`test_analysis_engine.py`**: Technical/fundamental calculations with research parameters
-- **`test_report_generation.py`**: HTML/CSV/JSON generation from sample data
-
-### Entry Point
-- **`generate_weekly_report.py`**: Simple command to run complete analysis and generate reports
-
-## Cache Strategy (Critical for API Limits)
-
-The system uses **market-aware smart caching** to prevent API overload and unnecessary fetches when the market is closed:
-
-### Cache Configuration
-```yaml
-cache_settings:
-  price_data_hours: 5      # 5-hour cache for price data (during trading hours)
-  fundamentals_hours: 24   # 24-hour cache for fundamentals
-  market_cap_hours: 24     # Market cap rarely changes
-```
-
-### Market-Aware Caching (Intelligent!)
-
-**Key Innovation**: The system knows when Swedish market is closed and **stops fetching new data** until it reopens!
-
-**Stockholm Stock Exchange Hours:**
-- **Open**: 09:00 - 17:30 CET (Monday-Friday)
-- **Closed**: Evenings, weekends, Swedish holidays
-
-**Caching Logic**:
-1. **Market OPEN** (09:00-17:30 weekdays): Use 5-hour cache for price data
-2. **Market CLOSED** (after 17:30 or weekends): Cache valid until market reopens
-3. **Weekend run** (Saturday/Sunday): Uses Friday's closing data, no API calls
-4. **Friday 18:00 analysis** (recommended): Fresh closing data, minimal cache invalidation
-
-**Benefits**:
-- ✅ No wasted API calls when market is closed
-- ✅ Weekend analysis uses Friday's close (correct behavior)
-- ✅ Automatic adjustment for Swedish holidays
-- ✅ Prevents rate limiting
-
-**Implementation**: See `utils/market_hours.py` for market-aware logic
-
-### Performance Impact
-- **First run** (no cache): ~15-20 minutes (352 API calls)
-- **Subsequent runs** (with cache): <5 minutes (0-10 API calls)
-- **Cache hit rate**: >95% after first run
-
-### Rate Limiting Strategy
-```python
-# Configured in universe_manager.py
-batch_size = 50          # Fetch 50 stocks at once
-delay_between_batches = 2.0  # 2-second delay
-max_retries = 3          # Retry failed fetches
-retry_delay = 5.0        # 5-second delay between retries
-```
-
-## Development Notes
-
-### Test Mode vs Production Mode
-
-**Test Mode** (20 stocks to avoid API overload):
-```python
-# test_phase1.py, test_analysis_engine.py
-test_tickers = all_tickers[:20]  # Only first 20 stocks
-```
-
-**Production Mode** (all 352 stocks):
-```python
-from core.stock_analyzer import BatchAnalyzer
-analyzer = BatchAnalyzer(settings.as_dict())
-results = analyzer.analyze_all_stocks()  # All 352 stocks
-```
-
-### Adding New Filters
-
-All filters are configured in `analysis_settings.yaml`:
-
-```yaml
-analysis:
-  technical:
-    ma_short: 20
-    ma_long: 200
-    rsi_period: 7
-    # Add new parameter here
-
-  momentum:
-    min_tech_score: 70
-    require_above_ma200: true
-    # Add new filter here
-```
-
-Then implement in `core/technical_indicators.py` or `core/fundamental_metrics.py`.
-
-### Changing Top N Selection
-
-Edit `analysis_settings.yaml`:
-```yaml
-market_caps:
-  large_cap:
-    top_n: 15  # Change to 20, 10, etc.
-  mid_cap:
-    top_n: 20
-  small_cap:
-    top_n: 10
-```
-
-No code changes needed - system reads from config.
-
-### Report Customization
-
-Reports automatically include:
-- **Executive Summary**: Total analyzed, recommendations breakdown
-- **Tier Sections**: Separate sections for large/mid/small cap
-- **Top N Stocks**: Only top 15/20/10 per tier (not all 352)
-- **Portfolio Allocation Guide**: 60% large, 30% mid, 10% small
-- **Methodology**: Research-backed approach explanation
-- **Disclaimer**: Investment disclaimer
-
-File naming: `weekly_analysis_YYYY-MM-DD.{html,csv,json}`
-
-Historical archiving: `reports/history/YYYY/MM/`
-
-### Database Maintenance
+### Robust Data Fetching
 
 ```python
-# Check cache statistics
-from data.db_models import DataFetchLog, get_session
+from data.yahoo_finance_robust import RobustYahooFetcher
 
-session = get_session()
-recent_fetches = session.query(DataFetchLog).order_by(
-    DataFetchLog.timestamp.desc()
-).limit(100).all()
-
-for log in recent_fetches:
-    print(f"{log.ticker}: cache_hit={log.cache_hit}, duration={log.duration_seconds}s")
+fetcher = RobustYahooFetcher(max_retries=3, retry_delay=2.0)
+data = fetcher.get_historical_data('VOLV-B.ST', period='1y')
+fundamentals = fetcher.get_fundamentals('VOLV-B.ST')
 ```
 
-## Common Issues
+**Features:**
+- 3 retries per method
+- Configurable delays
+- Returns None on fail (no crash)
+- Comprehensive logging
 
-### "No module named 'core'"
-The `core/` package needs `__init__.py` (already exists). Make sure you're in the project root.
+### Column Normalization
 
-### "Settings file not found"
-The system looks for `analysis_settings.yaml` in the project root. Check it exists.
+Auto-handles case differences:
+```python
+# In TechnicalIndicators.__init__()
+# Converts: 'Close'/'close'/'CLOSE' → 'Close'
+```
 
-### "API rate limit exceeded"
-- First run with all 352 stocks takes time (~15-20 min)
-- Use test mode (20 stocks) for development
-- Respect cache durations to minimize API calls
-- Check `data_fetch_log` table for API usage
+## Documentation
 
-### "No data in reports"
-- Ensure stocks pass filters (many may fail `min_tech_score: 70`)
-- Lower thresholds in `analysis_settings.yaml` for testing
-- Check `analysis_results` table in database for actual scores
-
-### "TypeError: 'NoneType' object is not subscriptable"
-- Likely missing data from Yahoo Finance
-- Check internet connection
-- Some stocks may have no data (delisted, new listings)
-- System handles this gracefully with try/except
-
-## Next Steps (Phase 4 & 5)
-
-**Phase 4: Automation** (not yet implemented)
-- Scheduler to run every Friday 18:00 CET
-- Email notifications (optional)
-- Automatic database backups
-
-**Phase 5: Monitoring** (not yet implemented)
-- Performance tracking vs benchmark
-- Win rate calculation
-- Sharpe ratio monitoring
-- Dashboard for historical analysis
+| File | Purpose |
+|------|---------|
+| `CLAUDE.md` | This file - Claude Code onboarding |
+| `README.md` | User documentation |
+| `YAHOO_FINANCE_BEST_PRACTICES.md` | Data fetching guide |
+| `FIX_TLS_ERROR.md` | SSL/TLS solutions |
+| `TRANSFORMATION_PLAN.md` | Research methodology |
 
 ## Quick Reference
 
-### Most Important Files
-1. `generate_weekly_report.py` - Main entry point (run this!)
-2. `analysis_settings.yaml` - Change ANY behavior here first
-3. `core/stock_analyzer.py` - Main analysis orchestration
-4. `reports/weekly_report.py` - Report generation orchestration
+**Key Files:**
+1. `generate_weekly_report.py` - Entry point
+2. `analysis_settings.yaml` - Configuration
+3. `core/stock_analyzer.py` - Analysis
+4. `data/yahoo_finance_robust.py` - Data fetching
+5. `reports/weekly_report.py` - Reports
 
-### Running Complete Weekly Analysis
+**Quick Test:**
 ```bash
-# Generate this week's report (PRODUCTION)
-python generate_weekly_report.py
-# → Creates reports/weekly_analysis_2025-11-16.*
-
-# Or test with sample data
-python test_report_generation.py
+./quick_test.sh  # 30 sec
 ```
 
-### CSV Column Mapping (Non-obvious)
-The CSVs use different column names than expected:
-- Ticker column: `yahooticker` (not "Ticker" or "Symbol")
-- Name column: `companyname` (not "Name" or "Company")
-- Handled in `universe_manager.py:151-159`
+**Diagnostics:**
+```bash
+python diagnose_yahoo_finance.py  # Test all methods
+python test_yahoo_robust.py       # 5/5 test suite
+```
 
-### Research Documentation
-See `TRANSFORMATION_PLAN.md` section 1.2 "Research-Backed Optimization" for:
-- Academic paper citations
-- Expected performance metrics
-- Parameter justification
-- Backtesting methodology
+**Common Pattern:**
+```python
+from core.settings_manager import get_settings
+from core.stock_analyzer import BatchAnalyzer
+from reports.weekly_report import WeeklyReportOrchestrator
+
+settings = get_settings()
+results = BatchAnalyzer(settings.as_dict()).analyze_batch(['VOLV-B.ST'])
+files = WeeklyReportOrchestrator(settings.as_dict()).generate_weekly_report(results)
+```
 
 ---
 
-**Last Updated**: 2025-11-16 (Phases 1-3 complete)
+**Last Updated:** 2025-11-16
+
+**Status:**
+- ✅ Phases 1-3 Complete
+- ✅ Robust 3-tier data fetching
+- ✅ 5/5 tests passing
+- ✅ Market-aware caching
+- ✅ Production-ready for 352 stocks
