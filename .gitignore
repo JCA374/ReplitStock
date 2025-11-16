@@ -90,6 +90,10 @@ data/*.csv
 backup/
 test_*.py
 !test_app.py
+!test_phase1.py
+!test_csv_loading.py
+!test_analysis_engine.py
+!test_report_generation.py
 
 # Generated reports (output files, not source)
 reports/*.html
