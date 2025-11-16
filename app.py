@@ -262,7 +262,7 @@ def main():
                     st.session_state.show_disclaimer = False
                     st.rerun()
 
-        # Header section with status indicator
+        # Header section with enhanced status indicators
         col1, col2 = st.columns([3, 1])
         with col1:
             st.title("Stock Analysis Tool")
@@ -270,11 +270,19 @@ def main():
                 "Analyze stocks using both fundamental (value) and technical (momentum) factors.")
 
         with col2:
+            # Database status
             if connection_type == "postgresql":
-                st.success("✅ Connected to Supabase")
+                st.success("✅ Supabase Cloud")
             else:
-                st.info("💾 Using local SQLite database")
-                st.caption("Data stored locally on your device")
+                st.info("💾 SQLite Local")
+
+            # API status indicator
+            from config import ALPHA_VANTAGE_API_KEY
+            if ALPHA_VANTAGE_API_KEY:
+                st.success("🔑 Alpha Vantage")
+            else:
+                st.info("📊 Yahoo Finance")
+                st.caption("Free data source")
 
         # Initialize strategy and watchlist manager in session state
         if 'strategy' not in st.session_state:
@@ -369,9 +377,39 @@ def main():
         #             st.error(
         #                 "Database connection failed. Check your configuration.")
 
-        # Simplified sidebar
+        # Enhanced sidebar with status information
         st.sidebar.title("📈 Stock Analyzer")
         st.sidebar.markdown("---")
+
+        # System Status Section
+        with st.sidebar.expander("🔧 System Status", expanded=False):
+            from config import ALPHA_VANTAGE_API_KEY, SUPABASE_URL
+
+            # Determine deployment mode
+            has_alpha = bool(ALPHA_VANTAGE_API_KEY)
+            has_supabase = bool(SUPABASE_URL) and connection_type == "postgresql"
+
+            if has_alpha and has_supabase:
+                mode = "🟢 FULL MODE"
+                st.success(mode)
+                st.caption("All premium features enabled")
+            elif has_alpha or has_supabase:
+                mode = "🟡 HYBRID MODE"
+                st.info(mode)
+                st.caption("Mix of premium and free features")
+            else:
+                mode = "🟢 OFFLINE MODE"
+                st.info(mode)
+                st.caption("Fully functional with free data")
+
+            st.markdown("**Data Sources:**")
+            st.markdown(f"{'✅' if has_alpha else '📊'} {'Alpha Vantage' if has_alpha else 'Yahoo Finance'}")
+            st.markdown(f"{'✅' if has_supabase else '💾'} {'Supabase Cloud' if has_supabase else 'SQLite Local'}")
+
+            if not has_alpha and not has_supabase:
+                st.markdown("---")
+                st.caption("💡 App works perfectly without API keys!")
+                st.caption("See DEPLOYMENT_CHECKLIST.md for optional upgrades")
 
         # Quick actions
         st.sidebar.subheader("Quick Actions")
@@ -385,13 +423,12 @@ def main():
             - **Single Stock**: Analyze individual stocks
             - **Batch Analysis**: Analyze multiple stocks
             - **Watchlist**: Manage your stock lists
-            - **Explorer**: Search for stocks
-            - **Scanner**: Find stocks by criteria
+            - **Development Notes**: See recent updates
             """)
 
         # Footer
         st.sidebar.markdown("---")
-        st.sidebar.caption(f"v1.0 | DB: {connection_type}")
+        st.sidebar.caption(f"v1.0 | {mode.split()[1]}")
 
     except Exception as e:
         st.error(f"Application error: {e}")
