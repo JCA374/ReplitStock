@@ -222,7 +222,6 @@ class DemoDataProvider:
     def is_demo_mode_enabled():
         """Check if demo mode should be enabled (when no API keys available)"""
         import os
-        from config import ALPHA_VANTAGE_API_KEY, SUPABASE_URL, SUPABASE_KEY
 
         # Demo mode is a fallback - it's always available but has lowest priority
         return True

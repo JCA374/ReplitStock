@@ -40,22 +40,24 @@ class StockDataFetcher:
         if self.alpha_vantage_api_key:
             self.alpha_vantage = TimeSeries(
                 key=self.alpha_vantage_api_key, output_format='pandas')
-            logger.info("Alpha Vantage API initialized")
+            logger.info("Stock data fetcher initialized (Yahoo Finance + Alpha Vantage fallback)")
         else:
             self.alpha_vantage = None
-            logger.warning(
-                "Alpha Vantage API key not provided. Fallback source unavailable.")
+            logger.info("Stock data fetcher initialized (Yahoo Finance only - add ALPHA_VANTAGE_API_KEY for backup)")
 
     def get_stock_data(self, ticker, timeframe='1d', period='1y', attempt_fallback=True):
         """
-        Get stock price data with priority: Database -> Alpha Vantage -> Yahoo Finance
-        
+        Get stock price data with smart fallback:
+        1. Database cache (fastest)
+        2. Yahoo Finance (free, no API key)
+        3. Alpha Vantage (fallback, requires API key)
+
         Args:
             ticker (str): Stock ticker symbol
             timeframe (str): Timeframe for data (1d, 1wk, 1mo)
             period (str): Period to fetch (1mo, 3mo, 6mo, 1y, etc.)
             attempt_fallback (bool): Whether to try fallback sources
-            
+
         Returns:
             pandas.DataFrame: Stock price data
         """
@@ -63,37 +65,16 @@ class StockDataFetcher:
             f"Fetching data for {ticker} (timeframe: {timeframe}, period: {period})")
 
         # Step 1: Check database cache first (both sources)
-        cached_data = get_cached_stock_data(
-            ticker, timeframe, period, "alphavantage")
-        if cached_data is not None and not cached_data.empty:
-            logger.info(f"Retrieved {ticker} from Alpha Vantage cache")
-            return cached_data
+        for source in ["yahoo", "alphavantage"]:
+            cached_data = get_cached_stock_data(ticker, timeframe, period, source)
+            if cached_data is not None and not cached_data.empty:
+                logger.info(f"Retrieved {ticker} from {source} cache")
+                return cached_data
 
-        cached_data = get_cached_stock_data(ticker, timeframe, period, "yahoo")
-        if cached_data is not None and not cached_data.empty:
-            logger.info(f"Retrieved {ticker} from Yahoo cache")
-            return cached_data
-
-        # Step 2: Try Alpha Vantage API if available
-        if self.alpha_vantage_api_key and attempt_fallback:
-            try:
-                logger.info(f"Fetching {ticker} from Alpha Vantage API")
-                data = self._get_data_from_alpha_vantage(
-                    ticker, timeframe, period)
-                if data is not None and not data.empty:
-                    # Cache the data
-                    cache_stock_data(ticker, timeframe, period,
-                                     data, "alphavantage")
-                    logger.info(
-                        f"Successfully fetched {ticker} from Alpha Vantage")
-                    return data
-            except Exception as e:
-                logger.warning(f"Alpha Vantage failed for {ticker}: {e}")
-
-        # Step 3: Try Yahoo Finance as fallback
+        # Step 2: Try Yahoo Finance (free, no API key)
         if self.yahoo_finance_enabled and attempt_fallback:
             try:
-                logger.info(f"Fetching {ticker} from Yahoo Finance (fallback)")
+                logger.info(f"Fetching {ticker} from Yahoo Finance")
                 data = self._get_data_from_yahoo(ticker, timeframe, period)
                 if data is not None and not data.empty:
                     # Cache the data
@@ -103,6 +84,20 @@ class StockDataFetcher:
                     return data
             except Exception as e:
                 logger.error(f"Yahoo Finance failed for {ticker}: {e}")
+
+        # Step 3: Try Alpha Vantage as fallback (if API key is available)
+        if self.alpha_vantage_api_key and attempt_fallback:
+            try:
+                logger.info(f"Falling back to Alpha Vantage for {ticker}")
+                data = self._get_data_from_alpha_vantage(ticker, timeframe, period)
+                if data is not None and not data.empty:
+                    # Cache the data
+                    cache_stock_data(ticker, timeframe, period, data, "alphavantage")
+                    logger.info(
+                        f"Successfully fetched {ticker} from Alpha Vantage (fallback)")
+                    return data
+            except Exception as e:
+                logger.warning(f"Alpha Vantage fallback failed for {ticker}: {e}")
 
         # Step 4: Try demo data as ultimate fallback
         if attempt_fallback:
@@ -170,14 +165,13 @@ class StockDataFetcher:
             }
 
             # Map period to output size
-            output_size = 'full' if period in [
-                '1y', '2y', '5y', 'max'] else 'compact'
+            output_size = 'full' if period in ['1y', '2y', '5y', 'max'] else 'compact'
 
             # Get appropriate function based on timeframe
             av_timeframe = av_timeframe_map.get(timeframe, 'daily')
 
-            # Add delay to respect API rate limits
-            time.sleep(12)  # Alpha Vantage free tier: 5 calls per minute
+            # Add delay to respect API rate limits (Alpha Vantage free tier: 5 calls per minute)
+            time.sleep(12)
 
             if av_timeframe == 'daily':
                 data, meta_data = self.alpha_vantage.get_daily(
@@ -231,8 +225,7 @@ class StockDataFetcher:
             return data
 
         except Exception as e:
-            logger.error(
-                f"Error fetching Alpha Vantage data for {ticker}: {e}")
+            logger.error(f"Error fetching Alpha Vantage data for {ticker}: {e}")
             return pd.DataFrame()
 
     def get_stock_info(self, ticker):

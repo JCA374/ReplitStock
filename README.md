@@ -60,13 +60,31 @@ Plus CSV for Excel and JSON for programmatic access.
 
 ## Configuration
 
-### No API Keys Required
+### Smart Data Fallback System
 
-The system uses:
-- **Yahoo Finance**: Free data source, no API key needed
-- **SQLite**: Local database, no setup required
+The system uses a **smart 3-tier fallback** for maximum reliability:
 
-All features work out of the box without any external services or API keys.
+1. **SQLite Cache** (fastest) - Always checked first
+2. **Yahoo Finance** (free) - No API key required, works out of the box
+3. **Alpha Vantage** (optional fallback) - Activates when Yahoo fails
+
+**No API keys required to start!** The system works perfectly with just Yahoo Finance + SQLite.
+
+### Optional: Add Alpha Vantage for Extra Reliability
+
+Create a `.env` file in the project root (already in `.gitignore`):
+
+```env
+# .env file (optional - for backup data source)
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key_here
+```
+
+Get a free API key: https://www.alphavantage.co/support/#api-key
+
+**Benefits of adding Alpha Vantage:**
+- Backup when Yahoo Finance has issues
+- Higher success rate for hard-to-fetch stocks
+- Better data quality for some international tickers
 
 ### Customize Analysis
 
@@ -145,8 +163,11 @@ This system implements **evidence-based parameters** from academic research (201
 ## Data Sources
 
 - **Primary**: Yahoo Finance (free, no API key required)
+- **Fallback**: Alpha Vantage (optional, free tier available)
 - **Storage**: SQLite (local database: `stock_analysis.db`)
 - **Market**: Swedish stocks (OMXS - 352 stocks across all market caps)
+
+**Smart Fallback**: Cache → Yahoo → Alpha Vantage (if configured) → Demo Data
 
 ## Performance Features
 

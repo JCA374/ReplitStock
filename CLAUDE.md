@@ -11,7 +11,7 @@ This is a **research-optimized automatic stock analysis system** for Swedish sto
 - **Value & Momentum hybrid strategy** (70% technical, 30% fundamental)
 - **Expected performance**: 8-12% annual alpha, 0.8-1.2 Sharpe ratio
 - **Consolidated weekly reports** in HTML, CSV, and JSON formats
-- **Data sources**: Yahoo Finance (free, no API key) + SQLite (local database)
+- **Data sources**: Smart fallback (Yahoo Finance → Alpha Vantage) + SQLite cache
 
 ## Architecture: The Big Picture
 

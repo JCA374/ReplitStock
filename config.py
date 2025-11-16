@@ -3,11 +3,13 @@
 import os
 
 # API configurations
+ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "")  # Optional but recommended
 YAHOO_FINANCE_ENABLED = True  # No API key needed for yfinance
 
-# Data source priority - Yahoo Finance + SQLite only
-DEFAULT_DATA_SOURCE_PRIORITY = ['database', 'yahoo']
-PREFERRED_API_SOURCE = 'yahoo'  # Yahoo Finance as primary data source
+# Data source priority - Smart fallback system
+# Priority: Database (cache) -> Yahoo Finance (free) -> Alpha Vantage (fallback)
+DEFAULT_DATA_SOURCE_PRIORITY = ['database', 'yahoo', 'alphavantage']
+PREFERRED_API_SOURCE = 'yahoo'  # Yahoo Finance as primary, Alpha Vantage as fallback
 
 # Database configuration - SQLite only
 DB_PATH = "stock_analysis.db"  # SQLite database (primary storage)
