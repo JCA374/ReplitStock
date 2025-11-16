@@ -211,21 +211,37 @@ sqlite3 stock_analysis.db
 
 ## Cache Strategy (Critical for API Limits)
 
-The system uses **smart caching** to prevent API overload:
+The system uses **market-aware smart caching** to prevent API overload and unnecessary fetches when the market is closed:
 
 ### Cache Configuration
 ```yaml
 cache_settings:
-  price_data_hours: 5      # 5-hour cache for price data
+  price_data_hours: 5      # 5-hour cache for price data (during trading hours)
   fundamentals_hours: 24   # 24-hour cache for fundamentals
   market_cap_hours: 24     # Market cap rarely changes
 ```
 
-### Why 5 Hours for Price Data?
-- Swedish market closes at 17:30 CET
-- Analysis runs Friday 18:00 CET (after market close)
-- 5-hour cache ensures fresh data for weekly analysis
-- Prevents hitting Yahoo Finance rate limits (2000 req/hour)
+### Market-Aware Caching (Intelligent!)
+
+**Key Innovation**: The system knows when Swedish market is closed and **stops fetching new data** until it reopens!
+
+**Stockholm Stock Exchange Hours:**
+- **Open**: 09:00 - 17:30 CET (Monday-Friday)
+- **Closed**: Evenings, weekends, Swedish holidays
+
+**Caching Logic**:
+1. **Market OPEN** (09:00-17:30 weekdays): Use 5-hour cache for price data
+2. **Market CLOSED** (after 17:30 or weekends): Cache valid until market reopens
+3. **Weekend run** (Saturday/Sunday): Uses Friday's closing data, no API calls
+4. **Friday 18:00 analysis** (recommended): Fresh closing data, minimal cache invalidation
+
+**Benefits**:
+- ✅ No wasted API calls when market is closed
+- ✅ Weekend analysis uses Friday's close (correct behavior)
+- ✅ Automatic adjustment for Swedish holidays
+- ✅ Prevents rate limiting
+
+**Implementation**: See `utils/market_hours.py` for market-aware logic
 
 ### Performance Impact
 - **First run** (no cache): ~15-20 minutes (352 API calls)

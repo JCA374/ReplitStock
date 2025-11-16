@@ -215,17 +215,37 @@ class UniverseManager:
         current_time: int,
         cache_seconds: int
     ) -> Optional[float]:
-        """Get market cap from cache if fresh enough"""
+        """
+        Get market cap from cache if fresh enough.
+        Uses market-aware caching to avoid fetching when market is closed.
+        """
         try:
+            # Import market hours utility
+            from utils.market_hours import should_refresh_cache
+
             cached = self.session.query(FundamentalsCache).filter(
                 FundamentalsCache.ticker == ticker
             ).first()
 
             if cached:
-                age_seconds = current_time - cached.last_updated
+                # Use market-aware cache check instead of simple timestamp
+                cache_hours = cache_seconds / 3600  # Convert to hours
+                needs_refresh = should_refresh_cache(
+                    cached.last_updated,
+                    cache_hours_during_trading=cache_hours
+                )
 
-                if age_seconds < cache_seconds:
+                if not needs_refresh:
+                    logger.debug(
+                        f"Using cached market cap for {ticker} "
+                        f"(market-aware cache valid)"
+                    )
                     return cached.market_cap
+                else:
+                    logger.debug(
+                        f"Cache for {ticker} is stale or market is open "
+                        f"(needs refresh)"
+                    )
 
         except Exception as e:
             logger.debug(f"Cache lookup failed for {ticker}: {e}")
