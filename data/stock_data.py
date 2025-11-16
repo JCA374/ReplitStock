@@ -23,9 +23,6 @@ from data.db_manager import (
     get_cached_fundamentals
 )
 
-# Import demo data provider as ultimate fallback
-from data.demo_data import DemoDataProvider
-
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -99,19 +96,8 @@ class StockDataFetcher:
             except Exception as e:
                 logger.warning(f"Alpha Vantage fallback failed for {ticker}: {e}")
 
-        # Step 4: Try demo data as ultimate fallback
-        if attempt_fallback:
-            try:
-                logger.warning(f"All API sources failed for {ticker}, using demo data")
-                demo_data = DemoDataProvider.generate_demo_price_data(ticker, period, timeframe)
-                if demo_data is not None and not demo_data.empty:
-                    logger.info(f"Returned demo data for {ticker} (SAMPLE DATA)")
-                    return demo_data
-            except Exception as e:
-                logger.error(f"Demo data generation failed for {ticker}: {e}")
-
-        # Step 5: Return empty DataFrame if everything failed
-        logger.error(f"All data sources including demo data failed for {ticker}")
+        # Step 4: Return empty DataFrame if all sources failed
+        logger.error(f"All data sources failed for {ticker} - no fallback available")
         return pd.DataFrame()
 
     def _get_data_from_yahoo(self, ticker, timeframe, period):
@@ -277,16 +263,8 @@ class StockDataFetcher:
 
         except Exception as e:
             logger.error(f"Error fetching stock info for {ticker}: {e}")
-            # Try demo data as fallback
-            try:
-                demo_info = DemoDataProvider.get_demo_stock_info(ticker)
-                if demo_info:
-                    logger.info(f"Returned demo stock info for {ticker}")
-                    return demo_info
-            except:
-                pass
 
-            # Return basic info as last resort
+            # Return basic info as fallback
             return {
                 'name': ticker,
                 'sector': 'Unknown',
@@ -407,16 +385,8 @@ class StockDataFetcher:
 
         except Exception as e:
             logger.error(f"Error fetching fundamentals for {ticker}: {e}")
-            # Try demo data as fallback
-            try:
-                demo_fundamentals = DemoDataProvider.get_demo_fundamentals(ticker)
-                if demo_fundamentals:
-                    logger.info(f"Returned demo fundamentals for {ticker} (SAMPLE DATA)")
-                    return demo_fundamentals
-            except Exception as demo_error:
-                logger.error(f"Demo fundamentals also failed for {ticker}: {demo_error}")
 
-            # Return empty data as last resort
+            # Return empty data as fallback
             return {
                 'pe_ratio': None,
                 'profit_margin': None,
