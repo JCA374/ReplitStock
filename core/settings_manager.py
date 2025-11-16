@@ -337,6 +337,15 @@ class SettingsManager:
 
         return "\n".join(summary)
 
+    def as_dict(self) -> Dict[str, Any]:
+        """
+        Get the raw configuration dictionary
+
+        Returns:
+            Dictionary with all configuration settings
+        """
+        return self.config
+
     def __repr__(self) -> str:
         return f"SettingsManager(config_path={self.config_path}, tiers={len(self.market_cap_tiers)})"
 
