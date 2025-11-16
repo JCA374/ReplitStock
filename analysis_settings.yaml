@@ -1,0 +1,321 @@
+# ============================================================================
+# AUTOMATIC STOCK ANALYSIS SETTINGS
+# ============================================================================
+# Configure automatic stock screening for Swedish market
+# All settings can be adjusted without code changes
+
+# ============================================================================
+# MARKET CAP CATEGORIES - Define your top N picks per tier
+# ============================================================================
+market_caps:
+  # Large Cap Stocks (Market cap > 100B SEK)
+  large_cap:
+    min_market_cap: 100000000000    # 100 billion SEK
+    max_market_cap: null             # No upper limit
+    top_n: 15                        # Select top 15 large cap stocks
+
+  # Mid Cap Stocks (10B - 100B SEK)
+  mid_cap:
+    min_market_cap: 10000000000     # 10 billion SEK
+    max_market_cap: 100000000000    # 100 billion SEK
+    top_n: 20                        # Select top 20 mid cap stocks
+
+  # Small Cap Stocks (1B - 10B SEK)
+  small_cap:
+    min_market_cap: 1000000000      # 1 billion SEK
+    max_market_cap: 10000000000     # 10 billion SEK
+    top_n: 10                        # Select top 10 small cap stocks
+
+# ============================================================================
+# ANALYSIS SCHEDULE - When to run automatic analysis
+# ============================================================================
+schedule:
+  enabled: true                      # Set to false to disable scheduling
+  frequency: daily                   # daily, weekly, monthly
+  time: "18:00"                      # 6 PM Stockholm time (after market close)
+  timezone: "Europe/Stockholm"
+  run_on_weekends: false             # Skip weekends (market closed)
+
+# ============================================================================
+# DATA SOURCES & CACHING - Avoid API overload with smart caching
+# ============================================================================
+data_sources:
+  primary: yahoo_finance             # yahoo_finance or alpha_vantage
+
+  # CACHE SETTINGS - Only fetch new data when needed
+  cache_settings:
+    price_data_hours: 5              # Refresh price data after 5 hours
+    fundamentals_hours: 24           # Refresh fundamentals after 24 hours
+    market_cap_hours: 24             # Refresh market cap after 24 hours
+
+  # API RATE LIMITING - Prevent overload
+  rate_limiting:
+    batch_size: 50                   # Fetch 50 tickers at once (Yahoo batch API)
+    delay_between_batches: 2         # Wait 2 seconds between batches
+    max_retries: 3                   # Retry failed fetches up to 3 times
+    retry_delay: 5                   # Wait 5 seconds before retry
+
+  # DATA QUALITY
+  quality_checks:
+    require_minimum_data_points: 200 # Require at least 200 days of price data
+    require_fundamentals: true       # Skip stocks without fundamentals
+    skip_delisted: true              # Skip delisted stocks
+
+# ============================================================================
+# MOMENTUM ANALYSIS - Following best practices from academic research
+# ============================================================================
+analysis:
+  # Technical Indicators Configuration
+  technical:
+    # Moving Averages
+    ma_short: 20                     # 20-day MA (MA4 = ~4 weeks)
+    ma_long: 200                     # 200-day MA (MA40 = ~40 weeks)
+
+    # RSI (Relative Strength Index)
+    rsi_period: 14
+    rsi_oversold: 30                 # Below 30 = oversold
+    rsi_overbought: 70               # Above 70 = overbought
+
+    # MACD (Moving Average Convergence Divergence)
+    macd_fast: 12
+    macd_slow: 26
+    macd_signal: 9
+
+    # Bollinger Bands
+    bollinger_period: 20
+    bollinger_std: 2
+
+    # 52-Week High/Low
+    lookback_period: 252             # ~1 year of trading days
+
+  # MOMENTUM FILTERS - Based on best practices
+  momentum:
+    # Minimum scores to pass filter
+    min_tech_score: 70               # Minimum 70/100 technical score for BUY
+    min_composite_score: 65          # Minimum 65/100 composite score
+
+    # Trend Requirements (Strongest Filter)
+    require_above_ma200: true        # MUST be in long-term uptrend
+    require_above_ma20: true         # MUST have short-term momentum
+
+    # Momentum Indicators
+    require_rsi_above_50: true       # MUST have positive momentum
+    require_higher_lows: false       # Optional: Prefer but don't require
+
+    # 52-Week High Strategy (Jegadeesh & Titman research)
+    near_52w_high_threshold: 0.85    # Within 15% of 52-week high
+    prefer_near_52w_high: true       # Bonus points if near high
+
+    # Volume Requirements
+    require_volume_confirmation: false # Optional volume check
+
+  # FUNDAMENTAL FILTERS - Value component
+  fundamental:
+    # Profitability (REQUIRED)
+    require_profitable: true         # MUST be profitable (profit margin > 0)
+    min_profit_margin: 0.05          # At least 5% profit margin
+
+    # Valuation (REQUIRED)
+    require_reasonable_pe: true      # MUST have reasonable P/E
+    max_pe_ratio: 30                 # P/E must be under 30
+    min_pe_ratio: 0                  # P/E must be positive (exclude negatives)
+
+    # Growth (PREFERRED but not required)
+    prefer_revenue_growth: true      # Bonus for revenue growth
+    min_revenue_growth: 0.00         # Non-negative preferred
+
+    # Financial Health (OPTIONAL)
+    check_debt_to_equity: false      # Optional: Check leverage
+    max_debt_to_equity: 2.0          # If checking, max 2.0
+
+  # VOLUME FILTERS - Ensure liquidity
+  volume:
+    require_minimum_volume: true     # Require minimum trading volume
+    min_avg_volume: 100000           # Min 100k shares per day average
+    min_volume_sek: 1000000          # Min 1M SEK traded per day
+
+# ============================================================================
+# SCORING SYSTEM - How stocks are ranked
+# ============================================================================
+scoring:
+  # Overall Weight Distribution
+  technical_weight: 70               # 70% from technical/momentum analysis
+  fundamental_weight: 30             # 30% from fundamental/value analysis
+
+  # Technical Component Weights (must sum to 100)
+  technical_components:
+    ma_alignment: 30                 # Price above MA200 and MA20 (30 points)
+    rsi_momentum: 20                 # RSI position and trend (20 points)
+    price_action: 25                 # Higher lows, 52w high proximity (25 points)
+    macd_signal: 15                  # MACD alignment and histogram (15 points)
+    volume_trend: 10                 # Volume confirmation (10 points)
+
+  # Fundamental Component Weights (must sum to 100)
+  fundamental_components:
+    profitability: 40                # Profit margin + ROE (40 points)
+    valuation: 30                    # P/E ratio reasonableness (30 points)
+    growth: 30                       # Revenue & earnings growth (30 points)
+
+  # Bonus Points (added to final score, can exceed 100)
+  bonuses:
+    near_52w_high_bonus: 5           # +5 points if within 90% of 52w high
+    strong_volume_bonus: 3           # +3 points if volume trend strong
+    consistent_growth_bonus: 2       # +2 points if 3+ quarters growth
+
+# ============================================================================
+# OUTPUT & REPORTING
+# ============================================================================
+output:
+  # Report Formats
+  reports:
+    - csv                            # CSV file (Excel compatible)
+    - html                           # Formatted HTML report
+    - json                           # JSON for ML/programmatic access
+
+  # Report Content
+  include_all_analyzed: true         # Include all analyzed stocks in full report
+  include_top_n_only: true           # Also create separate top N report
+  include_charts: false              # Include price charts (slow, set false for speed)
+  include_technical_details: true    # Include all indicator values
+  include_historical_comparison: true # Compare with previous runs
+
+  # File Locations
+  output_directory: "reports"
+  historical_directory: "reports/history"
+  archive_after_days: 90             # Move reports to archive after 90 days
+
+  # Naming Convention
+  filename_pattern: "analysis_{date}_{tier}.{ext}"
+  # Results in: analysis_2025-01-16_all.csv, analysis_2025-01-16_large.html, etc.
+
+# ============================================================================
+# DATABASE CONFIGURATION
+# ============================================================================
+database:
+  # SQLite Settings
+  path: "stock_analysis.db"          # Main database file
+
+  # Backup Settings
+  backup_enabled: true
+  backup_frequency: weekly           # daily, weekly, monthly
+  backup_directory: "backups/db"
+  keep_backups: 4                    # Keep last 4 backups
+
+  # Data Retention Policies
+  retention:
+    analysis_results_days: 365       # Keep 1 year of analysis results
+    price_data_days: 730             # Keep 2 years of price data
+    fundamentals_days: 365           # Keep 1 year of fundamentals snapshots
+    cleanup_enabled: false           # Set true to auto-cleanup old data
+
+  # Performance
+  performance:
+    use_wal_mode: true               # Write-Ahead Logging for better concurrency
+    cache_size_mb: 100               # SQLite cache size
+    enable_query_optimization: true
+
+# ============================================================================
+# NOTIFICATIONS (Optional - for future use)
+# ============================================================================
+notifications:
+  enabled: false                     # Set to true when ready to use
+
+  # Email Notifications
+  email:
+    enabled: false
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+    use_tls: true
+    from_address: ""                 # Your email
+    to_addresses: []                 # List of recipient emails
+    send_on_completion: true
+    send_on_error: true
+    include_top_picks: true
+    attach_csv_report: false
+
+  # Webhook Notifications (Slack, Discord, etc.)
+  webhook:
+    enabled: false
+    url: ""                          # Webhook URL
+    send_summary: true
+    send_top_picks: true
+
+# ============================================================================
+# LOGGING CONFIGURATION
+# ============================================================================
+logging:
+  level: INFO                        # DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+  # Log Files
+  file: "logs/analysis.log"
+  error_file: "logs/errors.log"
+
+  # Rotation
+  max_file_size_mb: 10
+  backup_count: 5
+
+  # Console Output
+  console_output: true
+  console_level: INFO
+
+  # Log Format
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+
+  # What to Log
+  log_api_calls: true                # Log each API call
+  log_cache_hits: false              # Don't spam with cache hits
+  log_analysis_details: false        # Don't spam with each stock analysis
+  log_performance_metrics: true      # Log timing information
+
+# ============================================================================
+# ADVANCED SETTINGS (Usually don't need to change)
+# ============================================================================
+advanced:
+  # Parallel Processing
+  parallel_processing:
+    enabled: true
+    max_workers: 8                   # Number of parallel threads
+    chunk_size: 50                   # Process stocks in chunks
+
+  # Memory Management
+  memory:
+    max_stocks_in_memory: 500        # Process max 500 stocks at once
+    clear_cache_between_runs: false  # Keep cache in memory
+
+  # Error Handling
+  error_handling:
+    continue_on_error: true          # Don't stop entire run if one stock fails
+    max_consecutive_errors: 10       # Stop if 10 errors in a row
+    error_threshold_percent: 20      # Stop if >20% of stocks fail
+
+  # Testing & Development
+  development:
+    test_mode: false                 # Set true to run with limited stocks
+    test_stock_count: 20             # If test_mode, only analyze 20 stocks
+    dry_run: false                   # If true, don't save results
+    verbose_output: false            # Extra debug information
+
+# ============================================================================
+# MARKET CAP DEFINITIONS (Reference - Sweden specific)
+# ============================================================================
+# Swedish Market Cap Categories (approximate as of 2024):
+#
+# Large Cap (Storbolag):
+#   - Market cap > 100 billion SEK
+#   - Examples: Investor, Atlas Copco, Ericsson, Volvo, H&M
+#   - ~30-40 stocks in this category
+#
+# Mid Cap (Medelstora bolag):
+#   - Market cap 10-100 billion SEK
+#   - Examples: Evolution, Hexagon, Elekta, Kindred
+#   - ~60-80 stocks in this category
+#
+# Small Cap (Småbolag):
+#   - Market cap 1-10 billion SEK
+#   - Higher risk, higher potential return
+#   - ~200+ stocks in this category
+#
+# Note: Market caps fluctuate. Categories are based on current market cap,
+# not the CSV file categorization which may be outdated.
+# ============================================================================

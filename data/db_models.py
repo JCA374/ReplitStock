@@ -158,3 +158,169 @@ class WatchlistMembership(Base):
     
     def __repr__(self):
         return f"<WatchlistMembership(collection_id={self.collection_id}, ticker='{self.ticker}')>"
+
+
+# ============================================================================
+# NEW MODELS FOR AUTOMATIC ANALYSIS SYSTEM
+# ============================================================================
+
+class StockUniverse(Base):
+    """
+    Complete universe of Swedish stocks for automatic analysis.
+    Tracks all 355 stocks with current market cap categorization.
+    """
+    __tablename__ = 'stock_universe'
+
+    id = Column(Integer, primary_key=True)
+    ticker = Column(String(20), unique=True, nullable=False)
+    name = Column(String(100))
+    sector = Column(String(50))
+    industry = Column(String(50))
+
+    # Market cap data (updated from fundamentals)
+    market_cap = Column(Float)                  # Current market cap in SEK
+    market_cap_tier = Column(String(20))        # 'large_cap', 'mid_cap', 'small_cap'
+    csv_category = Column(String(20))           # Original category from CSV file
+
+    # Trading metrics
+    avg_volume_30d = Column(Float)              # 30-day average volume
+    avg_value_sek_30d = Column(Float)           # 30-day average value traded in SEK
+
+    # Metadata
+    last_updated = Column(BigInteger)           # When this record was last updated
+    is_active = Column(Boolean, default=True)   # Is stock currently active/trading
+    delisting_date = Column(String(20))         # Date when delisted (if applicable)
+    notes = Column(Text)                        # Admin notes
+
+    def __repr__(self):
+        return f"<StockUniverse(ticker='{self.ticker}', tier='{self.market_cap_tier}', cap={self.market_cap})>"
+
+
+class AnalysisRun(Base):
+    """
+    Tracks each automatic analysis run.
+    Stores metadata about the run for monitoring and debugging.
+    """
+    __tablename__ = 'analysis_runs'
+
+    id = Column(Integer, primary_key=True)
+    run_date = Column(String(20), nullable=False)       # Date of analysis (YYYY-MM-DD)
+    run_timestamp = Column(BigInteger, nullable=False)  # Unix timestamp of start time
+
+    # Run statistics
+    universe_size = Column(Integer)                     # Total stocks in universe
+    stocks_analyzed = Column(Integer)                   # Successfully analyzed
+    stocks_with_data = Column(Integer)                  # Had valid data
+    stocks_passed_filter = Column(Integer)              # Passed all filters
+    stocks_failed = Column(Integer)                     # Failed to analyze
+
+    # Timing
+    duration_seconds = Column(Float)                    # Total runtime
+    data_collection_seconds = Column(Float)             # Time spent fetching data
+    analysis_seconds = Column(Float)                    # Time spent analyzing
+
+    # Configuration snapshot
+    settings_snapshot = Column(Text)                    # JSON of settings used
+
+    # Status
+    status = Column(String(20))                         # 'running', 'completed', 'failed', 'partial'
+    error_message = Column(Text)                        # Error details if failed
+
+    # Results summary
+    large_cap_count = Column(Integer)                   # Stocks in large cap tier
+    mid_cap_count = Column(Integer)                     # Stocks in mid cap tier
+    small_cap_count = Column(Integer)                   # Stocks in small cap tier
+
+    def __repr__(self):
+        return f"<AnalysisRun(id={self.id}, date='{self.run_date}', status='{self.status}')>"
+
+
+class DailyRanking(Base):
+    """
+    Stores ranked analysis results for each run.
+    Links to AnalysisRun and provides rankings within market cap tiers.
+    """
+    __tablename__ = 'daily_rankings'
+
+    id = Column(Integer, primary_key=True)
+    run_id = Column(Integer, nullable=False)            # Foreign key to analysis_runs
+
+    # Stock identification
+    ticker = Column(String(20), nullable=False)
+    rank_date = Column(String(20), nullable=False)      # Date of ranking
+
+    # Market cap categorization
+    market_cap_tier = Column(String(20))                # 'large_cap', 'mid_cap', 'small_cap'
+    rank_in_tier = Column(Integer)                      # Rank within tier (1 = best)
+    rank_overall = Column(Integer)                      # Rank across all stocks
+
+    # Scores
+    composite_score = Column(Float)                     # Final composite score (0-100+)
+    tech_score = Column(Integer)                        # Technical score (0-100)
+    fundamental_score = Column(Float)                   # Fundamental score (0-100)
+    signal = Column(String(10))                         # 'BUY', 'HOLD', 'SELL'
+
+    # Price data
+    price = Column(Float)
+    market_cap = Column(Float)
+    volume = Column(Float)
+
+    # Key technical indicators (for quick filtering)
+    above_ma200 = Column(Boolean)
+    above_ma20 = Column(Boolean)
+    rsi_value = Column(Float)
+    rsi_above_50 = Column(Boolean)
+    macd_value = Column(Float)
+    macd_bullish = Column(Boolean)
+    near_52w_high = Column(Boolean)
+    proximity_to_52w_high = Column(Float)               # 0.0 to 1.0
+
+    # Key fundamental metrics (for quick filtering)
+    pe_ratio = Column(Float)
+    profit_margin = Column(Float)
+    revenue_growth = Column(Float)
+    earnings_growth = Column(Float)
+    is_profitable = Column(Boolean)
+
+    # Metadata
+    data_freshness_hours = Column(Float)                # How old is the data (hours)
+    analysis_timestamp = Column(BigInteger)             # When was this analyzed
+
+    __table_args__ = (
+        UniqueConstraint('run_id', 'ticker', name='unique_run_ticker'),
+    )
+
+    def __repr__(self):
+        return f"<DailyRanking(ticker='{self.ticker}', tier='{self.market_cap_tier}', rank={self.rank_in_tier}, score={self.composite_score:.1f})>"
+
+
+class DataFetchLog(Base):
+    """
+    Logs all data fetch attempts for monitoring API usage and cache efficiency.
+    Helps identify problematic tickers and optimize caching strategy.
+    """
+    __tablename__ = 'data_fetch_log'
+
+    id = Column(Integer, primary_key=True)
+    ticker = Column(String(20), nullable=False)
+    fetch_timestamp = Column(BigInteger, nullable=False)
+    data_type = Column(String(20))                      # 'price_data', 'fundamentals', 'market_cap'
+
+    # Fetch result
+    success = Column(Boolean)
+    cache_hit = Column(Boolean)                         # Was data from cache?
+    source = Column(String(20))                         # 'cache', 'yahoo', 'alpha_vantage', 'demo'
+
+    # Performance
+    fetch_duration_ms = Column(Float)                   # Time taken to fetch
+
+    # Error details
+    error_type = Column(String(50))
+    error_message = Column(Text)
+
+    # Data quality
+    data_age_hours = Column(Float)                      # Age of cached data (if cache hit)
+    data_points = Column(Integer)                       # Number of data points returned
+
+    def __repr__(self):
+        return f"<DataFetchLog(ticker='{self.ticker}', type='{self.data_type}', success={self.success}, cache_hit={self.cache_hit})>"
