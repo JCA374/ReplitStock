@@ -41,7 +41,7 @@ schedule:
 # DATA SOURCES & CACHING - Avoid API overload with smart caching
 # ============================================================================
 data_sources:
-  primary: yahoo_finance             # yahoo_finance or alpha_vantage
+  primary: yahoo_finance             # Yahoo Finance (no API key required)
 
   # CACHE SETTINGS - Only fetch new data when needed
   cache_settings:

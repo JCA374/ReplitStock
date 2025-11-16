@@ -84,23 +84,13 @@ See [README-VS-Code-Setup.md](README-VS-Code-Setup.md) for detailed VS Code conf
 
 ## Configuration
 
-### Environment Variables (Optional)
+### No API Keys Required
 
-For live data and cloud features, create a `.env` file:
+The system uses:
+- **Yahoo Finance**: Free data source, no API key needed
+- **SQLite**: Local database, no setup required
 
-```env
-# Alpha Vantage API (for real-time stock data)
-ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key
-
-# Supabase (for cloud database)
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_KEY=your_supabase_anon_key
-```
-
-### Getting API Keys
-
-1. **Alpha Vantage** (Free): https://www.alphavantage.co/support/#api-key
-2. **Supabase** (Free tier): https://supabase.com/
+All features work out of the box without any external services or API keys.
 
 ## Application Structure
 
@@ -165,10 +155,9 @@ stock-analysis-app/
 
 ## Data Sources
 
-- **Primary**: Alpha Vantage API (comprehensive financial data)
-- **Fallback**: Yahoo Finance (free alternative)
-- **Storage**: SQLite (local) + Supabase (cloud)
-- **Market Focus**: Swedish stocks (OMXS30 and broader market)
+- **Primary**: Yahoo Finance (free, no API key required)
+- **Storage**: SQLite (local database)
+- **Market Focus**: Swedish stocks (OMXS - 352 stocks across all market caps)
 
 ## Performance Features
 
@@ -187,8 +176,8 @@ stock-analysis-app/
 - Ensure all dependencies are installed
 
 **No data showing:**
-- App works offline with sample data
-- Add API keys for live data
+- Yahoo Finance provides free data (no API key needed)
+- Check internet connection
 - Check database viewer for cached data
 
 **Performance issues:**

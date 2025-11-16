@@ -3,18 +3,14 @@
 import os
 
 # API configurations
-ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "")
 YAHOO_FINANCE_ENABLED = True  # No API key needed for yfinance
 
-# Data source priority
-DEFAULT_DATA_SOURCE_PRIORITY = ['database', 'alphavantage', 'yahoo']
-PREFERRED_API_SOURCE = 'alphavantage'  # Alpha Vantage as preferred API
+# Data source priority - Yahoo Finance + SQLite only
+DEFAULT_DATA_SOURCE_PRIORITY = ['database', 'yahoo']
+PREFERRED_API_SOURCE = 'yahoo'  # Yahoo Finance as primary data source
 
-# Database configuration
-# Use SQLite as reliable fallback when Supabase is unavailable
-DB_PATH = "stock_data.db"  # Fallback local database
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")  # Supabase URL
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")  # Supabase API key
+# Database configuration - SQLite only
+DB_PATH = "stock_analysis.db"  # SQLite database (primary storage)
 
 # OPTIMIZED Data refresh settings (in seconds) - More aggressive caching
 DATA_REFRESH_INTERVAL = 21600  # 6 hours instead of 4 hours for better caching
@@ -106,12 +102,11 @@ BULK_SCANNER_CONFIG = {
     'timeout_per_stock': 5,         # Reduced from 10s to 5s
 }
 
-# TRUE BATCH API Delays
+# BATCH API Delays - Yahoo Finance only
 API_DELAYS = {
     'yahoo_batch_delay': 1.0,       # Delay between batch calls
     'individual_api_delay': 0.1,    # Fallback individual delay
     'batch_size_yahoo': 50,         # Tickers per batch call
-    'alpha_vantage_delay': 3,       # Reduced from 6s to 3s (aggressive)
     'general_api_delay': 0.005,     # Reduced from 0.02s to 0.005s
 }
 
