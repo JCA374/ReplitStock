@@ -40,6 +40,24 @@ class TechnicalIndicators:
         self.data.index = pd.to_datetime(self.data.index)
         self.data = self.data.sort_index()  # Ensure chronological order
 
+        # Normalize column names (handle both uppercase and lowercase)
+        column_mapping = {}
+        for col in self.data.columns:
+            col_lower = col.lower() if isinstance(col, str) else str(col).lower()
+            if 'open' in col_lower:
+                column_mapping[col] = 'Open'
+            elif 'high' in col_lower:
+                column_mapping[col] = 'High'
+            elif 'low' in col_lower:
+                column_mapping[col] = 'Low'
+            elif 'close' in col_lower:
+                column_mapping[col] = 'Close'
+            elif 'volume' in col_lower:
+                column_mapping[col] = 'Volume'
+
+        if column_mapping:
+            self.data = self.data.rename(columns=column_mapping)
+
     def calculate_all(self, settings: Dict) -> Dict:
         """
         Calculate all technical indicators based on settings
